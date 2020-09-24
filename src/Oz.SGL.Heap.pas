@@ -1,12 +1,15 @@
-﻿unit Oz.SGL.Heap;
+﻿(*********************************************)
+(* Standard Generic Library (SGL) for Pascal *)
+(*********************************************)
+
+unit Oz.SGL.Heap;
 
 interface
 
 {$Region 'Uses'}
 
 uses
-  System.Classes, System.SysUtils, System.Math, System.Generics.Collections,
-  System.Generics.Defaults;
+  System.SysUtils, System.Math;
 
 {$EndRegion}
 
@@ -52,21 +55,18 @@ type
 {$Region 'TMemoryRegion'}
 
   PMemoryRegion = ^TMemoryRegion;
-
   TMemoryRegion = record
   private
     Pool: THeapPool;
+    Heap: PMemSegment;
     IsSegmented: Boolean;
     Used: Boolean;
     ItemSize: Cardinal;
     BlockSize: Cardinal;
-    Capacity: Integer;
-    Heap: PMemSegment;
+    FCapacity: Integer;
     OnFree: TFreeProc;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
-    function IncreaseCapacity(NewCount: Integer): Pointer;
-    function IncreaseAndAlloc(NewCount: Integer): Pointer;
     function GetOccupiedCount(S: PMemSegment): Integer;
     procedure FreeHeap;
     function Valid: Boolean;
@@ -76,12 +76,19 @@ type
       ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
     // Free the region
     procedure Free;
+    // Increase capacity
+    function IncreaseCapacity(NewCount: Integer): Pointer;
+    // Increase capacity and allocate
+    function IncreaseAndAlloc(NewCount: Integer): Pointer;
     // Allocate memory of a specified size and return its pointer
     function Alloc(Size: Cardinal): Pointer;
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr<T>(Index: Integer): Pointer;
     // Get a piece of memory as an array element of the specified type
     procedure GetItemAs<T>(Index: Integer; var Item: T);
+    // Get free procedure
+    procedure GetOnFree(var proc: TFreeProc);
+    property Capacity: Integer read FCapacity;
   end;
 
 {$EndRegion}
@@ -231,13 +238,13 @@ end;
 
 procedure NewSegment(var p: PMemSegment; HeapSize: Cardinal);
 begin
-  // Создать новый сегмент памяти
+  // Create a new memory segment
   GetMem(p, HeapSize);
   p.Next := nil;
   p.HeapSize := HeapSize;
-  // Определить размер cвободной памяти
+  // Determine the size of free memory
   p.FreeSize := p.HeapSize - sizeof(TMemSegment);
-  // Установить указатель свободной памяти на остаток блока
+  // Set the free memory pointer to the rest of the block
   p.FreePtr := Pointer(NativeUInt(p) + sizeof(TMemSegment));
   FillChar(p.FreePtr^, p.FreeSize, 0);
 end;
@@ -250,27 +257,27 @@ begin
   OldHeapSize := p.HeapSize;
   OldFreeSize := p.FreeSize;
   ReallocMem(p, NewHeapSize);
-  // Увеличить размер сегмента памяти
+  // Increase memory segment size
   p.HeapSize := NewHeapSize;
-  // Увеличить размер cвободной памяти
+  // Increase the size of free memory
   p.FreeSize := OldFreeSize + NewHeapSize - OldHeapSize;
-  // Установить указатель свободной памяти на остаток блока
+  // Set the free memory pointer to the rest of the block
   p.FreePtr := Pointer(NativeUInt(p) + p.HeapSize - p.FreeSize);
   FillChar(p.FreePtr^, p.FreeSize, 0);
 end;
 
 function TMemSegment.Occupy(Size: Cardinal): Pointer;
 begin
-  // если не хватает памяти
+  // if there is not enough memory
   if FreeSize < Size then
     exit(nil);
   Result := FreePtr;
 {$IFDEF DEBUG}
   CheckPointer(Result, Size);
 {$ENDIF}
-  // уменьшить её размер
+  // reduce its size
   FreeSize := FreeSize - Size;
-  // сместить указатель свободной памяти
+  // offset free memory pointer
   FreePtr := Pointer(NativeUInt(FreePtr) + Size);
 end;
 
@@ -300,7 +307,7 @@ begin
   Self.Used := True;
   Self.BlockSize := BlockSize;
   Self.ItemSize := ItemSize;
-  Self.Capacity := 0;
+  Self.FCapacity := 0;
   Self.Heap := nil;
   Self.OnFree := OnFree;
 end;
@@ -370,6 +377,11 @@ begin
   Result := (S.HeapSize - sizeof(TMemSegment) - S.FreeSize) div ItemSize;
 end;
 
+procedure TMemoryRegion.GetOnFree(var proc: TFreeProc);
+begin
+  proc := OnFree;
+end;
+
 procedure TMemoryRegion.GrowHeap(NewCount: Integer);
 var
   BlockCount, Size, NewHeapSize: Cardinal;
@@ -379,19 +391,19 @@ begin
   BlockCount := (Size + sizeof(TMemoryRegion)) div BlockSize + 1;
   NewHeapSize := BlockCount * BlockSize;
   if Heap = nil then
-    // создать новый сегмент
+    // create a new segment
     NewSegment(Heap, NewHeapSize)
   else if not IsSegmented then
-    // увеличить размер сегмента памяти
+    // increase the size of the memory segment
     IncreaseHeapSize(Heap, NewHeapSize)
   else
   begin
-    // создать новый сегмент и поместить его в начало списка
+    // create a new segment and place it at the beginning of the list
     NewSegment(p, NewHeapSize);
     p.Next := Heap;
     Heap := p;
   end;
-  Capacity := (Heap.HeapSize - sizeof(TMemSegment)) div ItemSize;
+  FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div ItemSize;
 end;
 
 function TMemoryRegion.Grow(NewCount: Integer): Integer;

@@ -6,7 +6,8 @@ program Sgl;
 
 uses
   System.SysUtils,
-  Oz.SGL.Heap in 'src\Oz.SGL.Heap.pas';
+  Oz.SGL.Heap in 'src\Oz.SGL.Heap.pas',
+  Oz.SGL.Collections in 'src\Oz.SGL.Collections.pas';
 
 begin
   try
