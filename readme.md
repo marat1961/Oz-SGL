@@ -28,8 +28,8 @@ Standard data structures
 ----------------------------
 Support for basic structures with the ability to specify a memory allocator.
 Lists
- - List <T>
- - LinkedList <T>, DualLinkedList <>
+ - List
+ - LinkedList, DualLinkedList
 Dictionaries
  - HashMap (Unordered dictionary)
  - Vocabulary based on 2-3 trees

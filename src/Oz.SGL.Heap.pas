@@ -61,10 +61,10 @@ type
     Heap: PMemSegment;
     IsSegmented: Boolean;
     Used: Boolean;
-    ItemSize: Cardinal;
+    FItemSize: Cardinal;
     BlockSize: Cardinal;
     FCapacity: Integer;
-    OnFree: TFreeProc;
+    FOnFree: TFreeProc;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
     function GetOccupiedCount(S: PMemSegment): Integer;
@@ -73,7 +73,7 @@ type
   public
     // Segmented region provides immutable pointer addresses
     procedure Init(Pool: THeapPool; IsSegmented: Boolean;
-      ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
+      FItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
     // Free the region
     procedure Free;
     // Increase capacity
@@ -86,37 +86,39 @@ type
     function GetItemPtr<T>(Index: Integer): Pointer;
     // Get a piece of memory as an array element of the specified type
     procedure GetItemAs<T>(Index: Integer; var Item: T);
-    // Get free procedure
-    procedure GetOnFree(var proc: TFreeProc);
+    // propeties
+    property OnFree: TFreeProc read FOnFree;
     property Capacity: Integer read FCapacity;
+    property ItemSize: Cardinal read FItemSize;
   end;
 
 {$EndRegion}
 
-{$Region 'TsdItemFactory: Factory of list items using the memory pool'}
+{$Region 'TsgItemFactory: Factory of list items using the memory pool'}
 
-  TsdPointersArrayRange = 0..$7FFFFFFF div (sizeof(Pointer) * 2) - 1;
-  TsdPointers = array [TsdPointersArrayRange] of Pointer;
-  PsdPointers = ^TsdPointers;
+  TsgPointersArrayRange = 0..$7FFFFFFF div (sizeof(Pointer) * 2) - 1;
+  TsgPointers = array [TsgPointersArrayRange] of Pointer;
+  PsgPointers = ^TsgPointers;
 
-  PsdItemFactory = ^TsdItemFactory;
-  TsdItemFactory = record
+  PsgItemFactory = ^TsgItemFactory;
+  TsgItemFactory = record
   var
     // region for pointers
     ListRegion: PMemoryRegion;
     // region for items
     ItemsRegion: PMemoryRegion;
     // item size
-    ItemSize: Integer;
+    FItemSize: Cardinal;
   public
     constructor From(ItemSize: Integer; OnFree: TFreeProc);
     procedure Free;
     // Change the list capacity and return the heap address to store list pointers
-    procedure CheckCapacity(var List: PsdPointers; NewCount: Integer);
+    procedure CheckCapacity(var List: PsgPointers; NewCount: Integer);
     // Add an element and return its pointer
     function AddItem(Item: Pointer): Pointer;
     // Create an empty item and return its pointer
     function CreateItem: Pointer;
+    property ItemSize: Cardinal read FItemSize;
   end;
 
 {$EndRegion}
@@ -149,7 +151,7 @@ type
     FRealesed: TRegionItems;
     FBlockSize: Cardinal;
     // Occupy region
-    function FindOrCreateRegion(IsSegmented: Boolean; ItemSize: Cardinal;
+    function FindOrCreateRegion(IsSegmented: Boolean; FItemSize: Cardinal;
       OnFree: TFreeProc): PMemoryRegion;
   private
     // Release the region
@@ -300,16 +302,16 @@ end;
 {$Region 'TMemoryRegion'}
 
 procedure TMemoryRegion.Init(Pool: THeapPool; IsSegmented: Boolean;
-  ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
+  FItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
 begin
   Self.Pool := Pool;
   Self.IsSegmented := IsSegmented;
   Self.Used := True;
   Self.BlockSize := BlockSize;
-  Self.ItemSize := ItemSize;
+  Self.FItemSize := FItemSize;
   Self.FCapacity := 0;
   Self.Heap := nil;
-  Self.OnFree := OnFree;
+  Self.FOnFree := OnFree;
 end;
 
 function TMemoryRegion.Valid: Boolean;
@@ -344,9 +346,9 @@ begin
       begin
         OnFree(Ptr);
         a := NativeUInt(Ptr);
-        Ptr := Pointer(NativeUInt(Ptr) + ItemSize);
+        Ptr := Pointer(NativeUInt(Ptr) + FItemSize);
         b := NativeUInt(Ptr);
-        Check(a + ItemSize = b);
+        Check(a + FItemSize = b);
         Dec(N);
       end;
     end;
@@ -368,18 +370,13 @@ var
 begin
   Old := Capacity;
   Result := IncreaseCapacity(NewCount);
-  Size := (Capacity - Old) * Integer(ItemSize);
+  Size := (Capacity - Old) * Integer(FItemSize);
   Alloc(Size);
 end;
 
 function TMemoryRegion.GetOccupiedCount(S: PMemSegment): Integer;
 begin
-  Result := (S.HeapSize - sizeof(TMemSegment) - S.FreeSize) div ItemSize;
-end;
-
-procedure TMemoryRegion.GetOnFree(var proc: TFreeProc);
-begin
-  proc := OnFree;
+  Result := (S.HeapSize - sizeof(TMemSegment) - S.FreeSize) div FItemSize;
 end;
 
 procedure TMemoryRegion.GrowHeap(NewCount: Integer);
@@ -387,7 +384,7 @@ var
   BlockCount, Size, NewHeapSize: Cardinal;
   p: PMemSegment;
 begin
-  Size := Grow(NewCount) * Integer(ItemSize);
+  Size := Grow(NewCount) * Integer(FItemSize);
   BlockCount := (Size + sizeof(TMemoryRegion)) div BlockSize + 1;
   NewHeapSize := BlockCount * BlockSize;
   if Heap = nil then
@@ -403,7 +400,7 @@ begin
     p.Next := Heap;
     Heap := p;
   end;
-  FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div ItemSize;
+  FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div FItemSize;
 end;
 
 function TMemoryRegion.Grow(NewCount: Integer): Integer;
@@ -422,10 +419,10 @@ end;
 function TMemoryRegion.Alloc(Size: Cardinal): Pointer;
 begin
 {$IFDEF DEBUG}
-  Check(Valid and (Size mod ItemSize = 0));
+  Check(Valid and (Size mod FItemSize = 0));
 {$ENDIF}
   if (Heap = nil) or (Heap.FreeSize < Size) then
-    GrowHeap(Size div ItemSize + 1);
+    GrowHeap(Size div FItemSize + 1);
   Result := Heap.Occupy(Size);
   if Result = nil then
     OutOfMemoryError;
@@ -451,37 +448,37 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsdItemFactory'}
+{$Region 'TsgItemFactory'}
 
-constructor TsdItemFactory.From(ItemSize: Integer; OnFree: TFreeProc);
+constructor TsgItemFactory.From(ItemSize: Integer; OnFree: TFreeProc);
 begin
-  Self.ListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
-  Self.ItemSize := ItemSize;
-  Self.ItemsRegion := HeapPool.CreateRegion(ItemSize, OnFree);
+  ListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
+  FItemSize := FItemSize;
+  ItemsRegion := HeapPool.CreateRegion(FItemSize, OnFree);
 end;
 
-procedure TsdItemFactory.Free;
+procedure TsgItemFactory.Free;
 begin
   ItemsRegion.Free;
   ListRegion.Free;
-  ItemSize := 0;
+  FItemSize := 0;
 end;
 
-procedure TsdItemFactory.CheckCapacity(var List: PsdPointers; NewCount: Integer);
+procedure TsgItemFactory.CheckCapacity(var List: PsgPointers; NewCount: Integer);
 begin
   if ListRegion.Capacity <= NewCount then
     List := ListRegion.IncreaseAndAlloc(NewCount);
 end;
 
-function TsdItemFactory.AddItem(Item: Pointer): Pointer;
+function TsgItemFactory.AddItem(Item: Pointer): Pointer;
 begin
-  Result := ItemsRegion.Alloc(ItemSize);
-  Move(Item^, Result^, ItemSize);
+  Result := ItemsRegion.Alloc(FItemSize);
+  Move(Item^, Result^, FItemSize);
 end;
 
-function TsdItemFactory.CreateItem: Pointer;
+function TsgItemFactory.CreateItem: Pointer;
 begin
-  Result := ItemsRegion.Alloc(ItemSize);
+  Result := ItemsRegion.Alloc(FItemSize);
 end;
 
 {$EndRegion}
@@ -546,19 +543,19 @@ begin
   inherited;
 end;
 
-function THeapPool.CreateUnbrokenRegion(ItemSize: Cardinal; OnFree: TFreeProc)
-  : PMemoryRegion;
+function THeapPool.CreateUnbrokenRegion(ItemSize: Cardinal;
+  OnFree: TFreeProc): PMemoryRegion;
 begin
   Result := FindOrCreateRegion(False, ItemSize, OnFree);
 end;
 
-function THeapPool.CreateRegion(ItemSize: Cardinal; OnFree: TFreeProc)
-  : PMemoryRegion;
+function THeapPool.CreateRegion(ItemSize: Cardinal;
+  OnFree: TFreeProc): PMemoryRegion;
 begin
   Result := FindOrCreateRegion(True, ItemSize, OnFree);
 end;
 
-function THeapPool.FindOrCreateRegion(IsSegmented: Boolean; ItemSize: Cardinal;
+function THeapPool.FindOrCreateRegion(IsSegmented: Boolean; FItemSize: Cardinal;
   OnFree: TFreeProc): PMemoryRegion;
 var
   p: PRegionItem;
@@ -567,7 +564,7 @@ begin
     p := FRealesed.Remove
   else
     p := FRegions.Alloc(sizeof(TMemoryRegion));
-  p.r.Init(Self, IsSegmented, ItemSize, FBlockSize, OnFree);
+  p.r.Init(Self, IsSegmented, FItemSize, FBlockSize, OnFree);
   Result := @p.r;
 end;
 

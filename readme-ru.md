@@ -28,8 +28,8 @@ Standard Generic Library (SGL) for Pascal
 ----------------------------
 Поддержка основных структур с возможностью указать аллокатор памяти.
 Списки
- - List<T>
- - LinkedList<T>, DualLinkedList<>
+ - List
+ - LinkedList, DualLinkedList
 Словари
  - HashMap (Неупорядоченный словарь)
  - Словарь на основе 2-3 дерева
