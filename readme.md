@@ -32,7 +32,7 @@ Lists
  - LinkedList, DualLinkedList
 Dictionaries
  - HashMap (Unordered dictionary)
- - Vocabulary based on 2-3 trees
+ - Dictionary based on 2-3 trees
  - Lots based on 2-3 wood
 
 Memory allocator
