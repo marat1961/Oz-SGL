@@ -73,7 +73,7 @@ type
   public
     // Segmented region provides immutable pointer addresses
     procedure Init(Pool: THeapPool; IsSegmented: Boolean;
-      FItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
+      ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
     // Free the region
     procedure Free;
     // Increase capacity
@@ -147,12 +147,15 @@ type
   end;
 
   THeapPool = class
+  private const
+    Seed = 45647631;
   strict private
+    FSeed: Integer;
     FRegions: PMemoryRegion;
     FRealesed: TRegionItems;
     FBlockSize: Cardinal;
     // Occupy region
-    function FindOrCreateRegion(IsSegmented: Boolean; FItemSize: Cardinal;
+    function FindOrCreateRegion(IsSegmented: Boolean; ItemSize: Cardinal;
       OnFree: TFreeProc): PMemoryRegion;
   private
     // Release the region
@@ -166,6 +169,7 @@ type
     // Create a segmented region (for elements with a fixed address)
     function CreateRegion(ItemSize: Cardinal;
       OnFree: TFreeProc = nil): PMemoryRegion;
+    function Valid: Boolean;
   end;
 
 {$EndRegion}
@@ -303,13 +307,13 @@ end;
 {$Region 'TMemoryRegion'}
 
 procedure TMemoryRegion.Init(Pool: THeapPool; IsSegmented: Boolean;
-  FItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
+  ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
 begin
   Self.Pool := Pool;
   Self.IsSegmented := IsSegmented;
   Self.Used := True;
   Self.BlockSize := BlockSize;
-  Self.FItemSize := FItemSize;
+  Self.FItemSize := ItemSize;
   Self.FCapacity := 0;
   Self.Heap := nil;
   Self.FOnFree := OnFree;
@@ -317,7 +321,7 @@ end;
 
 function TMemoryRegion.Valid: Boolean;
 begin
-  Result := Pool = nil;
+  Result := (Pool = nil) or Pool.Valid;
 end;
 
 procedure TMemoryRegion.Free;
@@ -454,8 +458,8 @@ end;
 constructor TsgItemFactory.From(ItemSize: Integer; OnFree: TFreeProc);
 begin
   ListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
-  FItemSize := FItemSize;
-  ItemsRegion := HeapPool.CreateRegion(FItemSize, OnFree);
+  FItemSize := ItemSize;
+  FItemsRegion := HeapPool.CreateRegion(ItemSize, OnFree);
 end;
 
 procedure TsgItemFactory.Free;
@@ -527,6 +531,7 @@ end;
 constructor THeapPool.Create(BlockSize: Cardinal);
 begin
   inherited Create;
+  FSeed := Seed;
   FBlockSize := BlockSize;
   New(FRegions);
   FRegions.Init(nil, True, sizeof(TMemoryRegion), BlockSize, FreeRegion);
@@ -556,7 +561,7 @@ begin
   Result := FindOrCreateRegion(True, ItemSize, OnFree);
 end;
 
-function THeapPool.FindOrCreateRegion(IsSegmented: Boolean; FItemSize: Cardinal;
+function THeapPool.FindOrCreateRegion(IsSegmented: Boolean; ItemSize: Cardinal;
   OnFree: TFreeProc): PMemoryRegion;
 var
   p: PRegionItem;
@@ -565,7 +570,7 @@ begin
     p := FRealesed.Remove
   else
     p := FRegions.Alloc(sizeof(TMemoryRegion));
-  p.r.Init(Self, IsSegmented, FItemSize, FBlockSize, OnFree);
+  p.r.Init(Self, IsSegmented, ItemSize, FBlockSize, OnFree);
   Result := @p.r;
 end;
 
@@ -575,6 +580,11 @@ begin
     r.FreeHeap;
   except
   end;
+end;
+
+function THeapPool.Valid: Boolean;
+begin
+  Result := FSeed = Seed;
 end;
 
 {$EndRegion}
