@@ -102,11 +102,11 @@ type
 
   PsgItemFactory = ^TsgItemFactory;
   TsgItemFactory = record
-  var
+  private
     // region for pointers
     ListRegion: PMemoryRegion;
     // region for items
-    ItemsRegion: PMemoryRegion;
+    FItemsRegion: PMemoryRegion;
     // item size
     FItemSize: Cardinal;
   public
@@ -119,6 +119,7 @@ type
     // Create an empty item and return its pointer
     function CreateItem: Pointer;
     property ItemSize: Cardinal read FItemSize;
+    property ItemsRegion: PMemoryRegion read FItemsRegion;
   end;
 
 {$EndRegion}

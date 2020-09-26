@@ -5,7 +5,7 @@ Why this project appeared
 --------------------------
 In the process of porting code from C ++ to Delphi, very often
 have to port code using stl collections.
-The set of collections offered by Delphi is limited and poor.
+The set of collections offered by Delphi is quite ascetic.
 
 There is no way to selectively specify your memory allocator.
 Memory for objects is allocated from a single heap.
@@ -27,13 +27,15 @@ Allocating and freeing memory is not the fastest operation.
 Standard data structures
 ----------------------------
 Support for basic structures with the ability to specify a memory allocator.
+
 Lists
  - List
  - LinkedList, DualLinkedList
+ 
 Dictionaries
  - HashMap (Unordered dictionary)
- - Dictionary based on 2-3 trees
- - Lots based on 2-3 wood
+ - Ordered dictionary based on 2-3 trees
+ - Sets based on 2-3 trees
 
 Memory allocator
 ----------------

@@ -126,7 +126,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgRecordList<T: record>: Список записей, использует пул памяти'}
+{$Region 'TsgRecordList<T: record>: Generic list using a memory pool'}
 
   TsgRecordList<T: record> = record
   type
@@ -154,6 +154,116 @@ type
     property Count: Integer read FList.FCount write SetCount;
     property Items[Index: Integer]: PItem read Get write Put;
     property List: TsgPointerList read FList;
+  end;
+
+{$EndRegion}
+
+{$Region 'TCustomLinkedList: Untyped linked list'}
+
+  TCustomLinkedList = record
+  private
+    FItemsRegion: PMemoryRegion;
+    FItemSize: Cardinal;
+  type
+    PItem = ^TItem;
+    TItem = record
+    private
+      next: PItem;
+      prev: PItem;
+    end;
+  public
+    procedure Init(ItemSize: Cardinal; OnFree: TFreeProc);
+    procedure Free;
+    // Erases all elements from the container. After this call, Count returns zero.
+    // Invalidates any references, pointers, or iterators referring to contained
+    // elements. Any past-the-end iterator remains valid.
+    procedure Clear;
+    // Checks if the container has no elements, i.e. whether begin() == end().
+    function Empty: Integer;
+    // eturns the number of elements in the container,
+    function Count: Integer;
+    // Returns a reference to the first element in the container.
+    // Calling front on an empty container is undefined.
+    function Front: PItem;
+    // Returns reference to the last element in the container.
+    // Calling back on an empty container causes undefined behavior.
+    function Back: PItem;
+    // Prepends the the empty value to the beginning of the container.
+    // No iterators or references are invalidated.
+    function PushFront: PItem; overload;
+    // Prepends the given element value to the beginning of the container.
+    // No iterators or references are invalidated.
+    procedure PushFront(const value: Pointer); overload;
+    // Appends the empty value to the end of list and return a pointer to it
+    function PushBack: PItem; overload;
+    // Appends the given element value to the end of list
+    procedure PushBack(const value: Pointer); overload;
+    // Removes the first element of the container.
+    // If there are no elements in the container, the behavior is undefined.
+    // References and iterators to the erased element are invalidated.
+    procedure PopFront;
+    // Removes the last element of the list.
+    // Calling pop_back on an empty container results in undefined behavior.
+    // References and iterators to the erased element are invalidated.
+    procedure PopBack;
+    // Reverses the order of the elements in the container.
+    // No references or iterators become invalidated.
+    procedure Reverse;
+    // Sorts the elements in ascending order. The order of equal elements is preserved.
+    procedure Sort(Compare: TListSortCompare); inline;
+  end;
+
+{$EndRegion}
+
+  TsgLinkedList<T: record> = record
+  type
+    PItem = ^TItem;
+    TItem = record
+      Link: TCustomLinkedList.TItem;
+      value: T;
+    end;
+  private
+    FList: TCustomLinkedList;
+  public
+    procedure Init(OnFree: TFreeProc);
+    procedure Free;
+    // Erases all elements from the container. After this call, Count returns zero.
+    // Invalidates any references, pointers, or iterators referring to contained
+    // elements. Any past-the-end iterator remains valid.
+    procedure Clear;
+    // Checks if the container has no elements, i.e. whether begin() == end().
+    function Empty: Integer;
+    // Вернуть количество элементов списка
+    function Count: Integer;
+    // Returns a reference to the first element in the container.
+    // Calling front on an empty container is undefined.
+    function Front: PItem;
+    // Returns reference to the last element in the container.
+    // Calling back on an empty container causes undefined behavior.
+    function Back: PItem;
+    // Prepends the the empty value to the beginning of the container.
+    // No iterators or references are invalidated.
+    function PushFront: PItem; overload;
+    // Prepends the given element value to the beginning of the container.
+    // No iterators or references are invalidated.
+    procedure PushFront(const value: T); overload;
+    // Appends the empty value to the end of list and return a pointer to it
+    function PushBack: PItem; overload;
+    // Appends the given element value to the end of list
+    procedure PushBack(const value: T); overload;
+    // Removes the first element of the container.
+    // If there are no elements in the container, the behavior is undefined.
+    // References and iterators to the erased element are invalidated.
+    procedure PopFront;
+    // Removes the last element of the list.
+    // Calling pop_back on an empty container results in undefined behavior.
+    // References and iterators to the erased element are invalidated.
+    procedure PopBack;
+    // Reverses the order of the elements in the container.
+    // No references or iterators become invalidated.
+    procedure Reverse;
+    // Sorts the elements in ascending order. The order of equal elements is preserved.
+    procedure Sort(Compare: TListSortCompare); inline;
   end;
 
 {$EndRegion}
@@ -407,13 +517,20 @@ type
 
 {$EndRegion}
 
+{$Region 'Procedures and functions'}
+
 // Check the index entry into the range [0...Count - 1].
 procedure CheckIndex(Index, Count: Integer);
 
+{$EndRegion}
+
 implementation
 
+{$Region 'Procedures and functions'}
+
 procedure Swap(var i, j: Double);
-var temp: Double;
+var
+  temp: Double;
 begin
   temp := i;
   i := j;
@@ -439,6 +556,8 @@ begin
   if Count < 0 then
     raise ESglError.CreateFmt('List count error (%d)', [Count]);
 end;
+
+{$EndRegion}
 
 {$Region 'TsgListHelper'}
 
@@ -1140,6 +1259,164 @@ end;
 
 {$EndRegion}
 
+{$Region 'TCustomLinkedList'}
+
+procedure TCustomLinkedList.Init(ItemSize: Cardinal; OnFree: TFreeProc);
+begin
+
+end;
+
+procedure TCustomLinkedList.Free;
+begin
+
+end;
+
+procedure TCustomLinkedList.Clear;
+begin
+
+end;
+
+function TCustomLinkedList.Empty: Integer;
+begin
+
+end;
+
+function TCustomLinkedList.Count: Integer;
+begin
+
+end;
+
+function TCustomLinkedList.Front: PItem;
+begin
+
+end;
+
+function TCustomLinkedList.Back: PItem;
+begin
+
+end;
+
+function TCustomLinkedList.PushFront: PItem;
+begin
+
+end;
+
+procedure TCustomLinkedList.PushFront(const value: Pointer);
+begin
+
+end;
+
+function TCustomLinkedList.PushBack: PItem;
+begin
+
+end;
+
+procedure TCustomLinkedList.PushBack(const value: Pointer);
+begin
+
+end;
+
+procedure TCustomLinkedList.PopFront;
+begin
+
+end;
+
+procedure TCustomLinkedList.PopBack;
+begin
+
+end;
+
+procedure TCustomLinkedList.Reverse;
+begin
+
+end;
+
+procedure TCustomLinkedList.Sort(Compare: TListSortCompare);
+begin
+
+end;
+
+{$EndRegion}
+
+{$Region 'TsgLinkedList<T>'}
+
+procedure TsgLinkedList<T>.Init(OnFree: TFreeProc);
+begin
+
+end;
+
+procedure TsgLinkedList<T>.Free;
+begin
+
+end;
+
+procedure TsgLinkedList<T>.Clear;
+begin
+
+end;
+
+function TsgLinkedList<T>.Empty: Integer;
+begin
+
+end;
+
+function TsgLinkedList<T>.Count: Integer;
+begin
+
+end;
+
+function TsgLinkedList<T>.Front: PItem;
+begin
+
+end;
+
+function TsgLinkedList<T>.Back: PItem;
+begin
+
+end;
+
+function TsgLinkedList<T>.PushFront: PItem;
+begin
+
+end;
+
+procedure TsgLinkedList<T>.PushFront(const value: T);
+begin
+
+end;
+
+function TsgLinkedList<T>.PushBack: PItem;
+begin
+
+end;
+
+procedure TsgLinkedList<T>.PushBack(const value: T);
+begin
+
+end;
+
+procedure TsgLinkedList<T>.PopFront;
+begin
+
+end;
+
+procedure TsgLinkedList<T>.PopBack;
+begin
+
+end;
+
+procedure TsgLinkedList<T>.Reverse;
+begin
+
+end;
+
+procedure TsgLinkedList<T>.Sort(Compare: TListSortCompare);
+begin
+
+end;
+
+{$EndRegion}
+
 {$Region 'TsgHashMap<Key, T>'}
 
   {$Region 'TsgHashMapIterator<Key, T>: Итератор'}
@@ -1814,6 +2091,7 @@ begin
 end;
 
 {$EndRegion}
+
 
 end.
 
