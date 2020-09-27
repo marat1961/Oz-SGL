@@ -413,10 +413,10 @@ end;
 
 procedure FreePerson(ptr: Pointer);
 var
-  p: PPerson;
+  item: TsgLinkedList<TPerson>.PItem;
 begin
-  p := PPerson(ptr);
-  p^ := Default(TPerson);
+  item := TsgLinkedList<TPerson>.PItem(ptr);
+  item.Value := Default(TPerson);
 end;
 
 procedure TsgLinkedListTest.SetUp;
@@ -431,14 +431,23 @@ end;
 
 procedure TsgLinkedListTest._Clear;
 var
-  item: TsgLinkedList<TPerson>.PItem;
+  p: TPerson;
 begin
   CheckTrue(List.Count = 0);
-  item := List.PushBack;
-  item.Value.id := 1;
-  item.Value.name := 'Gans';
+  p.id := 1;
+  p.name := 'p1';
+  List.PushBack(p);
   CheckTrue(List.Count = 1);
+  p.id := 2;
+  p.name := 'p2';
+  List.PushBack(p);
+  CheckTrue(List.Count = 2);
+  p.id := 3;
+  p.name := 'p3';
+  List.PushBack(p);
+  CheckTrue(List.Count = 3);
   List.Clear;
+  CheckTrue(List.Count = 0);
 end;
 
 procedure TsgLinkedListTest._Empty;
@@ -488,6 +497,7 @@ initialization
   // Oz.SGL.Heap
   RegisterTest(THeapPoolTest.Suite);
   // Oz.SGL.Collections
+  RegisterTest(TsgRecordListTest.Suite);
   RegisterTest(TsgLinkedListTest.Suite);
 
 end.
