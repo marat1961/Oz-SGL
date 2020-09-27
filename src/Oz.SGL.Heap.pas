@@ -76,6 +76,8 @@ type
       ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
     // Free the region
     procedure Free;
+    // Erases all elements from the memory region.
+    procedure Clear;
     // Increase capacity
     function IncreaseCapacity(NewCount: Integer): Pointer;
     // Increase capacity and allocate
@@ -322,6 +324,13 @@ end;
 function TMemoryRegion.Valid: Boolean;
 begin
   Result := (Pool = nil) or Pool.Valid;
+end;
+
+procedure TMemoryRegion.Clear;
+begin
+  // Clear all segments. PMemSegment
+  // The last segment is not returned to the heap.
+  // We update the number of elements and capacity.
 end;
 
 procedure TMemoryRegion.Free;

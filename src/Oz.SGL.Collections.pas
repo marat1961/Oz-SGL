@@ -158,19 +158,19 @@ type
 
 {$EndRegion}
 
-{$Region 'TCustomLinkedList: Untyped linked list'}
+{$Region 'TCustomLinkedList: Untyped Linked List'}
 
   TCustomLinkedList = record
-  private
-    FItemsRegion: PMemoryRegion;
-    FItemSize: Cardinal;
   type
     PItem = ^TItem;
     TItem = record
-    private
       next: PItem;
       prev: PItem;
     end;
+  private
+    FRegion: PMemoryRegion;
+    FHead: PItem;
+    FLast: PItem;
   public
     procedure Init(ItemSize: Cardinal; OnFree: TFreeProc);
     procedure Free;
@@ -180,7 +180,7 @@ type
     procedure Clear;
     // Checks if the container has no elements, i.e. whether begin() == end().
     function Empty: Integer;
-    // eturns the number of elements in the container,
+    // Returns the number of elements in the container,
     function Count: Integer;
     // Returns a reference to the first element in the container.
     // Calling front on an empty container is undefined.
@@ -215,12 +215,16 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgLinkedList<T: record>: Generic Linked List'}
+
   TsgLinkedList<T: record> = record
   type
     PItem = ^TItem;
     TItem = record
-      Link: TCustomLinkedList.TItem;
-      value: T;
+    private
+      FLink: TCustomLinkedList.TItem;
+    public
+      Value: T;
     end;
   private
     FList: TCustomLinkedList;
@@ -233,7 +237,7 @@ type
     procedure Clear;
     // Checks if the container has no elements, i.e. whether begin() == end().
     function Empty: Integer;
-    // Вернуть количество элементов списка
+    // Returns the number of elements in the container.
     function Count: Integer;
     // Returns a reference to the first element in the container.
     // Calling front on an empty container is undefined.
@@ -1263,17 +1267,17 @@ end;
 
 procedure TCustomLinkedList.Init(ItemSize: Cardinal; OnFree: TFreeProc);
 begin
-
+  FRegion := HeapPool.CreateRegion(ItemSize, OnFree);
 end;
 
 procedure TCustomLinkedList.Free;
 begin
-
+  FRegion.Free;
 end;
 
 procedure TCustomLinkedList.Clear;
 begin
-
+  FRegion.Clear;
 end;
 
 function TCustomLinkedList.Empty: Integer;
