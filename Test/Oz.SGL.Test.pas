@@ -462,19 +462,71 @@ begin
 end;
 
 procedure TsgLinkedListTest._Empty;
+var
+  p: TPerson;
 begin
+  CheckTrue(List.Empty);
+  p.id := 1;
+  p.name := 'Smith';
+  List.PushFront(p);
+  CheckFalse(List.Empty);
 end;
 
 procedure TsgLinkedListTest._Count;
+var
+  p: TPerson;
 begin
+  CheckTrue(List.Count = 0);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushBack(p);
+  CheckTrue(List.Count = 1);
 end;
 
 procedure TsgLinkedListTest._Front;
+var
+  item: TsgLinkedList<TPerson>.PItem;
+  p: TPerson;
 begin
+  CheckTrue(List.Count = 0);
+  item := List.Front;
+  CheckTrue(item = nil);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushBack(p);
+  item := List.Front;
+  CheckTrue(item <> nil);
+  CheckTrue(item.Value.id = p.id);
+  CheckTrue(item.Value.name = p.name);
+  p.id := 2;
+  p.name := 'Leo';
+  List.PushFront(p);
+  item := List.Front;
+  CheckTrue(item.Value.id = p.id);
+  CheckTrue(item.Value.name = p.name);
 end;
 
 procedure TsgLinkedListTest._Back;
+var
+  item: TsgLinkedList<TPerson>.PItem;
+  p: TPerson;
 begin
+  CheckTrue(List.Count = 0);
+  item := List.Back;
+  CheckTrue(item = nil);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushBack(p);
+  item := List.Back;
+  CheckTrue(item <> nil);
+  CheckTrue(item.Value.id = p.id);
+  CheckTrue(item.Value.name = p.name);
+  p.id := 2;
+  p.name := 'Leo';
+  List.PushBack(p);
+  item := List.Back;
+  CheckTrue(item.Value.id = p.id);
+  CheckTrue(item.Value.name = p.name);
 end;
 
 procedure TsgLinkedListTest._PushFront;
