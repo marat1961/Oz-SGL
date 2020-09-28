@@ -101,7 +101,7 @@ type
 
   TsgLinkedListTest = class(TTestCase)
   const
-    ItemsCount = 20000;
+    ItemsCount = 10000;
   public
     List: TsgLinkedList<TPerson>;
     procedure SetUp; override;
@@ -432,6 +432,7 @@ end;
 procedure TsgLinkedListTest._Clear;
 var
   p: TPerson;
+  i: Integer;
 begin
   CheckTrue(List.Count = 0);
   p.id := 1;
@@ -448,6 +449,16 @@ begin
   CheckTrue(List.Count = 3);
   List.Clear;
   CheckTrue(List.Count = 0);
+  for i := 1 to ItemsCount do
+  begin
+    p.id := i;
+    p.name := 'p' + IntToStr(i);
+    if Odd(i) then
+      List.PushBack(p)
+    else
+      List.PushFront(p);
+    CheckTrue(List.Count = i);
+  end;
 end;
 
 procedure TsgLinkedListTest._Empty;

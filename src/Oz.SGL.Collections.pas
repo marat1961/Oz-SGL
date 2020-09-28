@@ -1317,36 +1317,30 @@ end;
 
 function TCustomLinkedList.PushFront: PItem;
 var
-  p: PItem;
+  new: PItem;
 begin
-  Result := FRegion.Alloc(FRegion.ItemSize);
-  if FLast.prev = nil then
-  begin
-    Result.next := FLast;
-    FLast.prev := Result;
-  end
-  else
-  begin
-    p := FHead.next;
-    p.prev := Result;
-  end;
-  FHead := Result;
+  new := FRegion.Alloc(FRegion.ItemSize);
+  new.next := FHead;
+  FHead.prev := new;
+  FHead := new;
+  Result := new;
 end;
 
 function TCustomLinkedList.PushBack: PItem;
 var
-  p: PItem;
+  p, new: PItem;
 begin
   if FLast.prev = nil then
     Result := PushFront
   else
   begin
     p := FLast.prev;
-    Result := FRegion.Alloc(FRegion.ItemSize);
-    Result.next := FLast;
-    Result.prev := p;
-    FLast.prev := Result;
-    p.next := Result;
+    new := FRegion.Alloc(FRegion.ItemSize);
+    new.next := FLast;
+    new.prev := p;
+    FLast.prev := new;
+    p.next := new;
+    Result := new;
   end;
 end;
 
