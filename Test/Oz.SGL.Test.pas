@@ -592,7 +592,6 @@ procedure TsgLinkedListTest._Insert;
 var
   item: TsgLinkedList<TPerson>.PItem;
   p: TPerson;
-  pos: TsgLinkedListIterator<TPerson>;
 begin
   CheckTrue(List.Count = 0);
   item := List.Front;
@@ -604,10 +603,9 @@ begin
   CheckTrue(item <> nil);
   CheckTrue(item.Value.id = p.id);
   CheckTrue(item.Value.name = p.name);
-  pos := TsgLinkedListIterator<TPerson>(item);
   p.id := 2;
   p.name := 'Leo';
-  List.Insert(pos, p);
+  List.Insert(item, p);
   item := List.Back;
   CheckTrue(item.Value.id = p.id);
   CheckTrue(item.Value.name = p.name);

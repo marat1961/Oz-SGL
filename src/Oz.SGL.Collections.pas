@@ -210,14 +210,7 @@ type
     procedure Sort(Compare: TListSortCompare); inline;
   end;
 
-{$EndRegion}
-
-{$Region 'TsgLinkedList<T: record>: Generic Linked List'}
-
-  TsgLinkedListIterator<T: record> = record
-  private
-    FItem: TCustomLinkedList.PItem;
-  public
+  TLinkedListIterator = record helper for TCustomLinkedList.PItem
     // Go to the next node
     procedure Next;
     // Go to the previous node
@@ -227,6 +220,10 @@ type
     // Beginning of the list
     function Bol: Boolean;
   end;
+
+{$EndRegion}
+
+{$Region 'TsgLinkedList<T: record>: Generic Linked List'}
 
   TsgLinkedList<T: record> = record
   type
@@ -267,7 +264,7 @@ type
     // Appends the given element value to the end of list
     procedure PushBack(const Value: T); overload; inline;
     // Inserts value before pos
-    procedure Insert(Pos: TsgLinkedListIterator<T>; const Value: T);
+    procedure Insert(Pos: PItem; const Value: T);
     // Removes the first element of the container.
     // If there are no elements in the container, the behavior is undefined.
     // References and iterators to the erased element are invalidated.
@@ -1412,26 +1409,26 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgLinkedListIterator<T>'}
+{$Region 'TsgLinkedListIterator'}
 
-procedure TsgLinkedListIterator<T>.Next;
+procedure TLinkedListIterator.Next;
 begin
-  FItem := FItem.next;
+  Self := Self.next;
 end;
 
-procedure TsgLinkedListIterator<T>.Prev;
+procedure TLinkedListIterator.Prev;
 begin
-  FItem := FItem.prev;
+  Self := Self.prev;
 end;
 
-function TsgLinkedListIterator<T>.Bol: Boolean;
+function TLinkedListIterator.Bol: Boolean;
 begin
-  Result := FItem.prev = nil;
+  Result := Self.prev = nil;
 end;
 
-function TsgLinkedListIterator<T>.Eol: Boolean;
+function TLinkedListIterator.Eol: Boolean;
 begin
-  Result := FItem.next.next = nil;
+  Result := Self.next.next = nil;
 end;
 
 {$EndRegion}
@@ -1443,7 +1440,7 @@ begin
   FList.Init(sizeof(TItem), OnFree);
 end;
 
-procedure TsgLinkedList<T>.Insert(Pos: TsgLinkedListIterator<T>; const Value: T);
+procedure TsgLinkedList<T>.Insert(Pos: PItem; const Value: T);
 var
   p: PItem;
 begin
