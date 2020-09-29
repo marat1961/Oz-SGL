@@ -193,6 +193,8 @@ type
     function PushFront: PItem;
     // Appends the empty value to the end of list and return a pointer to it
     function PushBack: PItem;
+    // Inserts value before pos
+    function Insert(const Pos: PItem): PItem;
     // Removes the first element of the container.
     // If there are no elements in the container, the behavior is undefined.
     // References and iterators to the erased element are invalidated.
@@ -211,6 +213,20 @@ type
 {$EndRegion}
 
 {$Region 'TsgLinkedList<T: record>: Generic Linked List'}
+
+  TsgLinkedListIterator<T: record> = record
+  private
+    FItem: TCustomLinkedList.PItem;
+  public
+    // Go to the next node
+    procedure Next;
+    // Go to the previous node
+    procedure Prev;
+    // End of the list
+    function Eol: Boolean;
+    // Beginning of the list
+    function Bol: Boolean;
+  end;
 
   TsgLinkedList<T: record> = record
   type
@@ -250,6 +266,8 @@ type
     function PushBack: PItem; overload; inline;
     // Appends the given element value to the end of list
     procedure PushBack(const Value: T); overload; inline;
+    // Inserts value before pos
+    procedure Insert(Pos: TsgLinkedListIterator<T>; const Value: T);
     // Removes the first element of the container.
     // If there are no elements in the container, the behavior is undefined.
     // References and iterators to the erased element are invalidated.
@@ -1344,6 +1362,18 @@ begin
   end;
 end;
 
+function TCustomLinkedList.Insert(const Pos: PItem): PItem;
+var
+  new: PItem;
+begin
+  new := FRegion.Alloc(FRegion.ItemSize);
+  new.next := Pos.next;
+  new.prev := Pos;
+  Pos.next.prev := new;
+  Pos.next := new;
+  Result := new;
+end;
+
 procedure TCustomLinkedList.PopFront;
 begin
   Check(not Empty, 'PopFront: list empty');
@@ -1382,11 +1412,43 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgLinkedListIterator<T>'}
+
+procedure TsgLinkedListIterator<T>.Next;
+begin
+  FItem := FItem.next;
+end;
+
+procedure TsgLinkedListIterator<T>.Prev;
+begin
+  FItem := FItem.prev;
+end;
+
+function TsgLinkedListIterator<T>.Bol: Boolean;
+begin
+  Result := FItem.prev = nil;
+end;
+
+function TsgLinkedListIterator<T>.Eol: Boolean;
+begin
+  Result := FItem.next.next = nil;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgLinkedList<T>'}
 
 procedure TsgLinkedList<T>.Init(OnFree: TFreeProc);
 begin
   FList.Init(sizeof(TItem), OnFree);
+end;
+
+procedure TsgLinkedList<T>.Insert(Pos: TsgLinkedListIterator<T>; const Value: T);
+var
+  p: PItem;
+begin
+  p := PItem(FList.Insert(TCustomLinkedList.PItem(Pos)));
+  p.Value := Value;
 end;
 
 procedure TsgLinkedList<T>.Free;

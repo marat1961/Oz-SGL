@@ -114,6 +114,7 @@ type
     procedure _Back;
     procedure _PushFront;
     procedure _PushBack;
+    procedure _Insert;
     procedure _PopFront;
     procedure _PopBack;
     procedure _Reverse;
@@ -582,6 +583,31 @@ begin
   p.id := 3;
   p.name := 'Neo';
   List.PushBack(p);
+  item := List.Back;
+  CheckTrue(item.Value.id = p.id);
+  CheckTrue(item.Value.name = p.name);
+end;
+
+procedure TsgLinkedListTest._Insert;
+var
+  item: TsgLinkedList<TPerson>.PItem;
+  p: TPerson;
+  pos: TsgLinkedListIterator<TPerson>;
+begin
+  CheckTrue(List.Count = 0);
+  item := List.Front;
+  CheckTrue(item = nil);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushBack(p);
+  item := List.Front;
+  CheckTrue(item <> nil);
+  CheckTrue(item.Value.id = p.id);
+  CheckTrue(item.Value.name = p.name);
+  pos := TsgLinkedListIterator<TPerson>(item);
+  p.id := 2;
+  p.name := 'Leo';
+  List.Insert(pos, p);
   item := List.Back;
   CheckTrue(item.Value.id = p.id);
   CheckTrue(item.Value.name = p.name);
