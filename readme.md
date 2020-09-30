@@ -8,7 +8,7 @@ have to port code using stl collections.
 The set of collections offered by Delphi is quite ascetic.
 
 There is no way to selectively specify your memory allocator.
-Memory for objects is allocated from a single heap.
+Memory for objects is allocated from one shared heap.
 After use, the memory must be carefully returned to the system.
 The correct freeing of memory is not always a trivial task and it takes both the processor time and the programmer's time to write this code.
 
@@ -30,7 +30,7 @@ Support for basic structures with the ability to specify a memory allocator.
 
 Lists
  - List
- - LinkedList, DualLinkedList
+ - ForwardList, LinkedList
  
 Dictionaries
  - HashMap (Unordered dictionary)
