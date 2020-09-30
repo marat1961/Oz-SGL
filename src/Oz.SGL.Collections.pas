@@ -531,6 +531,29 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgLog'}
+
+  TsgLog = record
+  type
+    // Add a line of message to the log
+    TAddLine = procedure(const Msg: string);
+  class var
+    FPrint: TAddLine;
+    FLocalDebug: Boolean;
+    FMsg: TAddLine;
+  public
+    // Logging when the FLocalDebug flag is set
+    class procedure print(const Msg: string); overload; static;
+    class procedure print(const Msg: string;
+      const Args: array of const); overload; static;
+    // Displaying an explanatory message to the user
+    class procedure Msg(const Msg: string); overload; static;
+    class procedure Msg(const fmt: string;
+      const Args: array of const); overload; static;
+  end;
+
+{$EndRegion}
+
 {$Region 'Procedures and functions'}
 
 // Check the index entry into the range [0...Count - 1].
@@ -1520,9 +1543,7 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgHashMap<Key, T>'}
-
-  {$Region 'TsgHashMapIterator<Key, T>'}
+{$Region 'TsgHashMapIterator<Key, T>'}
 
 procedure TsgHashMapIterator<Key, T>.Init(const Pairs: TsgListHelper;
   vidx: Integer);
@@ -1567,6 +1588,8 @@ begin
 end;
 
 {$EndRegion}
+
+{$Region 'TsgHashMap<Key, T>'}
 
 constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer; Hash: TKeyHash;
   KeyEquals: TKeyEquals; OnFreePair: TFreeProc);
@@ -2195,6 +2218,56 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgLog'}
+
+class procedure TsgLog.print(const Msg: string);
+begin
+  if not Assigned(FPrint) then exit;
+  FPrint(Msg);
+end;
+
+class procedure TsgLog.print(const Msg: string; const Args: array of const);
+var
+  i: Integer;
+  s, v: string;
+  Arg: TVarRec;
+begin
+  if not Assigned(FPrint) then exit;
+  s := Msg;
+  for i := 0 to High(Args) do
+  begin
+    Arg := Args[i];
+    case Arg.VType of
+      vtInteger:
+        v := IntToStr(Arg.VInteger);
+      vtInt64:
+        v := IntToStr(Arg.VInt64^);
+      vtExtended, vtCurrency:
+        v := Format('%.4f', [Arg.VExtended^]);
+      vtUnicodeString:
+        v := string(Arg.VUnicodeString);
+      vtChar, vtWideChar:
+        v := Char(Arg.VChar);
+      else
+        raise ESglError.Create('print: unsupported parameter type');
+    end;
+    s := s + v;
+  end;
+  FPrint(s);
+end;
+
+class procedure TsgLog.Msg(const Msg: string);
+begin
+  if not Assigned(FMsg) then exit;
+  FMsg(Msg);
+end;
+
+class procedure TsgLog.Msg(const fmt: string; const Args: array of const);
+begin
+  Msg(Format(fmt, Args));
+end;
+
+{$EndRegion}
 
 end.
 
