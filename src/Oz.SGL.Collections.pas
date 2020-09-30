@@ -352,7 +352,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTreeIterator: Итератор для 2-3 дерева'}
+{$Region 'TsgTreeIterator: Iterator for 2-3 tree'}
 
   TsgTreeAction = (taFind, taInsert, taInsertEmpty, taInsertOrAssign, taCount);
 
@@ -1141,7 +1141,7 @@ begin
   CheckCount(NewCount);
   if NewCount > FCount then
     raise ESglError.CreateFmt(
-      'Не разрешено увеличение количества элементов (%d)', [Count]);
+      'Not allowed to increase the number of elements (%d)', [Count]);
   FCount := NewCount;
 end;
 
@@ -1167,7 +1167,7 @@ begin
   begin
     item := Get(src);
     if F(item) then
-      // этот элемент будет удалён
+      // this item will be removed
     else
     begin
       if src <> dest then
@@ -1522,7 +1522,7 @@ end;
 
 {$Region 'TsgHashMap<Key, T>'}
 
-  {$Region 'TsgHashMapIterator<Key, T>: Итератор'}
+  {$Region 'TsgHashMapIterator<Key, T>'}
 
 procedure TsgHashMapIterator<Key, T>.Init(const Pairs: TsgListHelper;
   vidx: Integer);

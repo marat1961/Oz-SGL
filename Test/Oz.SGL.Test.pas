@@ -119,6 +119,10 @@ type
     procedure _PopBack;
     procedure _Reverse;
     procedure _Sort;
+    procedure _Next;
+    procedure _Prev;
+    function _Eol: Boolean;
+    function _Bol: Boolean;
   end;
 
 {$EndRegion}
@@ -709,10 +713,32 @@ end;
 
 procedure TsgLinkedListTest._Reverse;
 begin
+
 end;
 
 procedure TsgLinkedListTest._Sort;
 begin
+
+end;
+
+procedure TsgLinkedListTest._Next;
+begin
+
+end;
+
+procedure TsgLinkedListTest._Prev;
+begin
+
+end;
+
+function TsgLinkedListTest._Eol: Boolean;
+begin
+
+end;
+
+function TsgLinkedListTest._Bol: Boolean;
+begin
+
 end;
 
 {$EndRegion}
