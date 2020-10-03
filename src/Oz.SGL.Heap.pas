@@ -108,7 +108,7 @@ type
   TsgItemFactory = record
   private
     // region for pointers
-    ListRegion: PMemoryRegion;
+    FListRegion: PMemoryRegion;
     // region for items
     FItemsRegion: PMemoryRegion;
     // item size
@@ -476,22 +476,22 @@ end;
 
 constructor TsgItemFactory.From(ItemSize: Integer; OnFree: TFreeProc);
 begin
-  ListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
+  FListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
   FItemSize := ItemSize;
   FItemsRegion := HeapPool.CreateRegion(ItemSize, OnFree);
 end;
 
 procedure TsgItemFactory.Free;
 begin
-  ItemsRegion.Free;
-  ListRegion.Free;
+  FItemsRegion.Free;
+  FListRegion.Free;
   FItemSize := 0;
 end;
 
 procedure TsgItemFactory.CheckCapacity(var List: PsgPointers; NewCount: Integer);
 begin
-  if ListRegion.Capacity <= NewCount then
-    List := ListRegion.IncreaseAndAlloc(NewCount);
+  if FListRegion.Capacity <= NewCount then
+    List := FListRegion.IncreaseAndAlloc(NewCount);
 end;
 
 function TsgItemFactory.AddItem(Item: Pointer): Pointer;

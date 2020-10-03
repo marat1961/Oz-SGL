@@ -85,6 +85,28 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgPointerArray: Array of pointers'}
+
+  // An array of pointers for quick sorting and searching.
+  TsgPointerArray = record
+  private
+    // region for pointers
+    FListRegion: PMemoryRegion;
+    FList: PsgPointers;
+    FCount: Integer;
+    function Get(Index: Integer): Pointer;
+    procedure Put(Index: Integer; Item: Pointer);
+  public
+    constructor From(Capacity: Integer);
+    procedure Free;
+    procedure Add(ptr: Pointer);
+    procedure Sort(Compare: TListSortCompare);
+    property Count: Integer read FCount;
+    property Items[Index: Integer]: Pointer read Get write Put;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgPointerList: List of pointers using a memory pool'}
 
   TItemFunc = reference to function(Item: Pointer): Boolean;
@@ -594,6 +616,60 @@ begin
     raise ESglError.CreateFmt('List count error (%d)', [Count]);
 end;
 
+procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
+
+  procedure Sort(L, R: Integer);
+  var
+    i, j: Integer;
+    x: Pointer;
+  begin
+    i := L;
+    j := R;
+    x := List[(L + R) div 2];
+    repeat
+      while SCompare(List[i], x) < 0 do
+      begin
+        if i >= R then break;
+        Inc(i);
+      end;
+      while SCompare(List[j], x) > 0 do
+      begin
+        if j <= L then break;
+        Dec(j);
+      end;
+      if i <= j then
+      begin
+        Exchange(List, i, j);
+        Inc(i); Dec(j);
+      end;
+    until i > j;
+    if L < j then QuickSort(List, L, j, SCompare);
+    if i < R then QuickSort(List, i, R, SCompare);
+  end;
+
+  procedure ShortSort(L, R: Integer);
+  var
+    i, max: Integer;
+  begin
+    while R > L do
+    begin
+      max := L;
+      for i := L + 1 to R do
+        if SCompare(List[i], List[max]) > 0 then
+          max := i;
+      Exchange(List, max, R);
+      Dec(R);
+    end;
+  end;
+
+begin
+  // Below a certain size, it is faster to use the O(n^2) sort method
+  if (R - L) <= 8 then
+    ShortSort(L, R)
+  else
+    Sort(L, R);
+end;
+
 {$EndRegion}
 
 {$Region 'TsgListHelper'}
@@ -915,6 +991,55 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgPointerArray: Array of pointers'}
+
+constructor TsgPointerArray.From(Capacity: Integer);
+begin
+  FListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
+end;
+
+procedure TsgPointerArray.Free;
+begin
+  FListRegion.Free;
+end;
+
+function TsgPointerArray.Get(Index: Integer): Pointer;
+begin
+  CheckIndex(Index, FCount);
+  Result := FList[Index];
+end;
+
+procedure TsgPointerArray.Put(Index: Integer; Item: Pointer);
+begin
+  CheckIndex(Index, FCount);
+  if Item <> FList[Index] then
+    FList[Index] := Item;
+end;
+
+procedure TsgPointerArray.Add(ptr: Pointer);
+var
+  idx: Integer;
+begin
+  Check(ptr <> nil);
+  idx := FCount;
+  if FListRegion.Capacity <= idx then
+    FList := FListRegion.IncreaseAndAlloc(idx);
+  Inc(FCount);
+  FList[idx] := ptr;
+end;
+
+procedure TsgPointerArray.Sort(Compare: TListSortCompare);
+begin
+  if Count > 1 then
+    QuickSort(FList, 0, Count - 1,
+      function(Item1, Item2: Pointer): Integer
+      begin
+        Result := Compare(Item1, Item2);
+      end);
+end;
+
+{$EndRegion}
+
 {$Region 'TsgPointerList'}
 
 constructor TsgPointerList.From(ItemSize: Integer; OnFree: TFreeProc);
@@ -1066,55 +1191,6 @@ begin
     Inc(P);
   end;
   Result := -1;
-end;
-
-procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
-
-  procedure Sort(L, R: Integer);
-  begin
-    var i := L;
-    var j := R;
-    var x := List[(L + R) div 2];
-    repeat
-      while SCompare(List[i], x) < 0 do
-      begin
-        if i >= R then break;
-        Inc(i);
-      end;
-      while SCompare(List[j], x) > 0 do
-      begin
-        if j <= L then break;
-        Dec(j);
-      end;
-      if i <= j then
-      begin
-        Exchange(List, i, j);
-        Inc(i); Dec(j);
-      end;
-    until i > j;
-    if L < j then QuickSort(List, L, j, SCompare);
-    if i < R then QuickSort(List, i, R, SCompare);
-  end;
-
-  procedure ShortSort(L, R: Integer);
-  begin
-    while R > L do
-    begin
-      var max := L;
-      for var i := L + 1 to R do
-        if SCompare(List[i], List[max]) > 0 then
-          max := i;
-      Exchange(List, max, R);
-      Dec(R);
-    end;
-  end;
-
-begin
-  // Below a certain size, it is faster to use the O(n^2) sort method
-  if (R - L) <= 8 then
-    ShortSort(L, R)
-  else
-    Sort(L, R);
 end;
 
 procedure TsgPointerList.Sort(Compare: TListSortCompare);
