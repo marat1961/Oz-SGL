@@ -232,17 +232,6 @@ type
     procedure Sort(Compare: TListSortCompare); inline;
   end;
 
-  TLinkedListIterator = record helper for TCustomLinkedList.PItem
-    // Go to the next node
-    procedure Next;
-    // Go to the previous node
-    procedure Prev;
-    // End of the list
-    function Eol: Boolean;
-    // Beginning of the list
-    function Bol: Boolean;
-  end;
-
 {$EndRegion}
 
 {$Region 'TsgLinkedList<T: record>: Generic Linked List'}
@@ -251,10 +240,25 @@ type
   type
     PItem = ^TItem;
     TItem = record
-    private
-      FLink: TCustomLinkedList.TItem;
-    public
+      Link: TCustomLinkedList.TItem;
       Value: T;
+    end;
+    PValue = ^T;
+    TIterator = record
+    private
+      Item: PItem;
+      function GetValue: PValue;
+    public
+      // Go to the next node
+      procedure Next;
+      // Go to the previous node
+      procedure Prev;
+      // End of the list
+      function Eol: Boolean;
+      // Beginning of the list
+      function Bol: Boolean;
+      // pointer to Value
+      property Value: PValue read GetValue;
     end;
   private
     FList: TCustomLinkedList;
@@ -271,22 +275,22 @@ type
     function Count: Integer; inline;
     // Returns a reference to the first element in the container.
     // Calling front on an empty container is undefined.
-    function Front: PItem; inline;
+    function Front: TIterator; inline;
     // Returns reference to the last element in the container.
     // Calling back on an empty container causes undefined behavior.
-    function Back: PItem; inline;
+    function Back: TIterator; inline;
     // Prepends the the empty value to the beginning of the container.
     // No iterators or references are invalidated.
-    function PushFront: PItem; overload; inline;
+    function PushFront: TIterator; overload; inline;
     // Prepends the given element value to the beginning of the container.
     // No iterators or references are invalidated.
     procedure PushFront(const Value: T); overload; inline;
     // Appends the empty value to the end of list and return a pointer to it
-    function PushBack: PItem; overload; inline;
+    function PushBack: TIterator; overload; inline;
     // Appends the given element value to the end of list
     procedure PushBack(const Value: T); overload; inline;
     // Inserts value before pos
-    procedure Insert(Pos: PItem; const Value: T);
+    procedure Insert(Pos: TIterator; const Value: T);
     // Removes the first element of the container.
     // If there are no elements in the container, the behavior is undefined.
     // References and iterators to the erased element are invalidated.
@@ -1415,18 +1419,12 @@ end;
 
 function TCustomLinkedList.Front: PItem;
 begin
-  if Empty then
-    Result := nil
-  else
-    Result := FHead;
+  Result := FHead;
 end;
 
 function TCustomLinkedList.Back: PItem;
 begin
-  if Empty then
-    Result := nil
-  else
-    Result := FLast.prev;
+  Result := FLast.prev;
 end;
 
 function TCustomLinkedList.PushFront: PItem;
@@ -1497,37 +1495,72 @@ begin
 end;
 
 procedure TCustomLinkedList.Reverse;
+var
+  p, t: PItem;
 begin
-
+  if Empty then exit;
+  p := FHead;
+  while p <> FLast do
+  begin
+    // exchange
+    t := p.prev; p.prev := p; p.next := t;
+    p := p.next;
+  end;
+  t := FHead; FHead := FLast; FLast := t;
 end;
 
 procedure TCustomLinkedList.Sort(Compare: TListSortCompare);
+var
+  n: Integer;
+  pa: TsgPointerArray;
+  p: PItem;
 begin
-
+  n := Count;
+  if n <= 1 then exit;
+  pa := TsgPointerArray.From(n);
+  try
+    p := FHead;
+    while p <> FLast do
+    begin
+      pa.Add(p);
+      p := p.next;
+    end;
+    pa.Sort(Compare);
+  finally
+    pa.Free
+  end;
 end;
 
 {$EndRegion}
 
-{$Region 'TsgLinkedListIterator'}
+{$Region TsgLinkedList<T>.TIterator.'}
 
-procedure TLinkedListIterator.Next;
+function TsgLinkedList<T>.TIterator.GetValue: PValue;
 begin
-  Self := Self.next;
+  Result := @Item.Value;
 end;
 
-procedure TLinkedListIterator.Prev;
+procedure TsgLinkedList<T>.TIterator.Next;
 begin
-  Self := Self.prev;
+  Item := PItem(Item.Link.next);
 end;
 
-function TLinkedListIterator.Bol: Boolean;
+procedure TsgLinkedList<T>.TIterator.Prev;
 begin
-  Result := Self.prev = nil;
+  Item := PItem(Item.Link.prev);
 end;
 
-function TLinkedListIterator.Eol: Boolean;
+function TsgLinkedList<T>.TIterator.Eol: Boolean;
+var
+  p: TCustomLinkedList.PItem;
 begin
-  Result := Self.next.next = nil;
+  p := Item.Link.next;
+  Result := (p = nil) or (p.next = nil);
+end;
+
+function TsgLinkedList<T>.TIterator.Bol: Boolean;
+begin
+  Result := Item.Link.prev = nil;
 end;
 
 {$EndRegion}
@@ -1539,7 +1572,7 @@ begin
   FList.Init(sizeof(TItem), OnFree);
 end;
 
-procedure TsgLinkedList<T>.Insert(Pos: PItem; const Value: T);
+procedure TsgLinkedList<T>.Insert(Pos: TIterator; const Value: T);
 var
   p: PItem;
 begin
@@ -1567,34 +1600,34 @@ begin
   Result := FList.Count;
 end;
 
-function TsgLinkedList<T>.Front: PItem;
+function TsgLinkedList<T>.Front: TIterator;
 begin
-  Result := PItem(FList.Front);
+  Result.Item := PItem(FList.Front);
 end;
 
-function TsgLinkedList<T>.Back: PItem;
+function TsgLinkedList<T>.Back: TIterator;
 begin
-  Result := PItem(FList.Back);
+  Result.Item := PItem(FList.Back);
 end;
 
-function TsgLinkedList<T>.PushFront: PItem;
+function TsgLinkedList<T>.PushFront: TIterator;
 begin
-  Result := PItem(FList.PushFront);
+  Result.Item := PItem(FList.PushFront);
 end;
 
 procedure TsgLinkedList<T>.PushFront(const Value: T);
 begin
-  PushFront^.Value := Value;
+  PushFront.Value^ := Value;
 end;
 
-function TsgLinkedList<T>.PushBack: PItem;
+function TsgLinkedList<T>.PushBack: TIterator;
 begin
-  Result := PItem(FList.PushBack);
+  Result.Item := PItem(FList.PushBack);
 end;
 
 procedure TsgLinkedList<T>.PushBack(const Value: T);
 begin
-  PushBack^.Value := Value;
+  PushBack.Value^ := Value;
 end;
 
 procedure TsgLinkedList<T>.PopFront;
