@@ -1496,15 +1496,16 @@ end;
 
 procedure TCustomLinkedList.Reverse;
 var
-  p, t: PItem;
+  p, q, t: PItem;
 begin
   if Empty then exit;
   p := FHead;
   while p <> FLast do
   begin
     // exchange
+    q := p.next;
     t := p.prev; p.prev := p; p.next := t;
-    p := p.next;
+    p := q;
   end;
   t := FHead; FHead := FLast; FLast := t;
 end;
@@ -1554,13 +1555,18 @@ function TsgLinkedList<T>.TIterator.Eol: Boolean;
 var
   p: TCustomLinkedList.PItem;
 begin
-  p := Item.Link.next;
-  Result := (p = nil) or (p.next = nil);
+  if Item = nil then
+    Result := True
+  else
+  begin
+    p := Item.Link.next;
+    Result := (p = nil) or (p.next = nil);
+  end;
 end;
 
 function TsgLinkedList<T>.TIterator.Bol: Boolean;
 begin
-  Result := Item.Link.prev = nil;
+  Result := (Item = nil) or (Item.Link.prev = nil);
 end;
 
 {$EndRegion}
