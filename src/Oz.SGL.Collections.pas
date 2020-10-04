@@ -229,7 +229,7 @@ type
     // No references or iterators become invalidated.
     procedure Reverse;
     // Sorts the elements in ascending order. The order of equal elements is preserved.
-    procedure Sort(Compare: TListSortCompare); inline;
+    procedure Sort(Compare: TListSortCompare);
   end;
 
 {$EndRegion}
@@ -560,22 +560,23 @@ type
 {$Region 'TsgLog'}
 
   TsgLog = record
-  type
-    // Add a line of message to the log
-    TAddLine = procedure(const Msg: string);
-  class var
-    FPrint: TAddLine;
+  private
     FLocalDebug: Boolean;
-    FMsg: TAddLine;
+    FLog: TStringList;
+    procedure AddLine(const Msg: string);
   public
+    procedure Init;
+    procedure Free;
+    // Save to file
+    procedure SaveToFile(const filename: string);
     // Logging when the FLocalDebug flag is set
-    class procedure print(const Msg: string); overload; static;
-    class procedure print(const Msg: string;
-      const Args: array of const); overload; static;
+    procedure print(const Msg: string); overload;
+    procedure print(const Msg: string;
+      const Args: array of const); overload;
     // Displaying an explanatory message to the user
-    class procedure Msg(const Msg: string); overload; static;
-    class procedure Msg(const fmt: string;
-      const Args: array of const); overload; static;
+    procedure Msg(const Msg: string); overload; inline;
+    procedure Msg(const fmt: string;
+      const Args: array of const); overload;
   end;
 
 {$EndRegion}
@@ -585,7 +586,12 @@ type
 // Check the index entry into the range [0...Count - 1].
 procedure CheckIndex(Index, Count: Integer);
 
+procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
+
 {$EndRegion}
+
+var
+  log: TsgLog;
 
 implementation
 
@@ -601,7 +607,8 @@ begin
 end;
 
 procedure Exchange(pointers: PsgPointers; i, j: Integer); inline;
-var temp: Pointer;
+var
+  temp: Pointer;
 begin
   temp := pointers[i];
   pointers[i] := pointers[j];
@@ -1000,6 +1007,8 @@ end;
 constructor TsgPointerArray.From(Capacity: Integer);
 begin
   FListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
+  FList := FListRegion.IncreaseCapacity(Capacity);
+  FCount := 0;
 end;
 
 procedure TsgPointerArray.Free;
@@ -1512,9 +1521,9 @@ end;
 
 procedure TCustomLinkedList.Sort(Compare: TListSortCompare);
 var
-  n: Integer;
+  i, n: Integer;
   pa: TsgPointerArray;
-  p: PItem;
+  p, q: PItem;
 begin
   n := Count;
   if n <= 1 then exit;
@@ -1527,6 +1536,19 @@ begin
       p := p.next;
     end;
     pa.Sort(Compare);
+    q := nil;
+    for i := 1 to pa.Count - 1 do
+    begin
+      p := pa.Items[i];
+      if i = 0 then
+        FHead := p
+      else
+        q.next := p;
+      p.prev := q;
+      q := p;
+    end;
+    FLast := p;
+    p.next := nil;
   finally
     pa.Free
   end;
@@ -1552,16 +1574,8 @@ begin
 end;
 
 function TsgLinkedList<T>.TIterator.Eol: Boolean;
-var
-  p: TCustomLinkedList.PItem;
 begin
-  if Item = nil then
-    Result := True
-  else
-  begin
-    p := Item.Link.next;
-    Result := (p = nil) or (p.next = nil);
-  end;
+  Result := (Item = nil) or (Item.Link.next = nil);
 end;
 
 function TsgLinkedList<T>.TIterator.Bol: Boolean;
@@ -2335,19 +2349,38 @@ end;
 
 {$Region 'TsgLog'}
 
-class procedure TsgLog.print(const Msg: string);
+procedure TsgLog.Init;
 begin
-  if not Assigned(FPrint) then exit;
-  FPrint(Msg);
+  FLog := TStringList.Create;
 end;
 
-class procedure TsgLog.print(const Msg: string; const Args: array of const);
+procedure TsgLog.Free;
+begin
+  FreeAndNil(FLog);
+end;
+
+procedure TsgLog.SaveToFile(const filename: string);
+begin
+  FLog.SaveToFile(filename);
+  FLog.Clear;
+end;
+
+procedure TsgLog.AddLine(const Msg: string);
+begin
+  FLog.Add(Msg);
+end;
+
+procedure TsgLog.print(const Msg: string);
+begin
+  AddLine(Msg);
+end;
+
+procedure TsgLog.print(const Msg: string; const Args: array of const);
 var
   i: Integer;
   s, v: string;
   Arg: TVarRec;
 begin
-  if not Assigned(FPrint) then exit;
   s := Msg;
   for i := 0 to High(Args) do
   begin
@@ -2368,18 +2401,17 @@ begin
     end;
     s := s + v;
   end;
-  FPrint(s);
+  AddLine(s);
 end;
 
-class procedure TsgLog.Msg(const Msg: string);
+procedure TsgLog.Msg(const Msg: string);
 begin
-  if not Assigned(FMsg) then exit;
-  FMsg(Msg);
+  AddLine(Msg);
 end;
 
-class procedure TsgLog.Msg(const fmt: string; const Args: array of const);
+procedure TsgLog.Msg(const fmt: string; const Args: array of const);
 begin
-  Msg(Format(fmt, Args));
+  AddLine(Format(fmt, Args));
 end;
 
 {$EndRegion}

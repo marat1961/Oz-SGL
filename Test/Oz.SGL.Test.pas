@@ -106,6 +106,7 @@ type
     List: TsgLinkedList<TPerson>;
     procedure SetUp; override;
     procedure TearDown; override;
+    procedure DumpList;
   published
     procedure _Clear;
     procedure _Empty;
@@ -121,8 +122,8 @@ type
     procedure _Sort;
     procedure _Next;
     procedure _Prev;
-    function _Eol: Boolean;
-    function _Bol: Boolean;
+    procedure _Eol;
+    procedure _Bol;
   end;
 
 {$EndRegion}
@@ -427,11 +428,25 @@ end;
 procedure TsgLinkedListTest.SetUp;
 begin
   List.Init(FreePerson);
+  log.Init;
 end;
 
 procedure TsgLinkedListTest.TearDown;
 begin
   List.Free;
+  log.Free;
+end;
+
+procedure TsgLinkedListTest.DumpList;
+var
+  it: TsgLinkedList<TPerson>.TIterator;
+begin
+  it := List.Front;
+  while not it.Eol do
+  begin
+    log.print('Person id=', [it.Value.id, ', "', it.Value.name, '"']);
+    it.Next;
+  end;
 end;
 
 procedure TsgLinkedListTest._Clear;
@@ -480,12 +495,16 @@ end;
 procedure TsgLinkedListTest._Count;
 var
   p: TPerson;
+  i: Integer;
 begin
   CheckTrue(List.Count = 0);
   p.id := 1;
   p.name := 'Nick';
-  List.PushBack(p);
+  List.PushFront(p);
   CheckTrue(List.Count = 1);
+  for i := 1 to 5 do
+    List.PushBack(p);
+  CheckTrue(List.Count = 6);
 end;
 
 procedure TsgLinkedListTest._Front;
@@ -500,7 +519,7 @@ begin
   p.name := 'Nick';
   List.PushBack(p);
   it := List.Front;
-  CheckTrue(it.Eol and it.Bol);
+  CheckTrue(not it.Eol and it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -524,7 +543,8 @@ begin
   p.name := 'Nick';
   List.PushBack(p);
   it := List.Back;
-  CheckTrue(it.Eol and it.Bol);
+  CheckTrue(not it.Eol);
+  CheckTrue(not it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -548,7 +568,7 @@ begin
   p.name := 'Nick';
   List.PushFront(p);
   it := List.Front;
-  CheckTrue(it.Eol and it.Bol);
+  CheckTrue(not it.Eol and it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -577,7 +597,7 @@ begin
   p.name := 'Nick';
   List.PushBack(p);
   it := List.Front;
-  CheckTrue(it.Eol and it.Bol);
+  CheckTrue(not it.Eol and it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -740,9 +760,44 @@ begin
   end;
 end;
 
-procedure TsgLinkedListTest._Sort;
+function PersonIdCompare(a, b: Pointer): Integer;
+type
+  TIter = TsgLinkedList<TPerson>.TIterator;
 begin
+  Result := TIter(a).Value.id - TIter(b).Value.id;
+end;
 
+procedure TsgLinkedListTest._Sort;
+const
+  N = 4;
+var
+  i, d: Cardinal;
+  it: TsgLinkedList<TPerson>.TIterator;
+  p: TPerson;
+begin
+  CheckTrue(List.Count = 0);
+  for i := 0 to N do
+  begin
+    d := Random(1000);
+    p.id := d;
+    p.name := 'S' + IntToStr(d);
+    List.PushFront(p);
+  end;
+  DumpList;
+  log.SaveToFile('sort1.txt');
+  List.Sort(PersonIdCompare);
+  it := List.Front;
+  for i := 0 to N do
+  begin
+    if i = 0 then
+     d := it.Value.id
+    else
+    begin
+//      CheckTrue(it.Value.id > d);
+      d := it.Value.id;
+    end;
+    it.Next;
+  end;
 end;
 
 procedure TsgLinkedListTest._Next;
@@ -755,12 +810,16 @@ begin
 
 end;
 
-function TsgLinkedListTest._Eol: Boolean;
+procedure TsgLinkedListTest._Eol;
+var
+  b: Boolean;
 begin
 
 end;
 
-function TsgLinkedListTest._Bol: Boolean;
+procedure TsgLinkedListTest._Bol;
+var
+  b: Boolean;
 begin
 
 end;
