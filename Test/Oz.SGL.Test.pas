@@ -785,7 +785,7 @@ end;
 
 procedure TsgLinkedListTest._Sort;
 const
-  N = 4;
+  N = 500;
 var
   i, d: Cardinal;
   it: TsgLinkedList<TPerson>.TIterator;
@@ -794,7 +794,7 @@ begin
   CheckTrue(List.Count = 0);
   for i := 0 to N do
   begin
-    d := Random(1000);
+    d := Random(100000);
     p.id := d;
     p.name := 'S' + IntToStr(d);
     List.PushFront(p);
@@ -809,11 +809,13 @@ begin
      d := it.Value.id
     else
     begin
-//      CheckTrue(it.Value.id > d);
+      CheckTrue(it.Value.id >= d);
       d := it.Value.id;
     end;
     it.Next;
   end;
+  DumpList;
+  log.SaveToFile('sort2.txt');
 end;
 
 procedure TsgLinkedListTest._Next;

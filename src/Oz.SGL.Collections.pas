@@ -1549,7 +1549,7 @@ begin
     end;
     pa.Sort(Compare);
     q := nil;
-    for i := 1 to pa.Count - 1 do
+    for i := 0 to pa.Count - 1 do
     begin
       p := pa.Items[i];
       if i = 0 then
@@ -1559,8 +1559,7 @@ begin
       p.prev := q;
       q := p;
     end;
-    FLast := p;
-    p.next := nil;
+    p.next := FLast;
   finally
     pa.Free
   end;
