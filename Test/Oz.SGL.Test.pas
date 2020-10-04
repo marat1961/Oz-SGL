@@ -774,6 +774,13 @@ begin
     CheckTrue(it.Value.name = IntToStr(N - i));
     it.Next;
   end;
+  it := List.Back;
+  for i := 0 to N do
+  begin
+    CheckTrue(it.Value.id = i);
+    CheckTrue(it.Value.name = IntToStr(i));
+    it.Prev;
+  end;
 end;
 
 function PersonIdCompare(a, b: Pointer): Integer;

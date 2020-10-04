@@ -1517,18 +1517,24 @@ end;
 
 procedure TCustomLinkedList.Reverse;
 var
-  p, q, t: PItem;
+  q, p, n: PItem;
 begin
   if Empty then exit;
+  q := FLast;
   p := FHead;
+  n := FHead;
   while p <> FLast do
   begin
-    // exchange
-    q := p.next;
-    t := p.prev; p.prev := p; p.next := t;
-    p := q;
+    n := n.next;
+    p.prev := n;
+    p.next := q;
+    q := p;
+    p := n;
   end;
-  t := FHead; FHead := FLast; FLast := t;
+  FLast.prev := FHead;
+  FHead.next := nil;
+  FHead := q;
+  FHead.prev := nil;
 end;
 
 procedure TCustomLinkedList.Sort(Compare: TListSortCompare);
