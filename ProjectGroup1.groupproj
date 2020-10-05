@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{B5656960-702A-405F-A859-3AF8C9D3CD71}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="Sgl.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Test\SglTests.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="Sgl">
+        <MSBuild Projects="Sgl.dproj"/>
+    </Target>
+    <Target Name="Sgl:Clean">
+        <MSBuild Projects="Sgl.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Sgl:Make">
+        <MSBuild Projects="Sgl.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="SglTests">
+        <MSBuild Projects="Test\SglTests.dproj"/>
+    </Target>
+    <Target Name="SglTests:Clean">
+        <MSBuild Projects="Test\SglTests.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="SglTests:Make">
+        <MSBuild Projects="Test\SglTests.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="Sgl;SglTests"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="Sgl:Clean;SglTests:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="Sgl:Make;SglTests:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
