@@ -79,6 +79,7 @@
         <DCC_ExeOutput>.\bin\$(Config)\$(Platform)</DCC_ExeOutput>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Manifest_File>(None)</Manifest_File>
+        <DCC_UnitSearchPath>..\..\Components\FastMM4;$(BDS)\Source\DUnit\src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>

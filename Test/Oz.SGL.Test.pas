@@ -136,8 +136,6 @@ type
     procedure _PopBack;
     procedure _Reverse;
     procedure _Sort;
-    procedure _Next;
-    procedure _Prev;
     procedure _Eol;
     procedure _Bol;
   end;
@@ -560,7 +558,7 @@ begin
   List.PushBack(p);
   it := List.Back;
   CheckTrue(not it.Eol);
-  CheckTrue(not it.Bol);
+  CheckTrue(it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -569,7 +567,7 @@ begin
   it := List.Back;
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
-  CheckTrue(it.Eol and not it.Bol);
+  CheckTrue(not it.Eol and not it.Bol);
 end;
 
 procedure TsgLinkedListTest._PushFront;
@@ -825,28 +823,58 @@ begin
   log.SaveToFile('sort2.txt');
 end;
 
-procedure TsgLinkedListTest._Next;
-begin
-
-end;
-
-procedure TsgLinkedListTest._Prev;
-begin
-
-end;
-
 procedure TsgLinkedListTest._Eol;
 var
-  b: Boolean;
+  i: Cardinal;
+  it: TsgLinkedList<TPerson>.TIterator;
+  p: TPerson;
 begin
-
+  CheckTrue(List.Count = 0);
+  it := List.Front;
+  CheckTrue(it.Eol);
+  for i := 0 to 9 do
+  begin
+    p.id := i;
+    p.name := IntToStr(i);
+    List.PushBack(p);
+  end;
+  it := List.Front;
+  i := 0;
+  while not it.Eol do
+  begin
+    CheckTrue(it.Value.id = i);
+    CheckTrue(it.Value.name = IntToStr(i));
+    it.Next;
+    Inc(i);
+  end;
+  CheckTrue(i = 10);
 end;
 
 procedure TsgLinkedListTest._Bol;
 var
-  b: Boolean;
+  i: Cardinal;
+  it: TsgLinkedList<TPerson>.TIterator;
+  p: TPerson;
 begin
-
+  CheckTrue(List.Count = 0);
+  it := List.Front;
+  CheckTrue(it.Eol);
+  for i := 0 to 9 do
+  begin
+    p.id := i;
+    p.name := IntToStr(i);
+    List.PushFront(p);
+  end;
+  it := List.Back;
+  i := 0;
+  while not it.Bol do
+  begin
+    CheckTrue(it.Value.id = i);
+    CheckTrue(it.Value.name = IntToStr(i));
+    it.Prev;
+    Inc(i);
+  end;
+  CheckTrue(i = 10);
 end;
 
 {$EndRegion}

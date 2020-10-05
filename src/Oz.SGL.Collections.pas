@@ -265,11 +265,11 @@ type
       procedure Next;
       // Go to the previous node
       procedure Prev;
-      // End of the list
+      // Iterator at the end of the list.
       function Eol: Boolean;
-      // Beginning of the list
+      // Iterator before the beginning of the list.
       function Bol: Boolean;
-      // pointer to Value
+      // Pointer to Value
       property Value: PValue read GetValue;
     end;
   private
@@ -1597,7 +1597,7 @@ end;
 
 function TsgLinkedList<T>.TIterator.Bol: Boolean;
 begin
-  Result := (Item = nil) or (Item.Link.prev = nil);
+  Result := Item = nil;
 end;
 
 {$EndRegion}
