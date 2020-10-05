@@ -1597,7 +1597,7 @@ end;
 
 function TsgLinkedList<T>.TIterator.Bol: Boolean;
 begin
-  Result := Item = nil;
+  Result := (Item = nil) or (Item.Link.next = nil);
 end;
 
 {$EndRegion}

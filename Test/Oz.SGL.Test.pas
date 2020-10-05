@@ -533,7 +533,7 @@ begin
   p.name := 'Nick';
   List.PushBack(p);
   it := List.Front;
-  CheckTrue(not it.Eol and it.Bol);
+  CheckTrue(not it.Eol and not it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -542,7 +542,7 @@ begin
   it := List.Front;
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
-  CheckTrue(not it.Eol and it.Bol);
+  CheckTrue(not it.Eol and not it.Bol);
 end;
 
 procedure TsgLinkedListTest._Back;
@@ -557,8 +557,7 @@ begin
   p.name := 'Nick';
   List.PushBack(p);
   it := List.Back;
-  CheckTrue(not it.Eol);
-  CheckTrue(it.Bol);
+  CheckTrue(not it.Eol and not it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -582,7 +581,7 @@ begin
   p.name := 'Nick';
   List.PushFront(p);
   it := List.Front;
-  CheckTrue(not it.Eol and it.Bol);
+  CheckTrue(not it.Eol and not it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
@@ -611,7 +610,7 @@ begin
   p.name := 'Nick';
   List.PushBack(p);
   it := List.Front;
-  CheckTrue(not it.Eol and it.Bol);
+  CheckTrue(not it.Eol and not it.Bol);
   CheckTrue(it.Value.id = p.id);
   CheckTrue(it.Value.name = p.name);
   p.id := 2;
