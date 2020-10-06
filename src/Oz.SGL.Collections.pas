@@ -28,7 +28,7 @@ uses
 
 {$T+}
 
-{$Region 'TsgList<T>: List of records using the memory pool'}
+{$Region 'TsgList<T>: Generic List of Values'}
 
 type
 
@@ -66,7 +66,7 @@ type
 
   TsgList<T> = record
   private type
-    TItems = array [0..High(Word)] of T;
+    TItems = array [0 .. High(Word)] of T;
     PItems = ^TItems;
     PItem = ^T;
   private
@@ -97,7 +97,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgPointerArray: Array of pointers'}
+{$Region 'TsgPointerArray: Untyped List of Pointers'}
 
   // An array of pointers for quick sorting and searching.
   TsgPointerArray = record
@@ -119,7 +119,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgPointerList: List of pointers using a memory pool'}
+{$Region 'TsgPointerList: Untyped List of Values accessed by pointer'}
 
   TItemFunc = reference to function(Item: Pointer): Boolean;
 
@@ -160,9 +160,9 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgRecordList<T: record>: Generic list using a memory pool'}
+{$Region 'TsgRecordList<T>: Generic List of Values accessed by pointer'}
 
-  TsgRecordList<T: record> = record
+  TsgRecordList<T> = record
   type
     PItem = ^T;
   private
@@ -192,7 +192,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TCustomLinkedList: Untyped Linked List'}
+{$Region 'TCustomLinkedList: Untyped Bidirectional Linked List'}
 
   TCustomLinkedList = record
   type
@@ -246,9 +246,9 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgLinkedList<T: record>: Generic Linked List'}
+{$Region 'TsgLinkedList<T>: Generic Bidirectional Linked List'}
 
-  TsgLinkedList<T: record> = record
+  TsgLinkedList<T> = record
   type
     PItem = ^TItem;
     TItem = record
@@ -320,7 +320,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgHashMap<Key, T>: Unordered dictionary'}
+{$Region 'TsgHashMap<Key, T>: Generic Unordered dictionary'}
 
   TsgHashMapIterator<Key, T> = record
   type
@@ -402,8 +402,8 @@ type
       left, right: PNode;
       case Integer of
         0: (lh, rh: Boolean);
-        1: (forAlignment: Int64);   // field for area alignment
-                                    // memory in different memory models
+        1: (forAlignment: Int64);   // field for memory alignment
+                                    // in different memory models (32 or 64 bit)
     end;
   private
     Stack: array of PNode;
@@ -421,7 +421,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgCustomTree: Dictionary based on 2-3 trees'}
+{$Region 'TsgCustomTree: Untyped Dictionary based on 2-3 trees'}
 
   TsgCustomTree = record
   private type
@@ -464,9 +464,9 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgMap<Key, T>: Dictionary based on 2-3 tree'}
+{$Region 'TsgMap<Key, T>: Generic Dictionary based on 2-3 tree'}
 
-  {$Region 'TsgMapIterator<Key, T>: Iterator for 2-3 tree'}
+  {$Region 'TsgMapIterator<Key, T>: Generic Iterator for 2-3 tree'}
 
   TsgMapIterator<Key: record; T: record> = record
   type
