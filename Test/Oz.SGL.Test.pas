@@ -38,6 +38,9 @@ uses
 
 {$T+}
 
+const
+  ItemsCount = 3000;
+
 type
 
 {$Region 'TsgTestRecord'}
@@ -85,11 +88,30 @@ type
 
 {$EndRegion}
 
+{$Region 'TestTsgList'}
+
+  TestTsgList = class(TTestCase)
+  public
+    List: TsgList<TsgTestRecord>;
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestAdd;
+    procedure TestAdd1;
+    procedure TestDelete;
+    procedure TestInsert;
+    procedure TestRemove;
+    procedure TestExchange;
+    procedure TestSort;
+    procedure TestReverse;
+    procedure TestAssign;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgRecordListTest'}
 
   TsgRecordListTest = class(TTestCase)
-  const
-    ItemsCount = 10000;
   public
     List: TsgRecordList<TsgTestRecord>;
     procedure SetUp; override;
@@ -252,6 +274,202 @@ begin
     end;
   finally
     r.Free;
+  end;
+end;
+
+{$EndRegion}
+
+{$Region 'TestTsgList'}
+
+procedure TestTsgList.SetUp;
+begin
+  List := TsgList<TsgTestRecord>.From(nil);
+end;
+
+procedure TestTsgList.TearDown;
+begin
+  List.Clear;
+end;
+
+procedure TestTsgList.TestAdd;
+var
+  i, j: Integer;
+  a, b: TsgTestRecord;
+  p: PsgTestRecord;
+begin
+  for i := 1 to ItemsCount do
+  begin
+    a.Init(i, i + 1);
+    a.e.tag := i;
+    List.Add(a);
+    CheckTrue(List.Count = i);
+    // считать и проверить содержимое
+    b := List.Items[i - 1];
+    CheckTrue(b.v = i);
+    CheckTrue(a.Equals(b));
+    // проверить все ранее добавленные значения
+    for j := 1 to i do
+    begin
+      a.Init(j, j + 1);
+      a.e.tag := j;
+      b := List.Items[j - 1];
+      CheckTrue(b.v = j);
+      CheckTrue(a.Equals(b));
+    end;
+  end;
+  i := 0;
+  for p in List do
+  begin
+    Inc(i);
+    CheckTrue(p.e.tag = i);
+  end;
+end;
+
+procedure TestTsgList.TestAdd1;
+var
+  v, r: TsgTestRecord;
+begin
+  CheckTrue(List.Count = 0);
+  v.Init(457, 0);
+  List.Add(v);
+  r := List.Items[0];
+  CheckTrue(r.Equals(v));
+end;
+
+procedure TestTsgList.TestDelete;
+var
+  i: Integer;
+  v, r: TsgTestRecord;
+begin
+  for i := 0 to 99 do
+  begin
+    v.Init(i, i);
+    List.Add(v);
+  end;
+  CheckTrue(List.Count = 100);
+  r := List.Items[5];
+  CheckTrue(r.v = 5);
+  List.Delete(5);
+  CheckTrue(List.Count = 99);
+  r := List.Items[5];
+  CheckTrue(r.v = 6);
+end;
+
+procedure TestTsgList.TestInsert;
+var
+  i: Integer;
+  v, r: TsgTestRecord;
+begin
+  for i := 0 to 99 do
+  begin
+    v.Init(i, i);
+    List.Add(v);
+  end;
+  CheckTrue(List.Count = 100);
+  r := List.Items[5];
+  CheckTrue(r.v = 5);
+  v.Init(225, 225);
+  List.Insert(5, v);
+  r := List.Items[5];
+  CheckTrue(r.v = 225);
+  r := List.Items[6];
+  CheckTrue(r.v = 5);
+end;
+
+procedure TestTsgList.TestRemove;
+begin
+
+end;
+
+procedure TestTsgList.TestExchange;
+var
+  a, b, c, d, r: TsgTestRecord;
+  j: Integer;
+  i: Integer;
+begin
+  a.Init(1, 1);
+  b.Init(23, 2);
+  c.Init(45, 3);
+  d.Init(-45, 4);
+  List.Add(a);
+  List.Add(b);
+  i := 1;
+  List.Add(c);
+  List.Add(d);
+  j := 3;
+  List.Add(a);
+  List.Add(a);
+  r := List.Items[i];
+  CheckTrue(r.Equals(b));
+  r := List.Items[j];
+  CheckTrue(r.Equals(d));
+  List.Exchange(i, j);
+  r := List.Items[i];
+  CheckTrue(r.Equals(d));
+  r := List.Items[j];
+  CheckTrue(r.Equals(b));
+end;
+
+procedure TestTsgList.TestSort;
+var
+  i: Integer;
+  a: TsgTestRecord;
+begin
+  for i := 1 to ItemsCount do
+  begin
+    a.Init(i, i);
+    List.Add(a);
+  end;
+  CheckTrue(List.Count = ItemsCount);
+  List.Reverse;
+  for i := 0 to ItemsCount - 1 do
+  begin
+    a := List.Items[i];
+    if a.v <> ItemsCount - i then
+      CheckTrue(a.v = ItemsCount - i);
+  end;
+  List.Sort(TestRecordCompare);
+  for i := 0 to ItemsCount - 1 do
+  begin
+    a := List.Items[i];
+    CheckTrue(a.v = i + 1);
+  end;
+end;
+
+procedure TestTsgList.TestReverse;
+var
+  i: Integer;
+  a: TsgTestRecord;
+begin
+  for i := 1 to ItemsCount do
+  begin
+    a.Init(i, i);
+    List.Add(a);
+  end;
+  List.Reverse;
+  for i := 0 to ItemsCount - 1 do
+  begin
+    a := List.Items[i];
+    if a.v <> ItemsCount - i then
+      CheckTrue(a.v = ItemsCount - i);
+  end;
+end;
+
+procedure TestTsgList.TestAssign;
+var
+  Source: TsgList<TsgTestRecord>;
+  v, r: TsgTestRecord;
+begin
+  Source := TsgList<TsgTestRecord>.From(nil);
+  try
+    v.Init(25, 1);
+    Source.Add(v);
+    List.Assign(Source);
+    CheckTrue(List.Count = 1);
+    r := List.Items[0];
+    CheckTrue(r.Equals(v));
+  finally
+    Source.Clear;
   end;
 end;
 
@@ -883,6 +1101,7 @@ initialization
   // Oz.SGL.Heap
   RegisterTest(THeapPoolTest.Suite);
   // Oz.SGL.Collections
+  RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgRecordListTest.Suite);
   RegisterTest(TsgLinkedListTest.Suite);
 
