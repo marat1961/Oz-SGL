@@ -41,7 +41,7 @@ type
     PUInt64s = array of UInt64;
     function GetFItems: PPointer; inline;
     function Compare(const Left, Right): Boolean;
-  private type
+  public type
     TEnumerator = record
     private
       FValue: PsgListHelper;
@@ -80,9 +80,10 @@ type
     TItems = array [0 .. High(Word)] of T;
     PItems = ^TItems;
     PItem = ^T;
+  public type
     TEnumerator = record
     private
-      Enumerator: TsgListHelper.TEnumerator;
+      FEnumerator: TsgListHelper.TEnumerator;
       function GetCurrent: PItem; inline;
     public
       constructor From(const Value: TsgListHelper);
@@ -110,7 +111,7 @@ type
     procedure Assign(Source: TsgList<T>); inline;
     function GetPtr(Index: Integer): PItem; inline;
     function IsEmpty: Boolean; inline;
-    function GetEnumerator: TEnumerator; reintroduce; inline;
+    function GetEnumerator: TEnumerator; inline;
     property Count: Integer read FListHelper.FCount write SetCount;
     property Items[Index: Integer]: T read GetItem write SetItem; default;
     property List: PItems read FItems;
@@ -121,11 +122,23 @@ type
 {$Region 'TsgPointerArray: Untyped List of Pointers'}
 
   // An array of pointers for quick sorting and searching.
+  PsgPointerArray = ^TsgPointerArray;
   TsgPointerArray = record
+  public type
+    TEnumerator = record
+    private
+      FPointers: PsgPointerArray;
+      FIndex: Integer;
+      function GetCurrent: Pointer;
+    public
+      constructor From(const Pointers: TsgPointerArray);
+      function MoveNext: Boolean;
+      property Current: Pointer read GetCurrent;
+    end;
   private
     // region for pointers
-    FListRegion: PMemoryRegion;
     FList: PsgPointers;
+    FListRegion: PMemoryRegion;
     FCount: Integer;
     function Get(Index: Integer): Pointer;
     procedure Put(Index: Integer; Item: Pointer);
@@ -134,6 +147,7 @@ type
     procedure Free;
     procedure Add(ptr: Pointer);
     procedure Sort(Compare: TListSortCompare);
+    function GetEnumerator: TEnumerator;
     property Count: Integer read FCount;
     property Items[Index: Integer]: Pointer read Get write Put;
   end;
@@ -975,17 +989,17 @@ end;
 
 constructor TsgList<T>.TEnumerator.From(const Value: TsgListHelper);
 begin
-  Enumerator := TsgListHelper.TEnumerator.From(Value);
+  FEnumerator := TsgListHelper.TEnumerator.From(Value);
 end;
 
 function TsgList<T>.TEnumerator.GetCurrent: PItem;
 begin
-  Result := PItem(Enumerator.GetCurrent);
+  Result := PItem(FEnumerator.GetCurrent);
 end;
 
 function TsgList<T>.TEnumerator.MoveNext: Boolean;
 begin
-  Result := Enumerator.MoveNext;
+  Result := FEnumerator.MoveNext;
 end;
 
 {$EndRegion}
@@ -1081,6 +1095,27 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgPointerArray.TEnumerator'}
+
+constructor TsgPointerArray.TEnumerator.From(const Pointers: TsgPointerArray);
+begin
+  FPointers := @Pointers;
+  FIndex := -1;
+end;
+
+function TsgPointerArray.TEnumerator.GetCurrent: Pointer;
+begin
+  Result := FPointers.Get(FIndex);
+end;
+
+function TsgPointerArray.TEnumerator.MoveNext: Boolean;
+begin
+  Inc(FIndex);
+  Result := FIndex < FPointers.FCount;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgPointerArray: Array of pointers'}
 
 constructor TsgPointerArray.From(Capacity: Integer);
@@ -1099,6 +1134,11 @@ function TsgPointerArray.Get(Index: Integer): Pointer;
 begin
   CheckIndex(Index, FCount);
   Result := FList[Index];
+end;
+
+function TsgPointerArray.GetEnumerator: TEnumerator;
+begin
+  Result := TEnumerator.From(Self);
 end;
 
 procedure TsgPointerArray.Put(Index: Integer; Item: Pointer);
