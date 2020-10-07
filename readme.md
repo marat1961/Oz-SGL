@@ -81,8 +81,15 @@ At the place of the method call, there will be a direct call to the aggregate st
   - `TCustomLinkedList` Untyped Bidirectional Linked List
   - `TsgCustomTree` Untyped Dictionary based on 2-3 trees 
 
-Memory allocator
-----------------
+## Iterators
+We've started adding Delphi iterators.
+Now we can use the construction `for p in List do;`
+The most interesting thing is that we use **record** to implement the iterator and it works!
+Compared to using objects, the generated code is much more efficient and, which is nice,
+no calls to the heap, the variable for the iterator is located on the stack.
+This turned out to be quite a pleasant surprise for me!
+
+## Memory allocator
 The ability to specify a memory allocator also means that we work mainly with records.
 Typically, some structure uses one or more memory regions, which is a simple memory manager.
 After using the structure, we have the opportunity
@@ -92,8 +99,7 @@ In some cases, we can replace inheritance with aggregation and helpers.
 Typically for implementing collections, this is not a problem.
 Using records allows collections to be stacked. This is sometimes very convenient.
 
-Object pool
-------------
+## Object pool
 An object pool allows you to manage the reuse of structures when creating objects 
 is memory intensive or when a limited number of objects of a certain type can be created.
 
