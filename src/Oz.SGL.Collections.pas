@@ -41,6 +41,17 @@ type
     PUInt64s = array of UInt64;
     function GetFItems: PPointer; inline;
     function Compare(const Left, Right): Boolean;
+  private type
+    TEnumerator = record
+    private
+      FValue: PsgListHelper;
+      FIndex: Integer;
+      function GetCurrent: Pointer;
+    public
+      constructor From(const Value: TsgListHelper);
+      function MoveNext: Boolean;
+      property Current: Pointer read GetCurrent;
+    end;
   private
     FRegion: PMemoryRegion;
     FCount: Integer;
@@ -69,10 +80,19 @@ type
     TItems = array [0 .. High(Word)] of T;
     PItems = ^TItems;
     PItem = ^T;
+    TEnumerator = record
+    private
+      Enumerator: TsgListHelper.TEnumerator;
+      function GetCurrent: PItem; inline;
+    public
+      constructor From(const Value: TsgListHelper);
+      function MoveNext: Boolean; inline;
+      property Current: PItem read GetCurrent;
+    end;
   private
-    FOnFree: TFreeProc;
     FListHelper: TsgListHelper; // FListHelper must be before FItems
     FItems: PItems; // FItems must be after FListHelper
+    FOnFree: TFreeProc;
     function GetItem(Index: Integer): T;
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
@@ -90,6 +110,7 @@ type
     procedure Assign(Source: TsgList<T>); inline;
     function GetPtr(Index: Integer): PItem; inline;
     function IsEmpty: Boolean; inline;
+    function GetEnumerator: TEnumerator; reintroduce; inline;
     property Count: Integer read FListHelper.FCount write SetCount;
     property Items[Index: Integer]: T read GetItem write SetItem; default;
     property List: PItems read FItems;
@@ -589,6 +610,7 @@ type
     procedure Msg(const Msg: string); overload; inline;
     procedure Msg(const fmt: string;
       const Args: array of const); overload;
+    property LocalDebug: Boolean read FLocalDebug write FLocalDebug;
   end;
 
 {$EndRegion}
@@ -691,6 +713,27 @@ begin
     ShortSort(L, R)
   else
     Sort(L, R);
+end;
+
+{$EndRegion}
+
+{$Region 'TsgListHelper.TEnumerator'}
+
+constructor TsgListHelper.TEnumerator.From(const Value: TsgListHelper);
+begin
+  FValue := @Value;
+  FIndex := -1;
+end;
+
+function TsgListHelper.TEnumerator.GetCurrent: Pointer;
+begin
+  Result := FValue.GetPtr(FIndex);
+end;
+
+function TsgListHelper.TEnumerator.MoveNext: Boolean;
+begin
+  Inc(FIndex);
+  Result := FIndex < FValue.FCount;
 end;
 
 {$EndRegion}
@@ -928,6 +971,25 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgList<T>.TEnumerator'}
+
+constructor TsgList<T>.TEnumerator.From(const Value: TsgListHelper);
+begin
+  Enumerator := TsgListHelper.TEnumerator.From(Value);
+end;
+
+function TsgList<T>.TEnumerator.GetCurrent: PItem;
+begin
+  Result := PItem(Enumerator.GetCurrent);
+end;
+
+function TsgList<T>.TEnumerator.MoveNext: Boolean;
+begin
+  Result := Enumerator.MoveNext;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgList<T>'}
 
 constructor TsgList<T>.From(OnFree: TFreeProc);
@@ -989,6 +1051,11 @@ end;
 function TsgList<T>.GetPtr(Index: Integer): PItem;
 begin
   Result := FListHelper.GetPtr(Index);
+end;
+
+function TsgList<T>.GetEnumerator: TEnumerator;
+begin
+  Result := TEnumerator.From(FListHelper);
 end;
 
 function TsgList<T>.GetItem(Index: Integer): T;
