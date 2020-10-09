@@ -1974,7 +1974,10 @@ end;
 
 constructor TsgTreeIterator.Init(Root, Sentinel: PNode);
 begin
-  Stack := [Sentinel, Root, Root];
+  SetLength(Stack, 3);
+  Stack[0] := Sentinel;
+  Stack[1] := Root;
+  Stack[2] := Root;
 end;
 
 function TsgTreeIterator.GetItem: Pointer;
@@ -2028,7 +2031,9 @@ end;
 
 procedure TsgTreeIterator.Push(Item: Pointer);
 begin
-  System.Insert(Item, Stack, MaxInt);
+  // original: System.Insert(Item, Stack, MaxInt);
+  SetLength(Stack, Length(Stack) + 1);
+  Stack[Length(Stack) - 1] := Item;
 end;
 
 function TsgTreeIterator.Empty: Boolean;
@@ -2119,8 +2124,10 @@ begin
 end;
 
 procedure TsgCustomTree.InsertOrAssign(pval: Pointer);
+var
+  prm: TParams;
 begin
-  var prm := TParams.From(TsgTreeAction.taInsertOrAssign);
+  prm := TParams.From(TsgTreeAction.taInsertOrAssign);
   prm.pval := pval;
   Search(root, prm);
 end;
