@@ -46,7 +46,7 @@ type
 {$Region 'TsgTestRecord'}
 
   TsgId = record
-    v: Cardinal;
+    v: Integer;
   end;
 
   PsgEntry = ^TsgEntry;
@@ -70,7 +70,7 @@ type
 
   PPerson = ^TPerson;
   TPerson = record
-    id: Cardinal;
+    id: Integer;
     name: string;
     class function GenName(d: Integer): string; static;
     constructor From(const name: string);
@@ -416,6 +416,7 @@ begin
     Inc(i);
     CheckTrue(p.e.tag = i);
   end;
+  CheckTrue(i = ItemsCount);
 end;
 
 procedure TestTsgList.TestAdd1;
@@ -606,6 +607,7 @@ begin
     CheckTrue(a.e.tag = i);
     CheckTrue(a.e.h.v = i + 1);
   end;
+  CheckTrue(i = ItemsCount);
 end;
 
 procedure TsgRecordListTest._Add;
@@ -1061,11 +1063,13 @@ end;
 
 procedure TsgLinkedListTest._Reverse;
 const
-  N = 4;
+  N = 400;
 var
-  i: Cardinal;
+  i: Integer;
   it: TsgLinkedList<TPerson>.TIterator;
   p: TPerson;
+  pp: PPerson;
+  s: string;
 begin
   CheckTrue(List.Count = 0);
   for i := 0 to N do
@@ -1074,6 +1078,17 @@ begin
     p.name := IntToStr(i);
     List.PushBack(p);
   end;
+
+  i := 0;
+  for pp in List do
+  begin
+    CheckTrue(pp.id = i);
+    s := IntToStr(i);
+    CheckTrue(pp.name = s);
+    Inc(i);
+  end;
+  CheckTrue(i = N + 1);
+
   it := List.Front;
   for i := 0 to N do
   begin
@@ -1102,7 +1117,7 @@ procedure TsgLinkedListTest._Sort;
 const
   N = 500;
 var
-  i, d: Cardinal;
+  i, d: Integer;
   it: TsgLinkedList<TPerson>.TIterator;
   p: TPerson;
 begin
@@ -1135,7 +1150,7 @@ end;
 
 procedure TsgLinkedListTest._Eol;
 var
-  i: Cardinal;
+  i: Integer;
   it: TsgLinkedList<TPerson>.TIterator;
   p: TPerson;
 begin
@@ -1162,7 +1177,7 @@ end;
 
 procedure TsgLinkedListTest._Bol;
 var
-  i: Cardinal;
+  i: Integer;
   it: TsgLinkedList<TPerson>.TIterator;
   p: TPerson;
 begin

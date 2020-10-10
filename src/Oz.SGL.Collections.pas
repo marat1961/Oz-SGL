@@ -251,12 +251,22 @@ type
 
 {$Region 'TCustomLinkedList: Untyped Bidirectional Linked List'}
 
+  PCustomLinkedList = ^TCustomLinkedList;
   TCustomLinkedList = record
   type
     PItem = ^TItem;
     TItem = record
       next: PItem;
       prev: PItem;
+    end;
+    TEnumerator = record
+    private
+      FItem: PItem;
+      function GetCurrent: PItem;
+    public
+      constructor From(const List: TCustomLinkedList);
+      function MoveNext: Boolean;
+      property Current: PItem read GetCurrent;
     end;
   private
     FRegion: PMemoryRegion;
@@ -299,6 +309,8 @@ type
     procedure Reverse;
     // Sorts the elements in ascending order. The order of equal elements is preserved.
     procedure Sort(Compare: TListSortCompare);
+    // Get Delphi Enumerator
+    function GetEnumerator: TEnumerator;
   end;
 
 {$EndRegion}
@@ -313,6 +325,15 @@ type
       Value: T;
     end;
     PValue = ^T;
+    TEnumerator = record
+    private
+      FEnumerator: TCustomLinkedList.TEnumerator;
+      function GetCurrent: PValue; inline;
+    public
+      constructor From(const List: TCustomLinkedList);
+      function MoveNext: Boolean; inline;
+      property Current: PValue read GetCurrent;
+    end;
     TIterator = record
     private
       Item: PItem;
@@ -373,6 +394,8 @@ type
     procedure Reverse; inline;
     // Sorts the elements in ascending order. The order of equal elements is preserved.
     procedure Sort(Compare: TListSortCompare); inline;
+    // Get Delphi Enumerator
+    function GetEnumerator: TEnumerator;
   end;
 
 {$EndRegion}
@@ -1576,6 +1599,26 @@ end;
 
 {$EndRegion}
 
+{$Region 'TCustomLinkedList.TEnumerator'}
+
+constructor TCustomLinkedList.TEnumerator.From(const List: TCustomLinkedList);
+begin
+  FItem := PItem(@List.FHead);
+end;
+
+function TCustomLinkedList.TEnumerator.GetCurrent: PItem;
+begin
+  Result := FItem;
+end;
+
+function TCustomLinkedList.TEnumerator.MoveNext: Boolean;
+begin
+  Result := (FItem <> nil) and (FItem.next <> nil) and (FItem.next.next <> nil);
+  if Result then FItem := FItem.next;
+end;
+
+{$EndRegion}
+
 {$Region 'TCustomLinkedList'}
 
 procedure TCustomLinkedList.Init(ItemSize: Cardinal; OnFree: TFreeProc);
@@ -1588,6 +1631,11 @@ end;
 procedure TCustomLinkedList.Free;
 begin
   FRegion.Free;
+end;
+
+function TCustomLinkedList.GetEnumerator: TEnumerator;
+begin
+  Result := TEnumerator.From(Self);
 end;
 
 procedure TCustomLinkedList.Clear;
@@ -1752,6 +1800,25 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgLinkedList<T>.TEnumerator'}
+
+constructor TsgLinkedList<T>.TEnumerator.From(const List: TCustomLinkedList);
+begin
+  FEnumerator := TCustomLinkedList.TEnumerator.From(List);
+end;
+
+function TsgLinkedList<T>.TEnumerator.GetCurrent: PValue;
+begin
+  Result := @(PItem(FEnumerator.GetCurrent).Value);
+end;
+
+function TsgLinkedList<T>.TEnumerator.MoveNext: Boolean;
+begin
+  Result := FEnumerator.MoveNext;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgLinkedList<T>.TIterator.'}
 
 function TsgLinkedList<T>.TIterator.GetValue: PValue;
@@ -1817,6 +1884,11 @@ end;
 function TsgLinkedList<T>.Front: TIterator;
 begin
   Result.Item := PItem(FList.Front);
+end;
+
+function TsgLinkedList<T>.GetEnumerator: TEnumerator;
+begin
+  Result := TEnumerator.From(FList);
 end;
 
 function TsgLinkedList<T>.Back: TIterator;
