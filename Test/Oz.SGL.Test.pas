@@ -66,6 +66,19 @@ type
 
 {$EndRegion}
 
+{$Region 'TPerson'}
+
+  PPerson = ^TPerson;
+  TPerson = record
+    id: Cardinal;
+    name: string;
+    class function GenName(d: Integer): string; static;
+    constructor From(const name: string);
+    procedure Clear;
+  end;
+
+{$EndRegion}
+
 {$Region 'THeapPoolTest'}
 
   PListNode = ^TListNode;
@@ -75,8 +88,6 @@ type
   end;
 
   THeapPoolTest = class(TTestCase)
-  const
-    ItemsCount = 20000;
   public
     HeapPool: THeapPool;
     procedure SetUp; override;
@@ -131,15 +142,7 @@ type
 
 {$Region 'TsgLinkedListTest'}
 
-  PPerson = ^TPerson;
-  TPerson = record
-    id: Cardinal;
-    name: string;
-  end;
-
   TsgLinkedListTest = class(TTestCase)
-  const
-    ItemsCount = 10000;
   public
     List: TsgLinkedList<TPerson>;
     procedure SetUp; override;
@@ -164,7 +167,39 @@ type
 
 {$EndRegion}
 
+{$Region 'TestTsgSet'}
+
+  TestTsgSet = class(TTestCase)
+  strict private
+    FSet: TsgSet<TPerson>;
+    snn: Integer;
+    procedure CheckSetNode(p: TsgSetIterator<TPerson>.PNode);
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestFind;
+    procedure TestIterator;
+  end;
+
+{$EndRegion}
+
+function PersonIdCompare(a, b: Pointer): Integer;
+function PersonCompare(a, b: Pointer): Integer;
+
 implementation
+
+function PersonIdCompare(a, b: Pointer): Integer;
+type
+  TIter = TsgLinkedList<TPerson>.TIterator;
+begin
+  Result := TIter(a).Value.id - TIter(b).Value.id;
+end;
+
+function PersonCompare(a, b: Pointer): Integer;
+begin
+  Result := CompareText(PPerson(a).name, PPerson(b).name);
+end;
 
 {$Region 'TsgTestRecord'}
 
@@ -185,6 +220,43 @@ type
   PsgTestRecord = ^TsgTestRecord;
 begin
   Result := PsgTestRecord(Left).v - PsgTestRecord(Right).v;
+end;
+
+{$EndRegion}
+
+{$Region 'TPerson'}
+
+constructor TPerson.From(const name: string);
+begin
+  Self.id := 0;
+  Self.name := name;
+end;
+
+procedure TPerson.Clear;
+begin
+  Self := Default(TPerson);
+end;
+
+class function TPerson.GenName(d: Integer): string;
+var
+  n, c: Integer;
+  ch: Char;
+begin
+  n := 5;
+  Result := '';
+  repeat
+    c := d mod 10;
+    d := d div 10;
+    ch := Char(c + Ord('0'));
+    Result := ch + Result;
+    if n > 0 then Dec(n);
+  until d = 0;
+  while n > 0 do
+  begin
+    Result := '0' + Result;
+    Dec(n);
+  end;
+  Result := 'P' + Result;
 end;
 
 {$EndRegion}
@@ -998,13 +1070,6 @@ begin
   end;
 end;
 
-function PersonIdCompare(a, b: Pointer): Integer;
-type
-  TIter = TsgLinkedList<TPerson>.TIterator;
-begin
-  Result := TIter(a).Value.id - TIter(b).Value.id;
-end;
-
 procedure TsgLinkedListTest._Sort;
 const
   N = 500;
@@ -1096,13 +1161,95 @@ end;
 
 {$EndRegion}
 
-initialization
+{$Region 'TestTsgSet'}
 
+procedure ClearSetNode(P: Pointer);
+var
+  Ptr: TsgSetIterator<TPerson>.PNode;
+begin
+  Ptr := TsgSetIterator<TPerson>.PNode(P);
+  Ptr.k.Clear;
+end;
+
+procedure TestTsgSet.SetUp;
+begin
+  FSet.Init(PersonCompare, ClearSetNode);
+end;
+
+procedure TestTsgSet.TearDown;
+begin
+  FSet.Free;
+end;
+
+procedure TestTsgSet.TestFind;
+var
+  i: Integer;
+  it: TsgSetIterator<TPerson>;
+  k, r: TPerson;
+  id: string;
+begin
+  for i := 1 to 50 do
+  begin
+    k.name := TPerson.GenName(i);
+    FSet.Insert(k);
+  end;
+  id := TPerson.GenName(20);
+  it := FSet.Find(TPerson.From(id));
+  CheckTrue(it <> FSet.Ends);
+  r := it.GetKey^;
+  CheckTrue(r.name = id);
+
+  it := FSet.Find(TPerson.From('hjk'));
+  CheckTrue(it = FSet.Ends);
+end;
+
+procedure TestTsgSet.CheckSetNode(p: TsgSetIterator<TPerson>.PNode);
+var
+  r: TPerson;
+  id: string;
+begin
+  r := p.k;
+  id := TPerson.GenName(snn);
+  Check(r.name = id);
+  Inc(snn)
+end;
+
+procedure TestTsgSet.TestIterator;
+var
+  i: Integer;
+  it: TsgSetIterator<TPerson>;
+  k, r: TPerson;
+  id: string;
+begin
+  for i := 1 to 50 do
+  begin
+    id := TPerson.GenName(i);
+    k := TPerson.From(id);
+    FSet.Insert(k);
+    snn := 1;
+    FSet.Inorder(CheckSetNode);
+  end;
+  it := FSet.Begins;
+  r := it.GetKey^;
+
+  for i := 1 to 50 do
+  begin
+    it.Next;
+    r := it.GetKey^;
+    id := TPerson.GenName(i);
+    CheckTrue(r.name = id);
+  end;
+end;
+
+{$EndRegion}
+
+initialization
   // Oz.SGL.Heap
   RegisterTest(THeapPoolTest.Suite);
   // Oz.SGL.Collections
   RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgRecordListTest.Suite);
   RegisterTest(TsgLinkedListTest.Suite);
+  RegisterTest(TestTsgSet.Suite);
 
 end.

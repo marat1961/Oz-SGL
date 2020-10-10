@@ -2030,10 +2030,12 @@ begin
 end;
 
 procedure TsgTreeIterator.Push(Item: Pointer);
+var
+  Idx: Integer;
 begin
-  // original: System.Insert(Item, Stack, MaxInt);
-  SetLength(Stack, Length(Stack) + 1);
-  Stack[Length(Stack) - 1] := Item;
+  Idx := Length(Stack);
+  SetLength(Stack, Idx + 1);
+  Stack[Idx] := Item;
 end;
 
 function TsgTreeIterator.Empty: Boolean;
