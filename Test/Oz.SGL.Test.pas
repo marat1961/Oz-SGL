@@ -167,6 +167,27 @@ type
 
 {$EndRegion}
 
+{$Region 'TestTsgMap'}
+
+  TMapPair = TPair<TPerson, Integer>;
+  PMapPair = ^TMapPair;
+
+  // Test methods for class TsgMap
+  TestTsgMap = class(TTestCase)
+  strict private
+    FMap: TsgMap<TPerson, Integer>;
+    nn: Integer;
+    procedure CheckNode(p: TsgMapIterator<TPerson, Integer>.PNode);
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestFind;
+    procedure TestIterator;
+  end;
+
+{$EndRegion}
+
 {$Region 'TestTsgSet'}
 
   TestTsgSet = class(TTestCase)
@@ -1161,6 +1182,104 @@ end;
 
 {$EndRegion}
 
+{$Region 'TestTsgMap'}
+
+procedure ClearNode(P: Pointer);
+var
+  Ptr: TsgMapIterator<TPerson, Integer>.PNode;
+begin
+  Ptr := TsgMapIterator<TPerson, Integer>.PNode(P);
+  Ptr.k.Clear;
+end;
+
+procedure TestTsgMap.SetUp;
+begin
+  FMap := TsgMap<TPerson, Integer>.From(PersonCompare, ClearNode);
+end;
+
+procedure TestTsgMap.TearDown;
+begin
+  FMap.Free;
+end;
+
+procedure TestTsgMap.TestFind;
+var
+  i: Integer;
+  it: TsgMapIterator<TPerson, Integer>;
+  v: TsgMap<TPerson, Integer>.PItem;
+  pair, r: TMapPair;
+  person: TPerson;
+begin
+  for i := 1 to 50 do
+  begin
+    person.name := TPerson.GenName(i);
+    pair.Key := person;
+    pair.Value := i;
+    FMap.Insert(pair);
+    if i = 1 then
+    begin
+      v := FMap.Get(person);
+      Check(v^ = 1);
+      it := FMap.Find(person);
+      CheckTrue(it <> FMap.Ends);
+      r.Key := it.GetKey^;
+      r.Value := it.GetValue^;
+      CheckTrue(r.Key.name = person.name);
+      CheckTrue(r.Value = 1);
+    end;
+  end;
+  person.name := TPerson.GenName(20);
+  it := FMap.Find(person);
+  CheckTrue(it <> FMap.Ends);
+  r.Key := it.GetKey^;
+  r.Value := it.GetValue^;
+  CheckTrue(r.Key.name = person.name);
+  CheckTrue(r.Value = 20);
+  it := FMap.Find(TPerson.From('lflghjf'));
+  CheckTrue(it = FMap.Ends);
+end;
+
+procedure TestTsgMap.CheckNode(p: TsgMapIterator<TPerson, Integer>.PNode);
+var
+  r: TMapPair;
+begin
+  r := p.pair;
+  Check(r.Value = nn);
+  Inc(nn)
+end;
+
+procedure TestTsgMap.TestIterator;
+var
+  i: Integer;
+  it: TsgMapIterator<TPerson, Integer>;
+  pair, r: TMapPair;
+  id: string;
+begin
+  for i := 1 to 50 do
+  begin
+    id := TPerson.GenName(i);
+    pair.Key := TPerson.From(id);
+    pair.Value := i;
+    FMap.Insert(pair);
+    nn := 1;
+    FMap.Inorder(CheckNode);
+  end;
+  it := FMap.Begins;
+  r.Key := it.GetKey^;
+  r.Value := it.GetValue^;
+  for i := 1 to 50 do
+  begin
+    it.Next;
+    r.Key := it.GetKey^;
+    r.Value := it.GetValue^;
+    id := TPerson.GenName(i);
+    CheckTrue(r.Key.name = id);
+    CheckTrue(r.Value = i);
+  end;
+end;
+
+{$EndRegion}
+
 {$Region 'TestTsgSet'}
 
 procedure ClearSetNode(P: Pointer);
@@ -1198,8 +1317,7 @@ begin
   CheckTrue(it <> FSet.Ends);
   r := it.GetKey^;
   CheckTrue(r.name = id);
-
-  it := FSet.Find(TPerson.From('hjk'));
+  it := FSet.Find(TPerson.From('bviut'));
   CheckTrue(it = FSet.Ends);
 end;
 
@@ -1250,6 +1368,7 @@ initialization
   RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgRecordListTest.Suite);
   RegisterTest(TsgLinkedListTest.Suite);
+  RegisterTest(TestTsgMap.Suite);
   RegisterTest(TestTsgSet.Suite);
 
 end.

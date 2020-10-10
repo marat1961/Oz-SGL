@@ -23,8 +23,7 @@ This implementation relies on records and pointers.
 So far, I see no way to implement what I want using standard objects.
 The creation and destruction of objects uses a shared heap of memory.
 There is no way to place objects on the call stack.
-The good old "object" is declared deprecated and support 
-for new features for this type is not supported.
+The good old "object" is declared deprecated and adding new features for this type is not supported.
 
 ## Region-based memory management
 This collection implementation relies on the mechanism
@@ -40,8 +39,7 @@ It is a well-known fact that a standard memory manager must be thread-safe.
 Only one thread can access the memory manager at any given time.
 Allocating and freeing memory uses mutual exclusion mechanisms and is not a fast operation,
 especially if the memory is heavily defragmented.
-When using a separate memory region, we refer to the standard memory manager only
-at the moment of increasing the required memory and deleting the structure after its use.
+When using a separate memory region, we refer to the standard memory manager only at the moment of increasing the required memory and deleting the structure after its use.
 
 ## Standard data structures
 Support for basic structures with the ability to specify a memory allocator.
@@ -53,8 +51,7 @@ This means that we can access data items located in such a region through a poin
 For arrays, we use the so-called contiguous memory region.
 Data items are accessed through an index.
 If necessary, increase the memory of the region,
-a segment with a large size is allocated for it and
-data from the current memory segment is copied to the new segment.
+a segment with a large size is allocated for it and data from the current memory segment is copied to the new segment.
 After copying the data, the old segment will be deleted.
  
 Ultimately, working through pointers is very convenient and efficient.
@@ -72,7 +69,7 @@ At the place of the method call, there will be a direct call to the aggregate st
   - `TsgLinkedList <T>` Generic Bidirectional Linked List
   - `TsgForwardList <T>` Generic Unidirectional Linked List
   - `TsgHashMap <Key, T>` Generic Unordered dictionary
-  - `TsgMap <Key, T>` Generic Dictionary based on 2-3 tree
+  - `TsgMap <Key, T>` Generic Ordered Dictionary based on 2-3 tree
   - `TsgSet <Key>` Generic Set based on 2-3 trees
  
 ### Untyped data structures
@@ -92,8 +89,7 @@ This turned out to be quite a pleasant surprise for me!
 ## Memory allocator
 The ability to specify a memory allocator also means that we work mainly with records.
 Typically, some structure uses one or more memory regions, which is a simple memory manager.
-After using the structure, we have the opportunity
-return all the memory occupied by freeing up the memory region.
+After using the structure, we have the opportunity return all the memory occupied by freeing up the memory region.
 We have limitations using inheritance.
 In some cases, we can replace inheritance with aggregation and helpers.
 Typically for implementing collections, this is not a problem.

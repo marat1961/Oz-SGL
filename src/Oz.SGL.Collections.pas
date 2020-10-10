@@ -466,7 +466,7 @@ type
       h, cnt: Integer;
       node: PNode;
       pval: Pointer;
-      constructor From(ta: TsgTreeAction);
+      procedure Init(ta: TsgTreeAction; pval: Pointer);
     end;
     TNodeProc = procedure(p: PNode) of object;
     TUpdateProc = procedure(p: PNode; pval: Pointer) of object;
@@ -499,7 +499,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgMap<Key, T>: Generic Dictionary based on 2-3 tree'}
+{$Region 'TsgMap<Key, T>: Generic Ordered Dictionary based on 2-3 tree'}
 
   {$Region 'TsgMapIterator<Key, T>: Generic Iterator for 2-3 tree'}
 
@@ -622,7 +622,7 @@ type
       const Args: array of const); overload;
     // Displaying an explanatory message to the user
     procedure Msg(const Msg: string); overload; inline;
-    procedure Msg(const fmt: string;
+    procedure Msg(const Fmt: string;
       const Args: array of const); overload;
     property LocalDebug: Boolean read FLocalDebug write FLocalDebug;
   end;
@@ -2047,10 +2047,11 @@ end;
 
 {$Region 'TsgCustomTree'}
 
-constructor TsgCustomTree.TParams.From(ta: TsgTreeAction);
+procedure TsgCustomTree.TParams.Init(ta: TsgTreeAction; pval: Pointer);
 begin
-  Self := Default(TsgCustomTree.TParams);
+  FillChar(Self, sizeof(TParams), 0);
   Self.action := ta;
+  Self.pval := pval;
 end;
 
 procedure TsgCustomTree.Init(ItemSize: Cardinal; Compare: TListSortCompare;
@@ -2090,8 +2091,7 @@ procedure TsgCustomTree.Find(pval: Pointer; var iter: TsgTreeIterator);
 var
   prm: TParams;
 begin
-  prm := TParams.From(TsgTreeAction.taFind);
-  prm.pval := pval;
+  prm.Init(TsgTreeAction.taFind, pval);
   Search(root, prm);
   iter.Init(prm.node, Sentinel);
 end;
@@ -2100,8 +2100,7 @@ function TsgCustomTree.Get(pval: Pointer): PNode;
 var
   prm: TParams;
 begin
-  prm := TParams.From(TsgTreeAction.taFind);
-  prm.pval := pval;
+  prm.Init(TsgTreeAction.taFind, pval);
   Search(root, prm);
   Result := prm.node;
 end;
@@ -2110,8 +2109,7 @@ function TsgCustomTree.Count(pval: Pointer): Integer;
 var
   prm: TParams;
 begin
-  prm := TParams.From(TsgTreeAction.taCount);
-  prm.pval := pval;
+  prm.Init(TsgTreeAction.taCount, pval);
   Search(root, prm);
   Result := prm.cnt;
 end;
@@ -2120,8 +2118,7 @@ procedure TsgCustomTree.Insert(pval: Pointer);
 var
   prm: TParams;
 begin
-  prm := TParams.From(TsgTreeAction.taInsert);
-  prm.pval := pval;
+  prm.Init(TsgTreeAction.taInsert, pval);
   Search(root, prm);
 end;
 
@@ -2129,8 +2126,7 @@ procedure TsgCustomTree.InsertOrAssign(pval: Pointer);
 var
   prm: TParams;
 begin
-  prm := TParams.From(TsgTreeAction.taInsertOrAssign);
-  prm.pval := pval;
+  prm.Init(TsgTreeAction.taInsertOrAssign, pval);
   Search(root, prm);
 end;
 
@@ -2339,8 +2335,7 @@ function TsgMap<Key, T>.Emplace(const k: Key): PNode;
 var
   prm: TsgCustomTree.TParams;
 begin
-  prm := TsgCustomTree.TParams.From(TsgTreeAction.taInsertEmpty);
-  prm.pval := @k;
+  prm.Init(TsgTreeAction.taInsertEmpty, @k);
   tree.Search(tree.root, prm);
   Result := PNode(prm.node);
   Result.k := k;
@@ -2540,9 +2535,9 @@ begin
   AddLine(Msg);
 end;
 
-procedure TsgLog.Msg(const fmt: string; const Args: array of const);
+procedure TsgLog.Msg(const Fmt: string; const Args: array of const);
 begin
-  AddLine(Format(fmt, Args));
+  AddLine(Format(Fmt, Args));
 end;
 
 {$EndRegion}
