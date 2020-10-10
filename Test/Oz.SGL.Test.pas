@@ -599,6 +599,13 @@ begin
     CheckTrue(a.Equals(b^));
   end;
   CheckTrue(List.Count = ItemsCount);
+  i := 0;
+  for a in List do
+  begin
+    Inc(i);
+    CheckTrue(a.e.tag = i);
+    CheckTrue(a.e.h.v = i + 1);
+  end;
 end;
 
 procedure TsgRecordListTest._Add;

@@ -160,6 +160,17 @@ type
 
   PsgPointerList = ^TsgPointerList;
   TsgPointerList = record
+  public type
+    TEnumerator = record
+    private
+      FPointers: PsgPointerList;
+      FIndex: Integer;
+      function GetCurrent: Pointer;
+    public
+      constructor From(const Pointers: TsgPointerList);
+      function MoveNext: Boolean;
+      property Current: Pointer read GetCurrent;
+    end;
   private
     FList: PsgPointers;
     FCount: Integer;
@@ -189,6 +200,7 @@ type
     function TraverseBy(F: TItemFunc): Pointer;
     procedure RemoveBy(F: TItemFunc);
     function IsEmpty: Boolean; inline;
+    function GetEnumerator: TEnumerator;
     property Count: Integer read FCount write SetCount;
     property Items[Index: Integer]: Pointer read Get write Put;
   end;
@@ -200,6 +212,15 @@ type
   TsgRecordList<T> = record
   type
     PItem = ^T;
+    TEnumerator = record
+    private
+      FEnumerator: TsgPointerList.TEnumerator;
+      function GetCurrent: PItem; inline;
+    public
+      constructor From(const Pointers: TsgPointerList);
+      function MoveNext: Boolean; inline;
+      property Current: PItem read GetCurrent;
+    end;
   private
     FList: TsgPointerList;
     function Get(Index: Integer): PItem; inline;
@@ -220,6 +241,7 @@ type
     procedure Sort(Compare: TListSortCompare); inline;
     procedure Reverse; inline;
     function IsEmpty: Boolean; inline;
+    function GetEnumerator: TEnumerator;
     property Count: Integer read FList.FCount write SetCount;
     property Items[Index: Integer]: PItem read Get write Put;
     property List: TsgPointerList read FList;
@@ -1172,6 +1194,27 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgPointerList.TEnumerator'}
+
+constructor TsgPointerList.TEnumerator.From(const Pointers: TsgPointerList);
+begin
+  FPointers := @Pointers;
+  FIndex := -1;
+end;
+
+function TsgPointerList.TEnumerator.GetCurrent: Pointer;
+begin
+  Result := FPointers.Get(FIndex);
+end;
+
+function TsgPointerList.TEnumerator.MoveNext: Boolean;
+begin
+  Inc(FIndex);
+  Result := FIndex < FPointers.FCount;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgPointerList'}
 
 constructor TsgPointerList.From(ItemSize: Integer; OnFree: TFreeProc);
@@ -1362,6 +1405,11 @@ begin
     FList[Index] := Item;
 end;
 
+function TsgPointerList.GetEnumerator: TEnumerator;
+begin
+  Result := TEnumerator.From(Self);
+end;
+
 procedure TsgPointerList.CheckCapacity(NewCount: Integer);
 begin
   FFactory.CheckCapacity(FList, NewCount);
@@ -1412,6 +1460,25 @@ end;
 function TsgPointerList.IsEmpty: Boolean;
 begin
   Result := FCount = 0;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgRecordList<T>.TEnumerator'}
+
+constructor TsgRecordList<T>.TEnumerator.From(const Pointers: TsgPointerList);
+begin
+  FEnumerator := TsgPointerList.TEnumerator.From(Pointers);
+end;
+
+function TsgRecordList<T>.TEnumerator.GetCurrent: PItem;
+begin
+  Result := FEnumerator.GetCurrent;
+end;
+
+function TsgRecordList<T>.TEnumerator.MoveNext: Boolean;
+begin
+  Result := FEnumerator.MoveNext;
 end;
 
 {$EndRegion}
@@ -1485,6 +1552,11 @@ end;
 function TsgRecordList<T>.Get(Index: Integer): PItem;
 begin
   Result := PItem(FList.Get(Index));
+end;
+
+function TsgRecordList<T>.GetEnumerator: TEnumerator;
+begin
+  Result := TEnumerator.From(FList);
 end;
 
 procedure TsgRecordList<T>.Put(Index: Integer; Item: PItem);
