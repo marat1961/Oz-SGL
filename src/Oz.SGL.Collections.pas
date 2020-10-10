@@ -1680,7 +1680,7 @@ end;
 
 {$EndRegion}
 
-{$Region TsgLinkedList<T>.TIterator.'}
+{$Region 'TsgLinkedList<T>.TIterator.'}
 
 function TsgLinkedList<T>.TIterator.GetValue: PValue;
 begin
