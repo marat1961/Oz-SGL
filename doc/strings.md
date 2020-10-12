@@ -1,30 +1,34 @@
-Управляемые типы данных, имеют большие накладные расходы.
-Это касается и string type.
-Я прихожу уже к мысли, что кое где было бы полезно использовать некий репозитарий для строк.
-В записях же использовать PChar.
+# String repository
 
-Хранить строки в словаре, вероятно это неплохо.
-Поиск строки в хэшмап может быть реализована эффективно.
-Обычно используемые строки, по большей части это immutable значения.
+## Why is it good
 
-Например, когда мы передаём данные в json большая часть этих данных это наименования полей.
+Managed data types have a lot of overhead.
+This also applies to string type.
+I am already coming to the idea that in some places it would be useful to use some kind of repository for strings.
+Then we could use PChar instead of a string.
 
-Google protocol buffer это уже гораздо лучше, там хотя бы для кодирования полей 
-используются целочисленное кодирование без лидирующих нулей.
+Storing strings in a dictionary is probably a good idea.
+Finding a string in a hashmap can be done efficiently.
+Most commonly used strings are immutable values.
 
-Это могут быть метаданные такие как имена полей, классов, значения перечислимых типов.
-Если это интерфейс тогда мы имеем дела с большим количеством надписей.
-Использование алгоритмов сжатия подразумевают приличные накладные расходы.
+Typically, strings are used to describe metadata, such as field names, class names, and enumeration values.
+When designing a user interface, we deal with a lot of labels.
 
-Взять, к примеру, передачу табличных данных для отображения отчета.
-Это ведь имена колонок, стили отображения, ширина, выравнивание, ну и сами значения,
-которые должны быть для каждой ячейки таблицы.
-Что-то будет для этого отчёта всегда одинаково. То есть мы можем сказать вот данные для отчёта N9.
-А какие-то поля будут иметь весьма ограниченный набор значений на основе перечислимого типа.
+For example, when we pass data to json, most of this data is field names.
+If we use Google protocol buffer, integer encoding without leading zeros is used to encode the fields.
 
-Неизменяемая часть данных, которая может быть в каждой передаче,
-должна быть задекларирована как составная часть конкретного формата данных.
-И закачиваться на клиентскую сторону один раз.
+Compression algorithms come with a lot of overhead.
 
-Изменяемую часть передаем в значения полей или в отдельной части сообщения.
-Также можно совместить эту часть данных с применяемой кодировкой данных и национального языка.
+Consider, for example, passing tabular data to display a report.
+String data is column names, display styles, width, alignment method, and the values ​​themselves,
+which should be for each cell in the table.
+It is possible to identify a repeated set of string data for a specific report type with each transmission.
+So we can tell you the dataset for report # 9.
+Some fields will have a very limited set of values ​​based on the enumerated type.
+
+## Permanent string repository.
+The immutable part of the data, which may be in each transmission, must be declared as a part of a specific data format and transmitted to the client side once.
+
+## Variable string repository.
+We pass the modified part as field values ​​or in a separate part of the message.
+It is also possible to combine this piece of data with the applicable data and national language encoding.
