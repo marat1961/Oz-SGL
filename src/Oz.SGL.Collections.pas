@@ -56,7 +56,7 @@ type
     FRegion: PMemoryRegion;
     FCount: Integer;
     FSizeItem: Integer;
-    procedure SetItem(Index: Integer; const Value);
+    FAssignItem: TPairItemsProc;
     procedure SetCount(NewCount: Integer);
     procedure CheckCapacity(NewCount: Integer);
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
@@ -65,7 +65,7 @@ type
     procedure Free;
     procedure Clear;
     function GetPtr(Index: Integer): Pointer;
-    function Add(const Value): Integer;
+    function Add: Pointer;
     procedure Delete(Index: Integer);
     procedure Insert(Index: Integer; const Value);
     function Remove(const Value): Integer;
@@ -93,15 +93,16 @@ type
   private
     FListHelper: TsgListHelper; // FListHelper must be before FItems
     FItems: PItems; // FItems must be after FListHelper
-    FOnFree: TFreeProc;
+    FItemProc: PsgItemProc;
     function GetItem(Index: Integer): T;
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
   public
-    constructor From(OnFree: TFreeProc);
+    constructor From(const ItemProc: TsgItemProc);
     procedure Free; inline;
     procedure Clear; inline;
-    function Add(const Value: T): Integer; inline;
+    function Add(const Value: T): Integer; overload;
+    function Add: PItem; overload; inline;
     procedure Delete(Index: Integer); inline;
     procedure Insert(Index: Integer; const Value: T); inline;
     function Remove(const Value: T): Integer; inline;
@@ -444,18 +445,15 @@ type
     end;
   private
     FSeed: Integer;
-    FHash: TKeyHash;
-    FKeyEquals: TKeyEquals;
+    FPairProc: TsgPairProc;
     FEntries: TsgList<TEntry>;
     FCollisionRegion: PMemoryRegion;
     FPairs: TsgList<TPair<Key, T>>;
     // Set entry table size
     procedure SetEntriesLength(ExpectedSize: Integer);
   public
-    constructor From(ExpectedSize: Integer; Hash: TKeyHash;
-      KeyEquals: TKeyEquals; OnFreePair: TFreeProc = nil);
+    constructor From(ExpectedSize: Integer; const PairProc: TsgPairProc);
     procedure Free;
-    procedure Clear;
     // Already initialized
     function Valid: Boolean; inline;
     function Find(k: Key): TsgHashMapIterator<Key, T>;
@@ -832,14 +830,13 @@ begin
   Result := @PByte(GetFItems^)[(Index) * FSizeItem];
 end;
 
-function TsgListHelper.Add(const Value): Integer;
+function TsgListHelper.Add: Pointer;
 begin
   if FRegion.Capacity <= FCount then
     GetFItems^ := FRegion.IncreaseCapacity(FCount + 1);
   FRegion.Alloc(FSizeItem);
-  Result := FCount;
+  Result := @PByte(GetFItems^)[FCount * FSizeItem];
   Inc(FCount);
-  SetItem(Result, Value);
 end;
 
 procedure TsgListHelper.SetCount(NewCount: Integer);
@@ -999,28 +996,21 @@ procedure TsgListHelper.Assign(const Source: TsgListHelper);
 var
   i: Integer;
   Items: PPointer;
+  Dst, Src: Pointer;
 begin
   FCount := 0;
   Items := Source.GetFItems;
   for i := 0 to Source.FCount - 1 do
-    Add(PByte(Items^)[i * FSizeItem]);
+  begin
+    Dst := Add;
+    Src := Pointer(PByte(Items^)[i * FSizeItem]);
+    FAssignItem(Dst, Src);
+  end;
 end;
 
 function TsgListHelper.GetFItems: PPointer;
 begin
   Result := PPointer(PByte(@Self) + SizeOf(Self));
-end;
-
-procedure TsgListHelper.SetItem(Index: Integer; const Value);
-begin
-  CheckIndex(Index, FCount);
-  case FSizeItem of
-    1: PBytes(GetFItems^)[Index] := Byte(Value);
-    2: PWords(GetFItems^)[Index] := Word(Value);
-    4: PCardinals(GetFItems^)[Index] := Cardinal(Value);
-    8: PUInt64s(GetFItems^)[Index] := UInt64(Value);
-    else Move(Value, PByte(GetFItems^)[Index * FSizeItem], FSizeItem);
-  end;
 end;
 
 function TsgListHelper.Compare(const Left, Right): Boolean;
@@ -1051,10 +1041,10 @@ end;
 
 {$Region 'TsgList<T>'}
 
-constructor TsgList<T>.From(OnFree: TFreeProc);
+constructor TsgList<T>.From(const ItemProc: TsgItemProc);
 begin
-  FOnFree := OnFree;
-  FListHelper.Init(sizeof(T), OnFree);
+  FItemProc := @ItemProc;
+  FListHelper.Init(sizeof(T), ItemProc.FreeProc);
 end;
 
 procedure TsgList<T>.Free;
@@ -1067,9 +1057,15 @@ begin
   FListHelper.Clear;
 end;
 
+function TsgList<T>.Add: PItem;
+begin
+  Result := FListHelper.Add;
+end;
+
 function TsgList<T>.Add(const Value: T): Integer;
 begin
-  Result := FListHelper.Add(Value);
+  Result := FListHelper.FCount;
+  PItem(FListHelper.Add)^ := Value;
 end;
 
 procedure TsgList<T>.Delete(Index: Integer);
@@ -1135,7 +1131,7 @@ end;
 
 procedure TsgList<T>.SetItem(Index: Integer; const Value: T);
 begin
-  FListHelper.SetItem(Index, Value);
+  PItem(FListHelper.GetPtr(Index))^ := Value;
 end;
 
 {$EndRegion}
@@ -1986,16 +1982,18 @@ end;
 
 {$Region 'TsgHashMap<Key, T>'}
 
-constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer; Hash: TKeyHash;
-  KeyEquals: TKeyEquals; OnFreePair: TFreeProc);
+constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer; const PairProc: TsgPairProc);
+var
+  ItemProc: TsgItemProc;
 begin
   Self := Default(TsgHashMap<Key, T>);
   FSeed := SeedValue;
-  FHash := Hash;
-  FKeyEquals := KeyEquals;
-  FPairs := TsgList<TPair<Key, T>>.From(OnFreePair);
+  FPairProc := PairProc;
+  ItemProc.Init<TPair<Key, T>>;
+  FPairs := TsgList<TPair<Key, T>>.From(ItemProc);
   FCollisionRegion := HeapPool.CreateRegion(sizeof(TCollision));
-  FEntries := TsgList<TEntry>.From(nil);
+  ItemProc.Init<TEntry>;
+  FEntries := TsgList<TEntry>.From(ItemProc);
   SetEntriesLength(ExpectedSize);
 end;
 
@@ -2005,28 +2003,7 @@ begin
   FCollisionRegion.Free;
   FEntries.Free;
   FPairs.Free;
-  FHash := nil;
-  FKeyEquals := nil;
   Fillchar(Self, sizeof(Self), 0);
-end;
-
-procedure TsgHashMap<Key, T>.Clear;
-var
-  OnFreePair: TFreeProc;
-  ExpectedSize: Integer;
-begin
-  Check(Valid);
-  OnFreePair := FPairs.FOnFree;
-  // Delete
-  ExpectedSize := FEntries.Count;
-  FCollisionRegion.Free;
-  FEntries.Free;
-  FPairs.Free;
-  // Create
-  FPairs := TsgList<TPair<Key, T>>.From(OnFreePair);
-  FCollisionRegion := HeapPool.CreateRegion(sizeof(TCollision));
-  FEntries := TsgList<TEntry>.From(nil);
-  SetEntriesLength(ExpectedSize);
 end;
 
 function TsgHashMap<Key, T>.Valid: Boolean;
@@ -2039,11 +2016,11 @@ var
   eidx: Cardinal;
   p: PCollision;
 begin
-  eidx := Cardinal(FHash(k)) mod Cardinal(FEntries.Count);
+  eidx := Cardinal(FPairProc.HashProc(@k)) mod Cardinal(FEntries.Count);
   p := FEntries.GetPtr(eidx).Head;
   while p <> nil do
   begin
-    if FKeyEquals(k, FPairs[p.PairIndex].Key) then
+    if FPairProc.EqualsFunc(@k, @FPairs[p.PairIndex].Key) then
     begin
       Result.Init(FPairs.FListHelper, p.PairIndex);
       exit;
@@ -2060,12 +2037,12 @@ var
   eidx, idx: Integer;
   p: PCollision;
 begin
-  eidx := Cardinal(FHash(pair.Key)) mod Cardinal(FEntries.Count);
+  eidx := Cardinal(FPairProc.HashProc(@pair.Key)) mod Cardinal(FEntries.Count);
   entry := FEntries.GetPtr(eidx);
   p := entry.Head;
   while p <> nil do
   begin
-    if FKeyEquals(pair.Key, FPairs[p.PairIndex].Key) then
+    if FPairProc.EqualsFunc(@pair.Key, @FPairs[p.PairIndex].Key) then
     begin
       Result.Init(FPairs.FListHelper, p.PairIndex);
       exit;
@@ -2077,7 +2054,8 @@ begin
   p.Next := entry.Head;
   entry.Head := p;
   Inc(entry.Cnt);
-  idx := FPairs.Add(pair);
+  idx := FPairs.Count;
+  FPairs.Add^ := pair;
   p.PairIndex := idx;
   Result.Init(FPairs.FListHelper, idx);
 end;

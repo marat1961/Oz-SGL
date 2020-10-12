@@ -21,7 +21,7 @@ interface
 {$Region 'Uses'}
 
 uses
-  System.SysUtils, System.Math;
+  System.SysUtils, System.Math, System.Generics.Collections;
 
 {$EndRegion}
 
@@ -31,9 +31,12 @@ uses
 
 type
   THeapPool = class;
-  TFreeProc = procedure(Item: Pointer);
+  TFreeProc = procedure (Item: Pointer);
+  TPairItemsProc = procedure (A, B: Pointer);
+  THashProc = function (Key: Pointer): Cardinal;
+  TEqualsFunc = function (A, B: Pointer): Boolean;
 
-{$EndRegion}
+{$Region 'TsgUtils'}
 
 {$Region 'ESglError'}
 
@@ -42,6 +45,36 @@ type
     NotImplemented = 0;
   public
     constructor Create(ErrNo: Integer); overload;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgUtils'}
+
+  PsgItemProc = ^TsgItemProc;
+  TsgItemProc = record
+  var
+    FreeProc: TFreeProc;
+    AssignProc: TPairItemsProc;
+    SwapProc: TPairItemsProc;
+  public
+    procedure Init<T>;
+    // Item := Default(T);
+    class procedure Free<T>(var Item: T); static;
+    // A := B;
+    class procedure Assign<T>(var A, B: T); static;
+    // A <=> B;
+    class procedure Swap<T>(var A, B: T); static;
+  end;
+
+  PsgPairProc = ^TsgPairProc;
+  TsgPairProc = record
+  var
+    HashProc: THashProc;
+    EqualsFunc: TEqualsFunc;
+    FreePairProc: TFreeProc;
+  public
+    procedure Init<Key, Value>(Hash: THashProc; Equals: TEqualsFunc; Free: TFreeProc);
   end;
 
 {$EndRegion}
@@ -252,6 +285,47 @@ begin
     Msg := 'Error: ' + IntToStr(ErrNo);
   end;
   Create(Msg);
+end;
+
+{$EndRegion}
+
+{$Region 'TsgItemProc'}
+
+procedure TsgItemProc.Init<T>;
+begin
+  FreeProc := TFreeProc(@TsgItemProc.Free<T>);
+  AssignProc := TPairItemsProc(@TsgItemProc.Assign<T>);
+  SwapProc := TPairItemsProc(@TsgItemProc.Swap<T>);
+end;
+
+class procedure TsgItemProc.Free<T>(var Item: T);
+begin
+  Item := Default(T);
+end;
+
+class procedure TsgItemProc.Assign<T>(var A, B: T);
+begin
+  A := B;
+end;
+
+class procedure TsgItemProc.Swap<T>(var A, B: T);
+var
+  Temp: T;
+begin
+  Temp := A;
+  A := B;
+  B := Temp;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgPairProc'}
+
+procedure TsgPairProc.Init<Key, Value>(Hash: THashProc; Equals: TEqualsFunc; Free: TFreeProc);
+begin
+  HashProc := Hash;
+  EqualsFunc := Equals;
+  FreePairProc := Free;
 end;
 
 {$EndRegion}
@@ -509,6 +583,7 @@ end;
 function TsgItemFactory.AddItem(Item: Pointer): Pointer;
 begin
   Result := ItemsRegion.Alloc(FItemSize);
+  // todo:
   Move(Item^, Result^, FItemSize);
 end;
 

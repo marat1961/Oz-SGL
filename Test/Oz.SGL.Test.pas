@@ -104,6 +104,7 @@ type
   TestTsgList = class(TTestCase)
   public
     List: TsgList<TsgTestRecord>;
+    ItemProc: TsgItemProc;
     procedure SetUp; override;
     procedure TearDown; override;
   published
@@ -376,7 +377,8 @@ end;
 
 procedure TestTsgList.SetUp;
 begin
-  List := TsgList<TsgTestRecord>.From(nil);
+  ItemProc.Init<TsgTestRecord>;
+  List := TsgList<TsgTestRecord>.From(ItemProc);
 end;
 
 procedure TestTsgList.TearDown;
@@ -554,7 +556,7 @@ var
   Source: TsgList<TsgTestRecord>;
   v, r: TsgTestRecord;
 begin
-  Source := TsgList<TsgTestRecord>.From(nil);
+  Source := TsgList<TsgTestRecord>.From(ItemProc);
   try
     v.Init(25, 1);
     Source.Add(v);
