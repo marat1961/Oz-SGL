@@ -1,10 +1,8 @@
 # How to check the zero-based index.
 
-How many comparison operations it takes to check the occurrence of a value from 0 .. Count - 1.
-index, fCount: Integer
-
-How many comparison operations it takes to check the occurrence of a value from 0 .. Count - 1.
-index, fCount: Integer
+How many comparison operations it takes to check the occurrence 
+of a value in `0 .. fCount - 1`.
+`var index, fCount: Integer`
 
 ## Obvious implementation
 It would seem that it could be easier and here we write the code:
@@ -48,7 +46,7 @@ we can simplify the expression and write the following code
 `Assert(Cardinal(index) < Cardinal(fCount), 'Array bounds error');`
 
 and then we can do the same check using a single comparison.
-This reduces the price of the check by exactly half.
+This reduces the price of the check by exactly **half**.
 ```
 Oz.SGL.Test.pas.462: Assert(Cardinal(index) < Cardinal(fCount), 'Array bounds error');
 0066E58D 8B45F8 mov eax,[ebp-$08].
@@ -115,7 +113,8 @@ Oz.SGL.Test.pas.466: Assert(Inrange(Cardinal(index), 0, Cardinal(fHigh)));
 
 I think the compiler developers have work to do.
 
-In my opinion, of all the pascal compilers I have worked with, the best code generated was Pascal - 2 Oregon software for pdp-11.
+In my opinion, of all the pascal compilers I have worked with,
+the best code generated was Pascal - 2 Oregon software for pdp-11.
 
 Amazing register optimization. 
 Carrying out expressions for cycles and much more.
