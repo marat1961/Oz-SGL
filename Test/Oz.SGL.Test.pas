@@ -234,7 +234,7 @@ end;
 
 function TsgTestRecord.Equals(const r: TsgTestRecord): Boolean;
 begin
-  Result := (e.tag = r.e.tag) and (e.h.v = r.e.h.v) and (v = r.v);
+  Result := (e.tag = r.e.tag) and (e.h.v = r.e.h.v) and (v = r.v) and (s = r.s);
 end;
 
 function TestRecordCompare(Left, Right: Pointer): Integer;
@@ -555,11 +555,16 @@ procedure TestTsgList.TestAssign;
 var
   Source: TsgList<TsgTestRecord>;
   v, r: TsgTestRecord;
+  p: PsgTestRecord;
 begin
+  v.Init(25, 1);
+  v.s := '123';
+  ItemProc.FAssignProc(@r, @v);
+  CheckTrue(r.Equals(v));
   Source := TsgList<TsgTestRecord>.From(ItemProc);
   try
-    v.Init(25, 1);
     Source.Add(v);
+    p := Source.GetPtr(0);
     List.Assign(Source);
     CheckTrue(List.Count = 1);
     r := List.Items[0];

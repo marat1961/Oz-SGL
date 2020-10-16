@@ -54,9 +54,9 @@ type
   PsgItemProc = ^TsgItemProc;
   TsgItemProc = record
   var
-    FreeProc: TFreeProc;
-    AssignProc: TPairItemsProc;
-    SwapProc: TPairItemsProc;
+    FTypeInfo: Pointer;
+    FFreeProc: TFreeProc;
+    FAssignProc: TPairItemsProc;
   public
     procedure Init<T>;
     // Item := Default(T);
@@ -293,9 +293,8 @@ end;
 
 procedure TsgItemProc.Init<T>;
 begin
-  FreeProc := TFreeProc(@TsgItemProc.Free<T>);
-  AssignProc := TPairItemsProc(@TsgItemProc.Assign<T>);
-  SwapProc := TPairItemsProc(@TsgItemProc.Swap<T>);
+  FFreeProc := TFreeProc(@TsgItemProc.Free<T>);
+  FTypeInfo := TypeInfo(TArray<T>);
 end;
 
 class procedure TsgItemProc.Free<T>(var Item: T);

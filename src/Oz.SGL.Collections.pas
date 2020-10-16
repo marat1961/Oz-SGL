@@ -56,12 +56,12 @@ type
     FRegion: PMemoryRegion;
     FCount: Integer;
     FSizeItem: Integer;
-    FAssignItem: TPairItemsProc;
+    FItemProc: PsgItemProc;
     procedure SetCount(NewCount: Integer);
     procedure CheckCapacity(NewCount: Integer);
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
   public
-    procedure Init(SizeItem: Integer; OnFree: TFreeProc = nil);
+    procedure Init(SizeItem: Integer; ItemProc: PsgItemProc);
     procedure Free;
     procedure Clear;
     function GetPtr(Index: Integer): Pointer;
@@ -93,7 +93,6 @@ type
   private
     FListHelper: TsgListHelper; // FListHelper must be before FItems
     FItems: PItems; // FItems must be after FListHelper
-    FItemProc: PsgItemProc;
     function GetItem(Index: Integer): T;
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
@@ -797,9 +796,9 @@ end;
 
 {$Region 'TsgListHelper'}
 
-procedure TsgListHelper.Init(SizeItem: Integer; OnFree: TFreeProc);
+procedure TsgListHelper.Init(SizeItem: Integer; ItemProc: PsgItemProc);
 begin
-  FRegion := HeapPool.CreateUnbrokenRegion(SizeItem, OnFree);
+  FRegion := HeapPool.CreateUnbrokenRegion(SizeItem, ItemProc.FFreeProc);
   FCount := 0;
   FSizeItem := SizeItem;
 end;
@@ -812,16 +811,9 @@ begin
 end;
 
 procedure TsgListHelper.Clear;
-var
-  SizeItem: Integer;
-  OnFree: TFreeProc;
 begin
   // todo: Make a cleanup implementation without deleting and creating
-  SizeItem := FSizeItem;
-  Check(SizeItem > 0, 'TsgListHelper.Clear: uninitialized');
-  OnFree := FRegion.OnFree;
-  Free;
-  Init(SizeItem, OnFree);
+
 end;
 
 function TsgListHelper.GetPtr(Index: Integer): Pointer;
@@ -994,17 +986,19 @@ end;
 
 procedure TsgListHelper.Assign(const Source: TsgListHelper);
 var
-  i: Integer;
-  Items: PPointer;
+  Cnt: Integer;
   Dst, Src: Pointer;
 begin
-  FCount := 0;
-  Items := Source.GetFItems;
-  for i := 0 to Source.FCount - 1 do
+  Cnt := Source.FCount;
+  SetCount(Cnt);
+  Dst := Self.GetFItems^;
+  Src := Source.GetFItems^;
+  while Cnt > 0 do
   begin
-    Dst := Add;
-    Src := Pointer(PByte(Items^)[i * FSizeItem]);
-    FAssignItem(Dst, Src);
+    FItemProc.FAssignProc(Dst, Src);
+    Inc(PByte(Dst), FSizeItem);
+    Inc(PByte(Src), FSizeItem);
+    Dec(Cnt);
   end;
 end;
 
@@ -1043,8 +1037,7 @@ end;
 
 constructor TsgList<T>.From(const ItemProc: TsgItemProc);
 begin
-  FItemProc := @ItemProc;
-  FListHelper.Init(sizeof(T), ItemProc.FreeProc);
+  FListHelper.Init(sizeof(T), @ItemProc);
 end;
 
 procedure TsgList<T>.Free;
