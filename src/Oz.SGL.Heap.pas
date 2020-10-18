@@ -43,13 +43,41 @@ type
   ESglError = class(Exception)
   const
     NotImplemented = 0;
+    ListIndexError = 1;
+    ListCountError = 2;
+    ErrorMax = 2;
+  private type
+    TErrorMessages = array [0..ErrorMax] of string;
+  private const
+    ErrorMessages: TErrorMessages = (
+      'Not implemented',
+      'List index error (%d)',
+      'List count error (%d)');
   public
     constructor Create(ErrNo: Integer); overload;
+    constructor Create(ErrNo, IntParam: Integer); overload;
   end;
 
 {$EndRegion}
 
-{$Region 'TsgUtils'}
+{$Region 'TsgTypeManager'}
+
+  PsgTypeManager = ^TsgTypeManager;
+  TsgTypeManager = record
+  private
+    TypeKind: System.TTypeKind;
+    ManagedType: Boolean;
+    HasWeakRef: Boolean;
+    FTypeInfo: Pointer;
+    FFreeProc: TFreeProc;
+    FAssignProc: TPairItemsProc;
+  public
+    procedure Init<T>(OnFree: TFreeProc);
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgItemProc'}
 
   PsgItemProc = ^TsgItemProc;
   TsgItemProc = record
@@ -278,13 +306,37 @@ constructor ESglError.Create(ErrNo: Integer);
 var
   Msg: string;
 begin
-  case ErrNo of
-    NotImplemented:
-      Msg := 'Not implemented';
+  if InRange(ErrNo, 0, ErrorMax) then
+    Msg := ErrorMessages[ErrNo]
   else
     Msg := 'Error: ' + IntToStr(ErrNo);
-  end;
   Create(Msg);
+end;
+
+constructor ESglError.Create(ErrNo, IntParam: Integer);
+var
+  Msg: string;
+begin
+  if InRange(ErrNo, 0, ErrorMax) then
+    Msg := ErrorMessages[ErrNo]
+  else
+    Msg := 'Error: ' + IntToStr(ErrNo);
+  CreateFmt(Msg, [IntParam]);
+end;
+
+{$EndRegion}
+
+{$Region 'TsgTypeManager'}
+
+procedure TsgTypeManager.Init<T>(OnFree: TFreeProc);
+begin
+  FTypeInfo := TypeInfo(T);
+  TypeKind := System.GetTypeKind(T);
+  ManagedType := System.IsManagedType(T);
+  HasWeakRef := System.HasWeakRef(T);
+  if not Assigned(OnFree) then
+    FFreeProc := TFreeProc(@TsgItemProc.Free<T>);
+  FAssignProc := nil;
 end;
 
 {$EndRegion}

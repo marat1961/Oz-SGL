@@ -58,7 +58,7 @@ type
     FSizeItem: Integer;
     FItemProc: PsgItemProc;
     procedure SetCount(NewCount: Integer);
-    procedure CheckCapacity(NewCount: Integer);
+    procedure CheckCapacity(NewCount: Integer); inline;
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
   public
     procedure Init(SizeItem: Integer; ItemProc: PsgItemProc);
@@ -674,7 +674,7 @@ type
 {$Region 'Procedures and functions'}
 
 // Check the index entry into the range [0...Count - 1].
-procedure CheckIndex(Index, Count: Integer);
+procedure CheckIndex(Index, Count: Integer); inline;
 
 procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
 
@@ -705,16 +705,16 @@ begin
   pointers[j] := temp;
 end;
 
-procedure CheckIndex(Index, Count: Integer);
+procedure CheckIndex(Index, Count: Integer); inline;
 begin
   if Cardinal(Index) >= Cardinal(Count) then
-    raise ESglError.CreateFmt('List index error (%d)', [Count]);
+    raise ESglError.Create(ESglError.ListIndexError, Index);
 end;
 
-procedure CheckCount(Count: Integer);
+procedure CheckCount(Count: Integer); inline;
 begin
   if Count < 0 then
-    raise ESglError.CreateFmt('List count error (%d)', [Count]);
+    raise ESglError.Create(ESglError.ListCountError, Count);
 end;
 
 procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
