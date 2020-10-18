@@ -40,6 +40,7 @@ uses
 
 const
   ItemsCount = 3000;
+  LengthEps = 1e-6;
 
 type
 
@@ -75,6 +76,21 @@ type
     class function GenName(d: Integer): string; static;
     constructor From(const name: string);
     procedure Clear;
+  end;
+
+{$EndRegion}
+
+{$Region 'TVector'}
+
+  PVector = ^TVector;
+  TVector = record
+    x, y, z: Double;
+    constructor From(x, y, z: Double);
+    function Plus(const v: TVector): TVector;
+    function Minus(const v: TVector): TVector;
+    function Equals(const v: TVector; tol: Double = LengthEps): Boolean;
+    function MagSquared: Double;
+    function Hash: NativeInt;
   end;
 
 {$EndRegion}
@@ -164,6 +180,28 @@ type
     procedure _Sort;
     procedure _Eol;
     procedure _Bol;
+  end;
+
+{$EndRegion}
+
+{$Region 'TestTsgHashMap'}
+
+  // Test methods for class TsgHashMap
+  TestTsgHashMap = class(TTestCase)
+  type
+    THashMapPair = TPair<TVector, Integer>;
+    TIter = TsgHashMapIterator<TVector, Integer>;
+  strict private
+    FMap: TsgHashMap<TVector, Integer>;
+    FPairProc: TsgPairProc;
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
+    procedure GenPair(i: Integer; var pair: THashMapPair);
+  published
+    procedure TestInsert;
+    procedure TestFind;
+    procedure TestIterator;
   end;
 
 {$EndRegion}
@@ -1211,6 +1249,102 @@ end;
 
 {$EndRegion}
 
+{$Region 'TestTsgHashMap'}
+
+function VectorHash(v: Pointer): Cardinal;
+begin
+  Result := PVector(v).Hash;
+end;
+
+function VectorEquals(a, b: Pointer): Boolean;
+begin
+  Result := PVector(a).Equals(PVector(b)^);
+end;
+
+procedure TestTsgHashMap.SetUp;
+begin
+  FPairProc.Init<TVector, Integer>(VectorHash, VectorEquals, nil);
+  FMap := TsgHashMap<TVector, Integer>.From(300, FPairProc);
+end;
+
+procedure TestTsgHashMap.TearDown;
+begin
+  FMap.Free;
+end;
+
+procedure TestTsgHashMap.GenPair(i: Integer; var pair: THashMapPair);
+begin
+  case i mod 5 of
+    0: pair.Key := TVector.From(i, i + 1, i * 2);
+    1: pair.Key := TVector.From(-i, i - 1, i);
+    2: pair.Key := TVector.From(i + 20, i, -i);
+    3: pair.Key := TVector.From(-i - 20, -i, i);
+    4: pair.Key := TVector.From(i, i, i);
+  end;
+  pair.Value := i;
+end;
+
+procedure TestTsgHashMap.TestInsert;
+var
+  i: Integer;
+  pair, r: THashMapPair;
+  it: TsgHashMapIterator<TVector, Integer>;
+begin
+  for i := 0 to 10000 do
+  begin
+    // добавляем
+    GenPair(i, pair);
+    FMap.Insert(pair);
+    // ищем
+    it := FMap.Find(pair.Key);
+    CheckTrue(it <> FMap.Ends);
+    r.Key := it.GetKey^;
+    r.Value := it.GetValue^;
+    CheckTrue(r.Key.Equals(pair.Key));
+    CheckTrue(r.Value = i);
+  end;
+end;
+
+procedure TestTsgHashMap.TestFind;
+var
+  i, j: Integer;
+  it: TsgHashMapIterator<TVector, Integer>;
+  pos: TVector;
+begin
+  TestInsert;
+  i := 500;
+  pos := TVector.From(i, i + 1, i * 2);
+  it := FMap.Find(pos);
+  CheckTrue(it <> FMap.Ends);
+  j := it.GetValue^;
+  CheckTrue(i = j);
+end;
+
+procedure TestTsgHashMap.TestIterator;
+var
+  i: Integer;
+  pair, r: THashMapPair;
+  it: TIter;
+begin
+  TestInsert;
+  it := FMap.Begins;
+  i := 0;
+  while it <> FMap.Ends do
+  begin
+    r.Key := it.GetKey^;
+    r.Value := it.GetValue^;
+    GenPair(i, pair);
+    CheckTrue(SameValue(pair.Key.X, r.Key.X));
+    CheckTrue(SameValue(pair.Key.Y, r.Key.Y));
+    CheckTrue(SameValue(pair.Key.Z, r.Key.Z));
+    CheckTrue(pair.Value = r.Value);
+    it.Next;
+    Inc(i);
+  end;
+end;
+
+{$EndRegion}
+
 {$Region 'TestTsgMap'}
 
 procedure ClearNode(P: Pointer);
@@ -1386,6 +1520,63 @@ begin
     id := TPerson.GenName(i);
     CheckTrue(r.name = id);
   end;
+end;
+
+{$EndRegion}
+
+{$Region 'TVector'}
+
+constructor TVector.From(x, y, z: Double);
+begin
+  Self.x := x;
+  Self.y := y;
+  Self.z := z;
+end;
+
+function TVector.Plus(const v: TVector): TVector;
+begin
+  Result.x := x + v.x;
+  Result.y := y + v.y;
+  Result.z := z + v.z;
+end;
+
+function TVector.MagSquared: Double;
+begin
+  Result := x * x + y * y + z * z;
+end;
+
+function TVector.Minus(const v: TVector): TVector;
+begin
+  Result.x := x - v.x;
+  Result.y := y - v.y;
+  Result.z := z - v.z;
+end;
+
+function TVector.Equals(const v: TVector; tol: Double): Boolean;
+var
+  dv: TVector;
+begin
+  dv := Self.Minus(v);
+  if Abs(dv.x) > tol then exit(False);
+  if Abs(dv.y) > tol then exit(False);
+  if Abs(dv.z) > tol then exit(False);
+  Result := dv.MagSquared < Sqr(tol);
+end;
+
+function TVector.Hash: NativeInt;
+const
+  Eps = LengthEps * 4;
+var
+  Size, xs, ys, zs: NativeInt;
+begin
+  Size := Trunc(Power(High(NativeInt), 1.0 / 3.0)) - 1;
+  x := Abs(x) / Eps;
+  y := Abs(y) / Eps;
+  z := Abs(z) / Eps;
+  xs := Trunc(FMod(x, Size));
+  ys := Trunc(FMod(y, Size));
+  zs := Trunc(FMod(z, Size));
+  Result := (zs * Size + ys) * Size + xs;
 end;
 
 {$EndRegion}
