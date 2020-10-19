@@ -77,7 +77,7 @@ type
     AssignProc: TsgItem.TAssignProc;
   private
     procedure Init<T>(OnFree: TsgItem.TFreeProc);
-    // A^ := B^;
+    // Item^ := Value;
     procedure Assign1(const Value);
     procedure Assign2(const Value);
     procedure Assign4(const Value);
@@ -86,7 +86,7 @@ type
     procedure AssignManaged(const Value);
     procedure AssignVariant(const Value);
     procedure AssignMRef(const Value);
-    // A.Free;
+    // Item.Free;
     procedure Free1;
     procedure Free2;
     procedure Free4;
@@ -455,7 +455,7 @@ end;
 
 procedure TsgItem.FreeVariant;
 begin
-  PVariant(Item)^.VarClear;
+  PVariant(Item)^.Clear;
 end;
 
 procedure TsgItem.Init<T>(OnFree: TsgItem.TFreeProc);
@@ -468,7 +468,7 @@ begin
   if ManagedType then
   begin
     if (ItemSize = SizeOf(Pointer)) and not System.HasWeakRef(T) and
-        not (GetTypeKind(T) in [tkRecord, tkMRecord]) then
+      not (GetTypeKind(T) in [tkRecord, tkMRecord]) then
     begin
       AssignProc := Self.AssignMRef;
       if not Assigned(OnFree) then
@@ -489,6 +489,8 @@ begin
   end
   else
     case ItemSize of
+      0, 3, 5, 6, 7:
+        raise ESglError.Create('impossible');
       1:
         begin
           AssignProc := Self.Assign1;
@@ -513,13 +515,6 @@ begin
           if not Assigned(OnFree) then
             OnFree := Self.Free8;
         end;
-      0, 3, 5, 6, 7: raise ESglError.Create('impossible');
-      else if ManagedType then
-      begin
-        AssignProc := AssignManaged;
-        if not Assigned(OnFree) then
-          OnFree := Self.FreeManaged;
-      end
       else
       begin
         AssignProc := AssignItem;

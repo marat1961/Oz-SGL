@@ -44,25 +44,25 @@ const
 
 type
 
-{$Region 'TsgTestRecord'}
+{$Region 'TTestRecord'}
 
-  TsgId = record
+  TId = record
     v: Integer;
   end;
 
-  PsgEntry = ^TsgEntry;
-  TsgEntry = record
+  PEntry = ^TEntry;
+  TEntry = record
     tag: Integer;
-    h: TsgId;
+    h: TId;
   end;
 
-  PsgTestRecord = ^TsgTestRecord;
-  TsgTestRecord = record
-    e: TsgEntry;
+  PTestRecord = ^TTestRecord;
+  TTestRecord = record
+    e: TEntry;
     v: Integer;
     s: string;
     procedure Init(v, id: Integer);
-    function Equals(const r: TsgTestRecord): Boolean;
+    function Equals(const r: TTestRecord): Boolean;
   end;
 
 {$EndRegion}
@@ -95,6 +95,33 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgItemTest'}
+
+  TsgItemTest = class(TTestCase)
+  public
+    Item: TsgItem;
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure Test1;
+    procedure Test2;
+    procedure Test4;
+    procedure Test8;
+    procedure TestOtherSize;
+    procedure TestItem;
+    procedure TestManaged;
+    procedure TestVariant;
+    procedure TestObject;
+    procedure TestInterface;
+    procedure TestWeakRef;
+    procedure TestDynArray;
+    procedure TestString;
+    procedure TestWideString;
+    procedure TestRawByteString;
+  end;
+
+{$EndRegion}
+
 {$Region 'THeapPoolTest'}
 
   PListNode = ^TListNode;
@@ -119,7 +146,7 @@ type
 
   TestTsgList = class(TTestCase)
   public
-    List: TsgList<TsgTestRecord>;
+    List: TsgList<TTestRecord>;
     ItemProc: TsgItemProc;
     procedure SetUp; override;
     procedure TearDown; override;
@@ -141,7 +168,7 @@ type
 
   TsgRecordListTest = class(TTestCase)
   public
-    List: TsgRecordList<TsgTestRecord>;
+    List: TsgRecordList<TTestRecord>;
     procedure SetUp; override;
     procedure TearDown; override;
   published
@@ -261,25 +288,25 @@ begin
   Result := CompareText(PPerson(a).name, PPerson(b).name);
 end;
 
-{$Region 'TsgTestRecord'}
+{$Region 'TTestRecord'}
 
-procedure TsgTestRecord.Init(v, id: Integer);
+procedure TTestRecord.Init(v, id: Integer);
 begin
   e.tag := 0;
   e.h.v := id;
   Self.v := v;
 end;
 
-function TsgTestRecord.Equals(const r: TsgTestRecord): Boolean;
+function TTestRecord.Equals(const r: TTestRecord): Boolean;
 begin
   Result := (e.tag = r.e.tag) and (e.h.v = r.e.h.v) and (v = r.v) and (s = r.s);
 end;
 
 function TestRecordCompare(Left, Right: Pointer): Integer;
 type
-  PsgTestRecord = ^TsgTestRecord;
+  PTestRecord = ^TTestRecord;
 begin
-  Result := PsgTestRecord(Left).v - PsgTestRecord(Right).v;
+  Result := PTestRecord(Left).v - PTestRecord(Right).v;
 end;
 
 {$EndRegion}
@@ -317,6 +344,98 @@ begin
     Dec(n);
   end;
   Result := 'P' + Result;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgItemTest'}
+
+procedure TsgItemTest.SetUp;
+begin
+  inherited;
+
+end;
+
+procedure TsgItemTest.TearDown;
+begin
+  inherited;
+
+end;
+
+procedure TsgItemTest.Test1;
+begin
+  // byte char boolean enum
+end;
+
+procedure TsgItemTest.Test2;
+begin
+  // word
+  // two char
+end;
+
+procedure TsgItemTest.Test4;
+begin
+  // Integer Cardinal
+end;
+
+procedure TsgItemTest.Test8;
+begin
+  // Double
+end;
+
+procedure TsgItemTest.TestDynArray;
+begin
+  // TArray<Integer>
+end;
+
+procedure TsgItemTest.TestInterface;
+begin
+  // Interface
+end;
+
+procedure TsgItemTest.TestItem;
+begin
+  // record
+end;
+
+procedure TsgItemTest.TestManaged;
+begin
+  // record with managed fields
+end;
+
+procedure TsgItemTest.TestObject;
+begin
+  // TObject
+end;
+
+procedure TsgItemTest.TestOtherSize;
+begin
+  // for types 0, 3, 5, 6, 7
+end;
+
+procedure TsgItemTest.TestRawByteString;
+begin
+  // RawByteString
+end;
+
+procedure TsgItemTest.TestString;
+begin
+  // string
+end;
+
+procedure TsgItemTest.TestVariant;
+begin
+  // Variant
+end;
+
+procedure TsgItemTest.TestWeakRef;
+begin
+  // WeakRef
+end;
+
+procedure TsgItemTest.TestWideString;
+begin
+  // WideString
 end;
 
 {$EndRegion}
@@ -415,8 +534,8 @@ end;
 
 procedure TestTsgList.SetUp;
 begin
-  ItemProc.Init<TsgTestRecord>;
-  List := TsgList<TsgTestRecord>.From(ItemProc);
+  ItemProc.Init<TTestRecord>;
+  List := TsgList<TTestRecord>.From(ItemProc);
 end;
 
 procedure TestTsgList.TearDown;
@@ -427,8 +546,8 @@ end;
 procedure TestTsgList.TestAdd;
 var
   i, j: Integer;
-  a, b: TsgTestRecord;
-  p: PsgTestRecord;
+  a, b: TTestRecord;
+  p: PTestRecord;
 begin
   for i := 1 to ItemsCount do
   begin
@@ -461,7 +580,7 @@ end;
 
 procedure TestTsgList.TestAdd1;
 var
-  v, r: TsgTestRecord;
+  v, r: TTestRecord;
 begin
   CheckTrue(List.Count = 0);
   v.Init(457, 0);
@@ -473,7 +592,7 @@ end;
 procedure TestTsgList.TestDelete;
 var
   i: Integer;
-  v, r: TsgTestRecord;
+  v, r: TTestRecord;
 begin
   for i := 0 to 99 do
   begin
@@ -492,7 +611,7 @@ end;
 procedure TestTsgList.TestInsert;
 var
   i: Integer;
-  v, r: TsgTestRecord;
+  v, r: TTestRecord;
 begin
   for i := 0 to 99 do
   begin
@@ -517,7 +636,7 @@ end;
 
 procedure TestTsgList.TestExchange;
 var
-  a, b, c, d, r: TsgTestRecord;
+  a, b, c, d, r: TTestRecord;
   j: Integer;
   i: Integer;
 begin
@@ -547,7 +666,7 @@ end;
 procedure TestTsgList.TestSort;
 var
   i: Integer;
-  a: TsgTestRecord;
+  a: TTestRecord;
 begin
   for i := 1 to ItemsCount do
   begin
@@ -573,7 +692,7 @@ end;
 procedure TestTsgList.TestReverse;
 var
   i: Integer;
-  a: TsgTestRecord;
+  a: TTestRecord;
 begin
   for i := 1 to ItemsCount do
   begin
@@ -591,15 +710,15 @@ end;
 
 procedure TestTsgList.TestAssign;
 var
-  Source: TsgList<TsgTestRecord>;
-  v, r: TsgTestRecord;
-  p: PsgTestRecord;
+  Source: TsgList<TTestRecord>;
+  v, r: TTestRecord;
+  p: PTestRecord;
 begin
   v.Init(25, 1);
   v.s := '123';
   ItemProc.FAssignProc(@r, @v);
   CheckTrue(r.Equals(v));
-  Source := TsgList<TsgTestRecord>.From(ItemProc);
+  Source := TsgList<TTestRecord>.From(ItemProc);
   try
     Source.Add(v);
     p := Source.GetPtr(0);
@@ -618,7 +737,7 @@ end;
 
 procedure TsgRecordListTest.SetUp;
 begin
-  List := TsgRecordList<TsgTestRecord>.From(nil);
+  List := TsgRecordList<TTestRecord>.From(nil);
 end;
 
 procedure TsgRecordListTest.TearDown;
@@ -630,7 +749,7 @@ end;
 procedure TsgRecordListTest._Add0;
 var
   i: Integer;
-  a, b: PsgTestRecord;
+  a, b: PTestRecord;
 begin
   for i := 1 to ItemsCount do
   begin
@@ -658,8 +777,8 @@ end;
 procedure TsgRecordListTest._Add;
 var
   i, j: Integer;
-  a, b: TsgTestRecord;
-  p: PsgTestRecord;
+  a, b: TTestRecord;
+  p: PTestRecord;
 begin
   for i := 1 to ItemsCount do
   begin
@@ -690,7 +809,7 @@ end;
 procedure TsgRecordListTest._Delete;
 var
   i: Integer;
-  r: TsgTestRecord;
+  r: TTestRecord;
 begin
   _Add0;
   CheckTrue(List.Count = ItemsCount);
@@ -705,7 +824,7 @@ end;
 
 procedure TsgRecordListTest._Exchange;
 var
-  a, b, c, d, r: TsgTestRecord;
+  a, b, c, d, r: TTestRecord;
   j: Integer;
   i: Integer;
 begin
@@ -734,7 +853,7 @@ end;
 
 procedure TsgRecordListTest._Extract;
 var
-  p, r: PsgTestRecord;
+  p, r: PTestRecord;
 begin
   _Add0;
   CheckTrue(List.Count = ItemsCount);
@@ -747,7 +866,7 @@ end;
 procedure TsgRecordListTest._IndexOf;
 var
   i: Integer;
-  p: PsgTestRecord;
+  p: PTestRecord;
 begin
   _Add0;
   CheckTrue(List.Count = ItemsCount);
@@ -759,7 +878,7 @@ end;
 procedure TsgRecordListTest._Reverse;
 var
   i: Integer;
-  p: PsgTestRecord;
+  p: PTestRecord;
 begin
   _Add0;
   CheckTrue(List.Count = ItemsCount);
@@ -773,13 +892,13 @@ end;
 
 function Compare(Item1, Item2: Pointer): Integer;
 begin
-  Result := PsgTestRecord(Item1).v - PsgTestRecord(Item2).v;
+  Result := PTestRecord(Item1).v - PTestRecord(Item2).v;
 end;
 
 procedure TsgRecordListTest._Sort;
 var
   i: Integer;
-  p: PsgTestRecord;
+  p: PTestRecord;
 begin
   _Add0;
   CheckTrue(List.Count = ItemsCount);
@@ -1584,6 +1703,8 @@ end;
 initialization
   // Oz.SGL.Heap
   RegisterTest(THeapPoolTest.Suite);
+  RegisterTest(TsgItemTest.Suite);
+
   // Oz.SGL.Collections
   RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgRecordListTest.Suite);
