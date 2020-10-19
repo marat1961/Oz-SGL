@@ -31,10 +31,10 @@ uses
 
 type
   THeapPool = class;
-  TFreeProc = procedure (Item: Pointer);
-  TPairItemsProc = procedure (A, B: Pointer);
-  THashProc = function (Key: Pointer): Cardinal;
-  TEqualsFunc = function (A, B: Pointer): Boolean;
+  TFreeProc = procedure(Item: Pointer);
+  TPairItemsProc = procedure(A, B: Pointer);
+  THashProc = function(Key: Pointer): Cardinal;
+  TEqualsFunc = function(A, B: Pointer): Boolean;
 
 {$Region 'TsgUtils'}
 
@@ -60,19 +60,51 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTypeManager'}
+{$Region 'TsgItem: structure for a collection item of some type'}
+
+  TsgItem = record
+  type
+    TAssignProc = procedure(const Value) of object;
+    TFreeProc = procedure of object;
+  var
+    Item: Pointer;
+    TypeInfo: Pointer;
+    ItemSize: Cardinal;
+    TypeKind: System.TTypeKind;
+    ManagedType: Boolean;
+    HasWeakRef: Boolean;
+    OnFree: TFreeProc;
+    AssignProc: TsgItem.TAssignProc;
+  private
+    procedure Init<T>(OnFree: TsgItem.TFreeProc);
+    // A^ := B^;
+    procedure Assign1(const Value);
+    procedure Assign2(const Value);
+    procedure Assign4(const Value);
+    procedure Assign8(const Value);
+    procedure AssignItem(const Value);
+    procedure AssignManaged(const Value);
+    procedure AssignVariant(const Value);
+    procedure AssignMRef(const Value);
+    // A.Free;
+    procedure Free1;
+    procedure Free2;
+    procedure Free4;
+    procedure Free8;
+    procedure FreeItem;
+    procedure FreeManaged;
+    procedure FreeVariant;
+    procedure FreeMRef;
+  end;
 
   PsgTypeManager = ^TsgTypeManager;
   TsgTypeManager = record
   private
-    TypeKind: System.TTypeKind;
-    ManagedType: Boolean;
-    HasWeakRef: Boolean;
-    FTypeInfo: Pointer;
-    FFreeProc: TFreeProc;
-    FAssignProc: TPairItemsProc;
+    Adapter: TsgItem;
   public
-    procedure Init<T>(OnFree: TFreeProc);
+    procedure Init<T>(OnFree: TsgItem.TFreeProc);
+    property OnFree: TFreeProc read Adapter.OnFree;
+    property AssignProc: TsgItem.TAssignProc read Adapter.AssignProc;
   end;
 
 {$EndRegion}
@@ -326,17 +358,184 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgTypeManager'}
+{$Region 'TsgItem'}
 
-procedure TsgTypeManager.Init<T>(OnFree: TFreeProc);
+procedure TsgItem.Assign1(const Value);
 begin
-  FTypeInfo := TypeInfo(T);
+  PByte(Item)^ := Byte(Value)
+end;
+
+procedure TsgItem.Assign2(const Value);
+begin
+  PWord(Item)^ := Word(Value)
+end;
+
+procedure TsgItem.Assign4(const Value);
+begin
+  PCardinal(Item)^ := Cardinal(Value);
+end;
+
+procedure TsgItem.Assign8(const Value);
+begin
+  PUInt64(Item)^ := UInt64(Value);
+end;
+
+procedure TsgItem.AssignItem(const Value);
+begin
+  Move(Value, Item^, ItemSize);
+end;
+
+procedure TsgItem.AssignManaged(const Value);
+begin
+  System.CopyArray(Item, @Value, TypeInfo, 1);
+end;
+
+procedure TsgItem.AssignVariant(const Value);
+begin
+  PVariant(Item)^ := Variant(Value)
+end;
+
+procedure TsgItem.AssignMRef(const Value);
+type
+  PBytes = ^TBytes;
+  PInterface = ^IInterface;
+begin
+  if not IsConstValue(TypeKind) then
+    raise ESglError.Create(ESglError.NotImplemented);
+  case TypeKind of
+    TTypeKind.tkUString: PString(Item)^ := string(Value);
+    TTypeKind.tkDynArray: PBytes(Item)^ := TBytes(Value);
+    TTypeKind.tkInterface: PInterface(Item)^ := IInterface(Value);
+{$IF Defined(AUTOREFCOUNT)}
+    TTypeKind.tkClass: PObject(Item)^ := TObject(Value);
+{$ENDIF}
+    TTypeKind.tkLString: PRawByteString(Item)^ := RawByteString(Value);
+{$IF not Defined(NEXTGEN)}
+    TTypeKind.tkWString: PWideString(Item)^ := WideString(Value);
+{$ENDIF}
+  end;
+end;
+
+procedure TsgItem.Free1;
+begin
+  PByte(Item)^ := 0;
+end;
+
+procedure TsgItem.Free2;
+begin
+  PByte(Item)^ := 0;
+end;
+
+procedure TsgItem.Free4;
+begin
+  PByte(Item)^ := 0;
+end;
+
+procedure TsgItem.Free8;
+begin
+  PByte(Item)^ := 0;
+end;
+
+procedure TsgItem.FreeItem;
+begin
+  FillChar(Item^, ItemSize, 0);
+end;
+
+procedure TsgItem.FreeManaged;
+begin
+  FinalizeArray(Item, TypeInfo, 1);
+  FillChar(Item^, ItemSize, 0);
+end;
+
+procedure TsgItem.FreeMRef;
+begin
+  FinalizeArray(Item, TypeInfo, 1);
+  PPointer(Item^) := nil;
+end;
+
+procedure TsgItem.FreeVariant;
+begin
+  PVariant(Item)^.VarClear;
+end;
+
+procedure TsgItem.Init<T>(OnFree: TsgItem.TFreeProc);
+begin
+  TypeInfo := System.TypeInfo(T);
   TypeKind := System.GetTypeKind(T);
   ManagedType := System.IsManagedType(T);
   HasWeakRef := System.HasWeakRef(T);
-  if not Assigned(OnFree) then
-    FFreeProc := TFreeProc(@TsgItemProc.Free<T>);
-  FAssignProc := nil;
+  ItemSize := sizeof(T);
+  if ManagedType then
+  begin
+    if (ItemSize = SizeOf(Pointer)) and not System.HasWeakRef(T) and
+        not (GetTypeKind(T) in [tkRecord, tkMRecord]) then
+    begin
+      AssignProc := Self.AssignMRef;
+      if not Assigned(OnFree) then
+        OnFree := Self.FreeMRef;
+    end
+    else if GetTypeKind(T) = TTypeKind.tkVariant then
+    begin
+      AssignProc := Self.AssignVariant;
+      if not Assigned(OnFree) then
+        OnFree := Self.FreeVariant;
+    end
+    else
+    begin
+      AssignProc := Self.AssignManaged;
+      if not Assigned(OnFree) then
+        OnFree := Self.FreeManaged;
+    end
+  end
+  else
+    case ItemSize of
+      1:
+        begin
+          AssignProc := Self.Assign1;
+          if not Assigned(OnFree) then
+            OnFree := Self.Free1;
+        end;
+      2:
+        begin
+          AssignProc := Assign2;
+          if not Assigned(OnFree) then
+            OnFree := Self.Free2;
+        end;
+      4:
+        begin
+          AssignProc := Assign4;
+          if not Assigned(OnFree) then
+            OnFree := Self.Free4;
+        end;
+      8:
+        begin
+          AssignProc := Assign8;
+          if not Assigned(OnFree) then
+            OnFree := Self.Free8;
+        end;
+      0, 3, 5, 6, 7: raise ESglError.Create('impossible');
+      else if ManagedType then
+      begin
+        AssignProc := AssignManaged;
+        if not Assigned(OnFree) then
+          OnFree := Self.FreeManaged;
+      end
+      else
+      begin
+        AssignProc := AssignItem;
+        if not Assigned(OnFree) then
+          OnFree := Self.FreeItem;
+      end;
+    end;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgTypeManager'}
+
+procedure TsgTypeManager.Init<T>(OnFree: TsgItem.TFreeProc);
+begin
+  Adapter.Init<T>(OnFree);
 end;
 
 {$EndRegion}
