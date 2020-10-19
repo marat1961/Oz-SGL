@@ -73,10 +73,9 @@ type
     TypeKind: System.TTypeKind;
     ManagedType: Boolean;
     HasWeakRef: Boolean;
-    OnFree: TFreeProc;
-    AssignProc: TsgItem.TAssignProc;
+    OnAssign: TsgItem.TAssignProc;
+    OnFree: TsgItem.TFreeProc;
   private
-    procedure Init<T>(OnFree: TsgItem.TFreeProc);
     // Item^ := Value;
     procedure Assign1(const Value);
     procedure Assign2(const Value);
@@ -95,6 +94,8 @@ type
     procedure FreeManaged;
     procedure FreeVariant;
     procedure FreeMRef;
+  public
+    procedure Init<T>(OnFree: TsgItem.TFreeProc = nil);
   end;
 
   PsgTypeManager = ^TsgTypeManager;
@@ -103,8 +104,8 @@ type
     Adapter: TsgItem;
   public
     procedure Init<T>(OnFree: TsgItem.TFreeProc);
-    property OnFree: TFreeProc read Adapter.OnFree;
-    property AssignProc: TsgItem.TAssignProc read Adapter.AssignProc;
+    property OnFree: TsgItem.TFreeProc read Adapter.OnFree;
+    property OnAssign: TsgItem.TAssignProc read Adapter.OnAssign;
   end;
 
 {$EndRegion}
@@ -470,21 +471,21 @@ begin
     if (ItemSize = SizeOf(Pointer)) and not System.HasWeakRef(T) and
       not (GetTypeKind(T) in [tkRecord, tkMRecord]) then
     begin
-      AssignProc := Self.AssignMRef;
+      OnAssign := Self.AssignMRef;
       if not Assigned(OnFree) then
-        OnFree := Self.FreeMRef;
+        Self.OnFree := Self.FreeMRef;
     end
     else if GetTypeKind(T) = TTypeKind.tkVariant then
     begin
-      AssignProc := Self.AssignVariant;
+      OnAssign := Self.AssignVariant;
       if not Assigned(OnFree) then
-        OnFree := Self.FreeVariant;
+        Self.OnFree := Self.FreeVariant;
     end
     else
     begin
-      AssignProc := Self.AssignManaged;
+      OnAssign := Self.AssignManaged;
       if not Assigned(OnFree) then
-        OnFree := Self.FreeManaged;
+        Self.OnFree := Self.FreeManaged;
     end
   end
   else
@@ -493,33 +494,33 @@ begin
         raise ESglError.Create('impossible');
       1:
         begin
-          AssignProc := Self.Assign1;
+          OnAssign := Self.Assign1;
           if not Assigned(OnFree) then
-            OnFree := Self.Free1;
+            Self.OnFree := Self.Free1;
         end;
       2:
         begin
-          AssignProc := Assign2;
+          OnAssign := Assign2;
           if not Assigned(OnFree) then
-            OnFree := Self.Free2;
+            Self.OnFree := Self.Free2;
         end;
       4:
         begin
-          AssignProc := Assign4;
+          OnAssign := Assign4;
           if not Assigned(OnFree) then
-            OnFree := Self.Free4;
+            Self.OnFree := Self.Free4;
         end;
       8:
         begin
-          AssignProc := Assign8;
+          OnAssign := Assign8;
           if not Assigned(OnFree) then
-            OnFree := Self.Free8;
+            Self.OnFree := Self.Free8;
         end;
       else
       begin
-        AssignProc := AssignItem;
+        OnAssign := AssignItem;
         if not Assigned(OnFree) then
-          OnFree := Self.FreeItem;
+          Self.OnFree := Self.FreeItem;
       end;
     end;
 end;

@@ -99,7 +99,6 @@ type
 
   TsgItemTest = class(TTestCase)
   public
-    Item: TsgItem;
     procedure SetUp; override;
     procedure TearDown; override;
   published
@@ -353,18 +352,28 @@ end;
 procedure TsgItemTest.SetUp;
 begin
   inherited;
-
 end;
 
 procedure TsgItemTest.TearDown;
 begin
   inherited;
-
 end;
 
 procedure TsgItemTest.Test1;
+var
+  ba, bv: Byte;
+  ca, cv: Char;
+  ok: Boolean;
+  a: TsgItem;
 begin
-  // byte char boolean enum
+  // byte char boolean
+  a.Init<Byte>;
+  ba := 5; bv := 43;
+  a.Item := @ba;
+  a.OnAssign(bv);
+  CheckTrue(ba = bv);
+  a.OnFree;
+  CheckTrue(ba = 0);
 end;
 
 procedure TsgItemTest.Test2;
