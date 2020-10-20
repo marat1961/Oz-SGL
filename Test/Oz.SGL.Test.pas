@@ -127,6 +127,7 @@ type
     procedure TestWord;
     procedure Test4;
     procedure Test8;
+    procedure Test0;
     procedure TestOtherSize;
     procedure TestItem;
     procedure TestManaged;
@@ -465,24 +466,112 @@ begin
   CheckTrue(a = 0);
 end;
 
-procedure TsgItemTest.TestOtherSize;
+procedure TsgItemTest.Test0;
+type
+  t0 = record end;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a: t0;
 begin
-  // for types 0, 3, 5, 6, 7
+  CheckTrue(sizeof(t0) = 0);
+  meta.Init<t0>;
+  item.Init(meta);
+  item.SetPtr(a);
+end;
+
+procedure TsgItemTest.TestOtherSize;
+type
+  t3 = record a, b, c: Byte; end;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: t3;
+begin
+  CheckTrue(sizeof(t3) = 3);
+  a.a := 12;
+  a.b := 45;
+  a.c := 78;
+  b.a := 5;
+  b.b := 145;
+  b.c := 178;
+  meta.Init<t3>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a.a = b.a);
+  CheckTrue(a.b = b.b);
+  CheckTrue(a.c = b.c);
+  item.Free;
+  CheckTrue(a.a = 0);
+  CheckTrue(a.b = 0);
+  CheckTrue(a.c = 0);
 end;
 
 procedure TsgItemTest.TestItem;
+type
+  t7 = array [0..6] of Byte;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  i: Integer;
+  a, b: t7;
 begin
-  // record
+  CheckTrue(sizeof(t7) = 7);
+  for i := 0 to High(t7) do
+  begin
+    a[i] := 23;
+    b[i] := i;
+  end;
+  meta.Init<t7>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  for i := 0 to High(t7) do
+    CheckTrue(a[i]= b[i]);
+  item.Free;
+  for i := 0 to High(t7) do
+    CheckTrue(a[i] = 0);
 end;
 
 procedure TsgItemTest.TestManaged;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: TPerson;
 begin
   // record with managed fields
+  a := TPerson.From('Peter');
+  a.id := 1;
+  b := TPerson.From('Peter');
+  b.id := 43;
+  meta.Init<TPerson>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a.id = b.id);
+  CheckTrue(a.name = b.name);
+  item.Free;
+  CheckTrue(a.id = 0);
+  CheckTrue(a.name = '');
 end;
 
 procedure TsgItemTest.TestVariant;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: Variant;
 begin
-  // Variant
+  // record with managed fields
+  a := 'Peter';
+  b := 12.45;
+  meta.Init<Variant>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(SameValue(a, 12.45));
+  item.Free;
+  CheckTrue(TVarData(a).VType = varEmpty);
 end;
 
 procedure TsgItemTest.TestObject;

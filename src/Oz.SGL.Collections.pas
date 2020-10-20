@@ -858,7 +858,7 @@ begin
   end
   else
     case Meta.ItemSize of
-      0, 3, 5, 6, 7:
+      0:
         raise ESglError.Create('impossible');
       1:
         begin
@@ -993,7 +993,8 @@ end;
 
 procedure TsgItem.FreeVariant;
 begin
-  PVariant(Ptr)^.Clear;
+  PVariant(Ptr)^ := 0;
+  FillChar(Ptr^, sizeof(Variant), 0);
 end;
 
 {$EndRegion}
