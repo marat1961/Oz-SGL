@@ -102,7 +102,8 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure Test1;
+    procedure TestByte;
+    procedure TestChar;
     procedure Test2;
     procedure Test4;
     procedure Test8;
@@ -359,21 +360,36 @@ begin
   inherited;
 end;
 
-procedure TsgItemTest.Test1;
+procedure TsgItemTest.TestByte;
 var
-  ba, bv: Byte;
-  ca, cv: Char;
-  ok: Boolean;
-  a: TsgItem;
+  meta: TsgMeta;
+  a, b: Byte;
+  item: TsgItem;
 begin
-  // byte char boolean
-  a.Init<Byte>;
-  ba := 5; bv := 43;
-  a.Item := @ba;
-  a.OnAssign(bv);
-  CheckTrue(ba = bv);
-  a.OnFree;
-  CheckTrue(ba = 0);
+  a := 5;
+  b := 43;
+  meta.Init<Byte>;
+  item.Init(a, meta);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = 0);
+end;
+
+procedure TsgItemTest.TestChar;
+var
+  meta: TsgMeta;
+  a, b: char;
+  item: TsgItem;
+begin
+  a := 'Q';
+  b := 'F';
+  meta.Init<char>;
+  item.Init(a, meta);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = Chr(0));
 end;
 
 procedure TsgItemTest.Test2;

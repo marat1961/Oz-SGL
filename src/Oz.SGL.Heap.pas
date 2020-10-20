@@ -60,6 +60,22 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgMeta: metadata for item of some type'}
+
+  TsgMeta = record
+  var
+    TypeInfo: Pointer;
+    ItemSize: Cardinal;
+    TypeKind: System.TTypeKind;
+    ManagedType: Boolean;
+    HasWeakRef: Boolean;
+  public
+    procedure Init<T>;
+  end;
+  PsgMeta = ^TsgMeta;
+
+{$EndRegion}
+
 {$Region 'TsgItem: structure for a collection item of some type'}
 
   TsgItem = record
@@ -68,13 +84,9 @@ type
     TFreeProc = procedure of object;
   var
     Item: Pointer;
-    TypeInfo: Pointer;
-    ItemSize: Cardinal;
-    TypeKind: System.TTypeKind;
-    ManagedType: Boolean;
-    HasWeakRef: Boolean;
-    OnAssign: TsgItem.TAssignProc;
-    OnFree: TsgItem.TFreeProc;
+    Meta: PsgMeta;
+    Assign: TAssignProc;
+    Free: TFreeProc;
   private
     // Item^ := Value;
     procedure Assign1(const Value);
@@ -95,17 +107,7 @@ type
     procedure FreeVariant;
     procedure FreeMRef;
   public
-    procedure Init<T>(OnFree: TsgItem.TFreeProc = nil);
-  end;
-
-  PsgTypeManager = ^TsgTypeManager;
-  TsgTypeManager = record
-  private
-    Adapter: TsgItem;
-  public
-    procedure Init<T>(OnFree: TsgItem.TFreeProc);
-    property OnFree: TsgItem.TFreeProc read Adapter.OnFree;
-    property OnAssign: TsgItem.TAssignProc read Adapter.OnAssign;
+    procedure Init(var Value; const Meta: TsgMeta; OnFree: TsgItem.TFreeProc = nil);
   end;
 
 {$EndRegion}
@@ -383,12 +385,12 @@ end;
 
 procedure TsgItem.AssignItem(const Value);
 begin
-  Move(Value, Item^, ItemSize);
+  Move(Value, Item^, Meta.ItemSize);
 end;
 
 procedure TsgItem.AssignManaged(const Value);
 begin
-  System.CopyArray(Item, @Value, TypeInfo, 1);
+  System.CopyArray(Item, @Value, Meta.TypeInfo, 1);
 end;
 
 procedure TsgItem.AssignVariant(const Value);
@@ -401,9 +403,9 @@ type
   PBytes = ^TBytes;
   PInterface = ^IInterface;
 begin
-  if not IsConstValue(TypeKind) then
+  if not IsConstValue(Meta.TypeKind) then
     raise ESglError.Create(ESglError.NotImplemented);
-  case TypeKind of
+  case Meta.TypeKind of
     TTypeKind.tkUString: PString(Item)^ := string(Value);
     TTypeKind.tkDynArray: PBytes(Item)^ := TBytes(Value);
     TTypeKind.tkInterface: PInterface(Item)^ := IInterface(Value);
@@ -439,18 +441,18 @@ end;
 
 procedure TsgItem.FreeItem;
 begin
-  FillChar(Item^, ItemSize, 0);
+  FillChar(Item^, Meta.ItemSize, 0);
 end;
 
 procedure TsgItem.FreeManaged;
 begin
-  FinalizeArray(Item, TypeInfo, 1);
-  FillChar(Item^, ItemSize, 0);
+  FinalizeArray(Item, Meta.TypeInfo, 1);
+  FillChar(Item^, Meta.ItemSize, 0);
 end;
 
 procedure TsgItem.FreeMRef;
 begin
-  FinalizeArray(Item, TypeInfo, 1);
+  FinalizeArray(Item, Meta.TypeInfo, 1);
   PPointer(Item^) := nil;
 end;
 
@@ -459,79 +461,80 @@ begin
   PVariant(Item)^.Clear;
 end;
 
-procedure TsgItem.Init<T>(OnFree: TsgItem.TFreeProc);
+procedure TsgItem.Init(var Value; const Meta: TsgMeta; OnFree: TsgItem.TFreeProc);
 begin
-  TypeInfo := System.TypeInfo(T);
-  TypeKind := System.GetTypeKind(T);
-  ManagedType := System.IsManagedType(T);
-  HasWeakRef := System.HasWeakRef(T);
-  ItemSize := sizeof(T);
-  if ManagedType then
+  Self.Item := @Value;
+  Self.Meta := @Meta;
+  if Meta.ManagedType then
   begin
-    if (ItemSize = SizeOf(Pointer)) and not System.HasWeakRef(T) and
-      not (GetTypeKind(T) in [tkRecord, tkMRecord]) then
+    if (Meta.ItemSize = SizeOf(Pointer)) and not Meta.HasWeakRef and
+      not (Meta.TypeKind in [tkRecord, tkMRecord]) then
     begin
-      OnAssign := Self.AssignMRef;
+      Self.Assign := AssignMRef;
       if not Assigned(OnFree) then
-        Self.OnFree := Self.FreeMRef;
+        Self.Free := FreeMRef;
     end
-    else if GetTypeKind(T) = TTypeKind.tkVariant then
+    else if Meta.TypeKind = TTypeKind.tkVariant then
     begin
-      OnAssign := Self.AssignVariant;
+      Self.Assign := AssignVariant;
       if not Assigned(OnFree) then
-        Self.OnFree := Self.FreeVariant;
+        Self.Free := FreeVariant;
     end
     else
     begin
-      OnAssign := Self.AssignManaged;
+      Self.Assign := AssignManaged;
       if not Assigned(OnFree) then
-        Self.OnFree := Self.FreeManaged;
+        Self.Free := FreeManaged;
     end
   end
   else
-    case ItemSize of
+    case Meta.ItemSize of
       0, 3, 5, 6, 7:
         raise ESglError.Create('impossible');
       1:
         begin
-          OnAssign := Self.Assign1;
+          Self.Assign := Assign1;
           if not Assigned(OnFree) then
-            Self.OnFree := Self.Free1;
+            Self.Free := Free1;
         end;
       2:
         begin
-          OnAssign := Assign2;
+          Self.Assign := Assign2;
           if not Assigned(OnFree) then
-            Self.OnFree := Self.Free2;
+            Self.Free := Free2;
         end;
       4:
         begin
-          OnAssign := Assign4;
+          Self.Assign := Assign4;
           if not Assigned(OnFree) then
-            Self.OnFree := Self.Free4;
+            Self.Free := Free4;
         end;
       8:
         begin
-          OnAssign := Assign8;
+          Self.Assign := Assign8;
           if not Assigned(OnFree) then
-            Self.OnFree := Self.Free8;
+            Self.Free := Free8;
         end;
       else
       begin
-        OnAssign := AssignItem;
+        Self.Assign := AssignItem;
         if not Assigned(OnFree) then
-          Self.OnFree := Self.FreeItem;
+          Self.Free := FreeItem;
       end;
     end;
 end;
 
 {$EndRegion}
 
-{$Region 'TsgTypeManager'}
+{$Region 'TsgMeta'}
 
-procedure TsgTypeManager.Init<T>(OnFree: TsgItem.TFreeProc);
+procedure TsgMeta.Init<T>;
 begin
-  Adapter.Init<T>(OnFree);
+  TypeInfo := System.TypeInfo(T);
+  TypeKind := System.GetTypeKind(T);
+  ManagedType := System.IsManagedType(T);
+  HasWeakRef := System.HasWeakRef(T);
+  ItemSize := sizeof(T);
 end;
 
 {$EndRegion}
