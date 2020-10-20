@@ -104,7 +104,7 @@ type
   published
     procedure TestByte;
     procedure TestChar;
-    procedure Test2;
+    procedure TestWord;
     procedure Test4;
     procedure Test8;
     procedure TestOtherSize;
@@ -362,14 +362,15 @@ end;
 
 procedure TsgItemTest.TestByte;
 var
-  meta: TsgMeta;
-  a, b: Byte;
+  meta: TsgItemMeta;
   item: TsgItem;
+  a, b: Byte;
 begin
   a := 5;
   b := 43;
   meta.Init<Byte>;
-  item.Init(a, meta);
+  item.Init(meta);
+  item.SetPtr(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -378,39 +379,88 @@ end;
 
 procedure TsgItemTest.TestChar;
 var
-  meta: TsgMeta;
-  a, b: char;
+  meta: TsgItemMeta;
   item: TsgItem;
+  a, b: Char;
 begin
   a := 'Q';
   b := 'F';
-  meta.Init<char>;
-  item.Init(a, meta);
+  meta.Init<Char>;
+  item.Init(meta);
+  item.SetPtr(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
   CheckTrue(a = Chr(0));
 end;
 
-procedure TsgItemTest.Test2;
+procedure TsgItemTest.TestWord;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: Word;
 begin
-  // word
-  // two char
+  a := 5;
+  b := 43;
+  meta.Init<Word>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.Test4;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: Integer;
 begin
-  // Integer Cardinal
+  a := 5;
+  b := 43;
+  meta.Init<Integer>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.Test8;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: Int64;
 begin
-  // Double
+  a := 5;
+  b := 43;
+  meta.Init<Int64>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.TestDynArray;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: TArray<Integer>;
 begin
-  // TArray<Integer>
+  a := [5, 75, 588];
+  b := [43];
+  meta.Init<TArray<Integer>>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(Length(a) = 1);
+  CheckTrue(a[0] = 43);
+  item.Free;
+  CheckTrue(a = nil);
 end;
 
 procedure TsgItemTest.TestInterface;

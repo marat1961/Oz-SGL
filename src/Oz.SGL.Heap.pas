@@ -36,7 +36,7 @@ type
   THashProc = function(Key: Pointer): Cardinal;
   TEqualsFunc = function(A, B: Pointer): Boolean;
 
-{$Region 'TsgUtils'}
+{$EndRegion}
 
 {$Region 'ESglError'}
 
@@ -45,69 +45,19 @@ type
     NotImplemented = 0;
     ListIndexError = 1;
     ListCountError = 2;
-    ErrorMax = 2;
+    IncompatibleDataType = 3;
+    ErrorMax = 3;
   private type
     TErrorMessages = array [0..ErrorMax] of string;
   private const
     ErrorMessages: TErrorMessages = (
       'Not implemented',
       'List index error (%d)',
-      'List count error (%d)');
+      'List count error (%d)',
+      'Incompatible data type');
   public
     constructor Create(ErrNo: Integer); overload;
     constructor Create(ErrNo, IntParam: Integer); overload;
-  end;
-
-{$EndRegion}
-
-{$Region 'TsgMeta: metadata for item of some type'}
-
-  TsgMeta = record
-  var
-    TypeInfo: Pointer;
-    ItemSize: Cardinal;
-    TypeKind: System.TTypeKind;
-    ManagedType: Boolean;
-    HasWeakRef: Boolean;
-  public
-    procedure Init<T>;
-  end;
-  PsgMeta = ^TsgMeta;
-
-{$EndRegion}
-
-{$Region 'TsgItem: structure for a collection item of some type'}
-
-  TsgItem = record
-  type
-    TAssignProc = procedure(const Value) of object;
-    TFreeProc = procedure of object;
-  var
-    Item: Pointer;
-    Meta: PsgMeta;
-    Assign: TAssignProc;
-    Free: TFreeProc;
-  private
-    // Item^ := Value;
-    procedure Assign1(const Value);
-    procedure Assign2(const Value);
-    procedure Assign4(const Value);
-    procedure Assign8(const Value);
-    procedure AssignItem(const Value);
-    procedure AssignManaged(const Value);
-    procedure AssignVariant(const Value);
-    procedure AssignMRef(const Value);
-    // Item.Free;
-    procedure Free1;
-    procedure Free2;
-    procedure Free4;
-    procedure Free8;
-    procedure FreeItem;
-    procedure FreeManaged;
-    procedure FreeVariant;
-    procedure FreeMRef;
-  public
-    procedure Init(var Value; const Meta: TsgMeta; OnFree: TsgItem.TFreeProc = nil);
   end;
 
 {$EndRegion}
@@ -357,184 +307,6 @@ begin
   else
     Msg := 'Error: ' + IntToStr(ErrNo);
   CreateFmt(Msg, [IntParam]);
-end;
-
-{$EndRegion}
-
-{$Region 'TsgItem'}
-
-procedure TsgItem.Assign1(const Value);
-begin
-  PByte(Item)^ := Byte(Value)
-end;
-
-procedure TsgItem.Assign2(const Value);
-begin
-  PWord(Item)^ := Word(Value)
-end;
-
-procedure TsgItem.Assign4(const Value);
-begin
-  PCardinal(Item)^ := Cardinal(Value);
-end;
-
-procedure TsgItem.Assign8(const Value);
-begin
-  PUInt64(Item)^ := UInt64(Value);
-end;
-
-procedure TsgItem.AssignItem(const Value);
-begin
-  Move(Value, Item^, Meta.ItemSize);
-end;
-
-procedure TsgItem.AssignManaged(const Value);
-begin
-  System.CopyArray(Item, @Value, Meta.TypeInfo, 1);
-end;
-
-procedure TsgItem.AssignVariant(const Value);
-begin
-  PVariant(Item)^ := Variant(Value)
-end;
-
-procedure TsgItem.AssignMRef(const Value);
-type
-  PBytes = ^TBytes;
-  PInterface = ^IInterface;
-begin
-  if not IsConstValue(Meta.TypeKind) then
-    raise ESglError.Create(ESglError.NotImplemented);
-  case Meta.TypeKind of
-    TTypeKind.tkUString: PString(Item)^ := string(Value);
-    TTypeKind.tkDynArray: PBytes(Item)^ := TBytes(Value);
-    TTypeKind.tkInterface: PInterface(Item)^ := IInterface(Value);
-{$IF Defined(AUTOREFCOUNT)}
-    TTypeKind.tkClass: PObject(Item)^ := TObject(Value);
-{$ENDIF}
-    TTypeKind.tkLString: PRawByteString(Item)^ := RawByteString(Value);
-{$IF not Defined(NEXTGEN)}
-    TTypeKind.tkWString: PWideString(Item)^ := WideString(Value);
-{$ENDIF}
-  end;
-end;
-
-procedure TsgItem.Free1;
-begin
-  PByte(Item)^ := 0;
-end;
-
-procedure TsgItem.Free2;
-begin
-  PByte(Item)^ := 0;
-end;
-
-procedure TsgItem.Free4;
-begin
-  PByte(Item)^ := 0;
-end;
-
-procedure TsgItem.Free8;
-begin
-  PByte(Item)^ := 0;
-end;
-
-procedure TsgItem.FreeItem;
-begin
-  FillChar(Item^, Meta.ItemSize, 0);
-end;
-
-procedure TsgItem.FreeManaged;
-begin
-  FinalizeArray(Item, Meta.TypeInfo, 1);
-  FillChar(Item^, Meta.ItemSize, 0);
-end;
-
-procedure TsgItem.FreeMRef;
-begin
-  FinalizeArray(Item, Meta.TypeInfo, 1);
-  PPointer(Item^) := nil;
-end;
-
-procedure TsgItem.FreeVariant;
-begin
-  PVariant(Item)^.Clear;
-end;
-
-procedure TsgItem.Init(var Value; const Meta: TsgMeta; OnFree: TsgItem.TFreeProc);
-begin
-  Self.Item := @Value;
-  Self.Meta := @Meta;
-  if Meta.ManagedType then
-  begin
-    if (Meta.ItemSize = SizeOf(Pointer)) and not Meta.HasWeakRef and
-      not (Meta.TypeKind in [tkRecord, tkMRecord]) then
-    begin
-      Self.Assign := AssignMRef;
-      if not Assigned(OnFree) then
-        Self.Free := FreeMRef;
-    end
-    else if Meta.TypeKind = TTypeKind.tkVariant then
-    begin
-      Self.Assign := AssignVariant;
-      if not Assigned(OnFree) then
-        Self.Free := FreeVariant;
-    end
-    else
-    begin
-      Self.Assign := AssignManaged;
-      if not Assigned(OnFree) then
-        Self.Free := FreeManaged;
-    end
-  end
-  else
-    case Meta.ItemSize of
-      0, 3, 5, 6, 7:
-        raise ESglError.Create('impossible');
-      1:
-        begin
-          Self.Assign := Assign1;
-          if not Assigned(OnFree) then
-            Self.Free := Free1;
-        end;
-      2:
-        begin
-          Self.Assign := Assign2;
-          if not Assigned(OnFree) then
-            Self.Free := Free2;
-        end;
-      4:
-        begin
-          Self.Assign := Assign4;
-          if not Assigned(OnFree) then
-            Self.Free := Free4;
-        end;
-      8:
-        begin
-          Self.Assign := Assign8;
-          if not Assigned(OnFree) then
-            Self.Free := Free8;
-        end;
-      else
-      begin
-        Self.Assign := AssignItem;
-        if not Assigned(OnFree) then
-          Self.Free := FreeItem;
-      end;
-    end;
-end;
-
-{$EndRegion}
-
-{$Region 'TsgMeta'}
-
-procedure TsgMeta.Init<T>;
-begin
-  TypeInfo := System.TypeInfo(T);
-  TypeKind := System.GetTypeKind(T);
-  ManagedType := System.IsManagedType(T);
-  HasWeakRef := System.HasWeakRef(T);
-  ItemSize := sizeof(T);
 end;
 
 {$EndRegion}

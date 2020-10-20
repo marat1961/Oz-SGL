@@ -28,9 +28,64 @@ uses
 
 {$T+}
 
-{$Region 'TsgList<T>: Generic List of Values'}
+{$Region 'TsgItemMeta: metadata for item of some type'}
 
 type
+  TsgItemMeta = record
+  private
+    TypeInfo: Pointer;
+    ItemSize: Cardinal;
+    TypeKind: System.TTypeKind;
+    ManagedType: Boolean;
+    HasWeakRef: Boolean;
+  public
+    procedure Init<T>;
+  end;
+  PsgItemMeta = ^TsgItemMeta;
+
+{$EndRegion}
+
+{$Region 'TsgItem: structure for a collection item of some type'}
+
+  TsgItem = record
+  type
+    TAssignMethod = procedure(const Value) of object;
+    TFreeMethod = procedure of object;
+  private
+    Ptr: Pointer;
+    Meta: PsgItemMeta;
+    FFree: TFreeMethod;
+    FAssign: TAssignMethod;
+  private
+    // Ptr^ := Value;
+    procedure Assign1(const Value);
+    procedure Assign2(const Value);
+    procedure Assign4(const Value);
+    procedure Assign8(const Value);
+    procedure AssignItem(const Value);
+    procedure AssignManaged(const Value);
+    procedure AssignVariant(const Value);
+    procedure AssignMRef(const Value);
+    // Ptr.Free;
+    procedure Free1;
+    procedure Free2;
+    procedure Free4;
+    procedure Free8;
+    procedure FreeItem;
+    procedure FreeManaged;
+    procedure FreeVariant;
+    procedure FreeMRef;
+  public
+    procedure Init(const Meta: TsgItemMeta; OnFree: TFreeMethod = nil);
+    procedure SetPtr<T>(var Value: T);
+    property Free: TFreeMethod read FFree;
+    property Assign: TAssignMethod read FAssign;
+  end;
+  PsgItem = ^TsgItem;
+
+{$EndRegion}
+
+{$Region 'TsgList<T>: Generic List of Values'}
 
   PsgListHelper = ^TsgListHelper;
   TsgListHelper = record
@@ -769,6 +824,189 @@ begin
     ShortSort(L, R)
   else
     Sort(L, R);
+end;
+
+{$EndRegion}
+
+{$Region 'TsgItem'}
+
+procedure TsgItem.Init(const Meta: TsgItemMeta; OnFree: TFreeMethod);
+begin
+  Self.Ptr := nil;
+  Self.Meta := @Meta;
+  if Meta.ManagedType then
+  begin
+    if (Meta.ItemSize = SizeOf(Pointer)) and not Meta.HasWeakRef and
+      not (Meta.TypeKind in [tkRecord, tkMRecord]) then
+    begin
+      FAssign := Self.AssignMRef;
+      if not Assigned(OnFree) then
+        FFree := Self.FreeMRef;
+    end
+    else if Meta.TypeKind = TTypeKind.tkVariant then
+    begin
+      FAssign := Self.AssignVariant;
+      if not Assigned(OnFree) then
+        FFree := Self.FreeVariant;
+    end
+    else
+    begin
+      FAssign := Self.AssignManaged;
+      if not Assigned(OnFree) then
+        FFree := Self.FreeManaged;
+    end
+  end
+  else
+    case Meta.ItemSize of
+      0, 3, 5, 6, 7:
+        raise ESglError.Create('impossible');
+      1:
+        begin
+          FAssign := Self.Assign1;
+          if not Assigned(OnFree) then
+            FFree := Self.Free1;
+        end;
+      2:
+        begin
+          FAssign := Self.Assign2;
+          if not Assigned(OnFree) then
+            FFree := Self.Free2;
+        end;
+      4:
+        begin
+          FAssign := Self.Assign4;
+          if not Assigned(OnFree) then
+            FFree := Self.Free4;
+        end;
+      8:
+        begin
+          FAssign := Self.Assign8;
+          if not Assigned(OnFree) then
+            FFree := Self.Free8;
+        end;
+      else
+      begin
+        FAssign := Self.AssignItem;
+        if not Assigned(OnFree) then
+          FFree := Self.FreeItem;
+      end;
+    end;
+end;
+
+procedure TsgItem.SetPtr<T>(var Value: T);
+begin
+  if System.TypeInfo(T) <> Meta.TypeInfo then
+   raise ESglError.Create(ESglError.IncompatibleDataType);
+  Ptr := @Value;
+end;
+
+procedure TsgItem.Assign1(const Value);
+begin
+  PByte(Ptr)^ := Byte(Value)
+end;
+
+procedure TsgItem.Assign2(const Value);
+begin
+  PWord(Ptr)^ := Word(Value)
+end;
+
+procedure TsgItem.Assign4(const Value);
+begin
+  PCardinal(Ptr)^ := Cardinal(Value);
+end;
+
+procedure TsgItem.Assign8(const Value);
+begin
+  PUInt64(Ptr)^ := UInt64(Value);
+end;
+
+procedure TsgItem.AssignItem(const Value);
+begin
+  Move(Value, Ptr^, Meta.ItemSize);
+end;
+
+procedure TsgItem.AssignManaged(const Value);
+begin
+  System.CopyArray(Ptr, @Value, Meta.TypeInfo, 1);
+end;
+
+procedure TsgItem.AssignVariant(const Value);
+begin
+  PVariant(Ptr)^ := Variant(Value)
+end;
+
+procedure TsgItem.AssignMRef(const Value);
+type
+  PBytes = ^TBytes;
+  PInterface = ^IInterface;
+begin
+  case Meta.TypeKind of
+    TTypeKind.tkUString: PString(Ptr)^ := string(Value);
+    TTypeKind.tkDynArray: PBytes(Ptr)^ := TBytes(Value);
+    TTypeKind.tkInterface: PInterface(Ptr)^ := IInterface(Value);
+{$IF Defined(AUTOREFCOUNT)}
+    TTypeKind.tkClass: PObject(Ptr)^ := TObject(Value);
+{$ENDIF}
+    TTypeKind.tkLString: PRawByteString(Ptr)^ := RawByteString(Value);
+{$IF not Defined(NEXTGEN)}
+    TTypeKind.tkWString: PWideString(Ptr)^ := WideString(Value);
+{$ENDIF}
+  end;
+end;
+
+procedure TsgItem.Free1;
+begin
+  PByte(Ptr)^ := 0;
+end;
+
+procedure TsgItem.Free2;
+begin
+  PByte(Ptr)^ := 0;
+end;
+
+procedure TsgItem.Free4;
+begin
+  PByte(Ptr)^ := 0;
+end;
+
+procedure TsgItem.Free8;
+begin
+  PByte(Ptr)^ := 0;
+end;
+
+procedure TsgItem.FreeItem;
+begin
+  FillChar(Ptr^, Meta.ItemSize, 0);
+end;
+
+procedure TsgItem.FreeManaged;
+begin
+  FinalizeArray(Ptr, Meta.TypeInfo, 1);
+  FillChar(Ptr^, Meta.ItemSize, 0);
+end;
+
+procedure TsgItem.FreeMRef;
+begin
+  FinalizeArray(Ptr, Meta.TypeInfo, 1);
+  PPointer(Ptr^) := nil;
+end;
+
+procedure TsgItem.FreeVariant;
+begin
+  PVariant(Ptr)^.Clear;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgItemMeta'}
+
+procedure TsgItemMeta.Init<T>;
+begin
+  TypeInfo := System.TypeInfo(T);
+  TypeKind := System.GetTypeKind(T);
+  ManagedType := System.IsManagedType(T);
+  HasWeakRef := System.HasWeakRef(T);
+  ItemSize := sizeof(T);
 end;
 
 {$EndRegion}
