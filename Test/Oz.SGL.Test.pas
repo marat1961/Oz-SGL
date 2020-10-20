@@ -95,6 +95,26 @@ type
 
 {$EndRegion}
 
+{$Region 'TMyInterface'}
+
+  IIntId = interface
+    procedure SetId(const id: Integer);
+    function GetId: Integer;
+    property Id: Integer read GetId write SetId;
+  end;
+
+  TIntId = class(TInterfacedObject, IIntId)
+  private
+    FId: Integer;
+  public
+    destructor Destroy; override;
+    procedure SetId(const id: Integer);
+    function GetId: Integer;
+    property Id: Integer read GetId write SetId;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgItemTest'}
 
   TsgItemTest = class(TTestCase)
@@ -445,6 +465,72 @@ begin
   CheckTrue(a = 0);
 end;
 
+procedure TsgItemTest.TestOtherSize;
+begin
+  // for types 0, 3, 5, 6, 7
+end;
+
+procedure TsgItemTest.TestItem;
+begin
+  // record
+end;
+
+procedure TsgItemTest.TestManaged;
+begin
+  // record with managed fields
+end;
+
+procedure TsgItemTest.TestVariant;
+begin
+  // Variant
+end;
+
+procedure TsgItemTest.TestObject;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b, x: TIntId;
+begin
+  a := TIntId.Create;
+  a.Id := 75;
+  b := TIntId.Create;
+  b.Id := 43;
+  meta.Init<TIntId>;
+  item.Init(meta);
+  item.SetPtr(a);
+  x := a;
+  item.Assign(b);
+  CheckTrue(a.Id = b.Id);
+  item.Free;
+  CheckTrue(a = nil);
+  x.Free;
+  b.Free;
+end;
+
+procedure TsgItemTest.TestInterface;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: IIntId;
+begin
+  a := TIntId.Create;
+  a.Id := 75;
+  b := TIntId.Create;
+  b.Id := 43;
+  meta.Init<IIntId>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a.Id = b.Id);
+  item.Free;
+  CheckTrue(a = nil);
+end;
+
+procedure TsgItemTest.TestWeakRef;
+begin
+  // WeakRef
+end;
+
 procedure TsgItemTest.TestDynArray;
 var
   meta: TsgItemMeta;
@@ -463,54 +549,55 @@ begin
   CheckTrue(a = nil);
 end;
 
-procedure TsgItemTest.TestInterface;
-begin
-  // Interface
-end;
-
-procedure TsgItemTest.TestItem;
-begin
-  // record
-end;
-
-procedure TsgItemTest.TestManaged;
-begin
-  // record with managed fields
-end;
-
-procedure TsgItemTest.TestObject;
-begin
-  // TObject
-end;
-
-procedure TsgItemTest.TestOtherSize;
-begin
-  // for types 0, 3, 5, 6, 7
-end;
-
-procedure TsgItemTest.TestRawByteString;
-begin
-  // RawByteString
-end;
-
 procedure TsgItemTest.TestString;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: string;
 begin
-  // string
-end;
-
-procedure TsgItemTest.TestVariant;
-begin
-  // Variant
-end;
-
-procedure TsgItemTest.TestWeakRef;
-begin
-  // WeakRef
+  a := 'string a';
+  b := 'string b';
+  meta.Init<string>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = '');
 end;
 
 procedure TsgItemTest.TestWideString;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: WideString;
 begin
-  // WideString
+  a := 'string a';
+  b := 'string b';
+  meta.Init<WideString>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = '');
+end;
+
+procedure TsgItemTest.TestRawByteString;
+var
+  meta: TsgItemMeta;
+  item: TsgItem;
+  a, b: RawByteString;
+begin
+  a := 'string a';
+  b := 'string b';
+  meta.Init<RawByteString>;
+  item.Init(meta);
+  item.SetPtr(a);
+  item.Assign(b);
+  CheckTrue(a = b);
+  item.Free;
+  CheckTrue(a = '');
 end;
 
 {$EndRegion}
@@ -1771,6 +1858,26 @@ begin
   ys := Trunc(FMod(y, Size));
   zs := Trunc(FMod(z, Size));
   Result := (zs * Size + ys) * Size + xs;
+end;
+
+{$EndRegion}
+
+{$Region 'TIntId'}
+
+procedure TIntId.SetId(const id: Integer);
+begin
+  FId := id;
+end;
+
+destructor TIntId.Destroy;
+begin
+  FId := Maxint;
+  inherited;
+end;
+
+function TIntId.GetId: Integer;
+begin
+  Result := FId;
 end;
 
 {$EndRegion}

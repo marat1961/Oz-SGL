@@ -896,7 +896,7 @@ end;
 procedure TsgItem.SetPtr<T>(var Value: T);
 begin
   if System.TypeInfo(T) <> Meta.TypeInfo then
-   raise ESglError.Create(ESglError.IncompatibleDataType);
+    raise ESglError.Create(ESglError.IncompatibleDataType);
   Ptr := @Value;
 end;
 
@@ -961,17 +961,17 @@ end;
 
 procedure TsgItem.Free2;
 begin
-  PByte(Ptr)^ := 0;
+  PWord(Ptr)^ := 0;
 end;
 
 procedure TsgItem.Free4;
 begin
-  PByte(Ptr)^ := 0;
+  PCardinal(Ptr)^ := 0;
 end;
 
 procedure TsgItem.Free8;
 begin
-  PByte(Ptr)^ := 0;
+  PUInt64(Ptr)^ := 0;
 end;
 
 procedure TsgItem.FreeItem;
