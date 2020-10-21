@@ -21,7 +21,7 @@ interface
 {$Region 'Uses'}
 
 uses
-  System.SysUtils, System.Math, System.Generics.Collections;
+  System.SysUtils, System.Math;
 
 {$EndRegion}
 
@@ -66,7 +66,7 @@ type
 
 type
   TsgItemMeta = record
-  private
+  var
     TypeInfo: Pointer;
     ItemSize: Cardinal;
     OnFree: TFreeProc;
@@ -116,18 +116,19 @@ type
     FCapacity: Integer;
     FMeta: TsgItemMeta;
     // procedural types
-    FFree: TFreeItem;
-    FAssign: TAssignProc;
-    FSwap: TSwapProc;
-    FCompare: TCompareProc;
-    FEquals: TEqualsFunc;
-    FHash: THashProc;
+    FFreeItem: TFreeItem;
+    FAssignItem: TAssignProc;
+    FSwapItems: TSwapProc;
+    FCompareItems: TCompareProc;
+    FEqualItems: TEqualsFunc;
+    FHashItem: THashProc;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
     function GetOccupiedCount(S: PMemSegment): Integer;
     procedure FreeHeap(var Heap: PMemSegment);
     procedure FreeItems(p: PMemSegment);
     function Valid: Boolean;
+    function GetMeta: PsgItemMeta;
   strict private
     procedure Update(OnFree: TFreeProc);
     // Dest := Value;
@@ -135,7 +136,7 @@ type
     procedure Assign2(var Dest; const Value);
     procedure Assign4(var Dest; const Value);
     procedure Assign8(var Dest; const Value);
-    procedure AssignItem(var Dest; const Value);
+    procedure AssignItemValue(var Dest; const Value);
     procedure AssignManaged(var Dest; const Value);
     procedure AssignVariant(var Dest; const Value);
     procedure AssignMRef(var Dest; const Value);
@@ -144,7 +145,7 @@ type
     procedure Free2(var Value);
     procedure Free4(var Value);
     procedure Free8(var Value);
-    procedure FreeItem(var Value);
+    procedure FreeItemValue(var Value);
     procedure FreeManaged(var Value);
     procedure FreeVariant(var Value);
     procedure FreeMRef(var Value);
@@ -166,8 +167,16 @@ type
     // Get a piece of memory as an array element of the specified type
     procedure GetItemAs<T>(Index: Integer; var Item: T);
     // propeties
+    property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FCapacity;
     property ItemSize: Cardinal read FMeta.ItemSize;
+    // item methods
+    property FreeItem: TFreeItem read FFreeItem;
+    property AssignItem: TAssignProc read FAssignItem;
+    property SwapItems: TSwapProc read FSwapItems;
+    property CompareItems: TCompareProc read FCompareItems;
+    property EqualItems: TEqualsFunc read FEqualItems;
+    property HashItem: THashProc read FHashItem;
   end;
 
 {$EndRegion}
@@ -267,12 +276,11 @@ type
 
 // Return main memory pool
 function HeapPool: THeapPool;
-
 // Clear main memory pool
 procedure ClearHeapPool;
-
+// if not ok raise error
 procedure Check(ok: Boolean; const Msg: string = '');
-
+// raise fatal error
 procedure FatalError(const Msg: string);
 
 {$EndRegion}
@@ -369,12 +377,12 @@ end;
 
 procedure TsgItem.Assign(const Value);
 begin
-  Region.FAssign(Ptr^, Value);
+  Region.FAssignItem(Ptr^, Value);
 end;
 
 procedure TsgItem.Free;
 begin
-  Region.FFree(Ptr^);
+  Region.FFreeItem(Ptr^);
 end;
 
 {$EndRegion}
@@ -463,21 +471,21 @@ begin
     if (FMeta.ItemSize = SizeOf(Pointer)) and not FMeta.HasWeakRef and
       not (FMeta.TypeKind in [tkRecord, tkMRecord]) then
     begin
-      FAssign := Self.AssignMRef;
+      FAssignItem := Self.AssignMRef;
       if not Assigned(OnFree) then
-        FFree := Self.FreeMRef;
+        FFreeItem := Self.FreeMRef;
     end
     else if FMeta.TypeKind = TTypeKind.tkVariant then
     begin
-      FAssign := Self.AssignVariant;
+      FAssignItem := Self.AssignVariant;
       if not Assigned(OnFree) then
-        FFree := Self.FreeVariant;
+        FFreeItem := Self.FreeVariant;
     end
     else
     begin
-      FAssign := Self.AssignManaged;
+      FAssignItem := Self.AssignManaged;
       if not Assigned(OnFree) then
-        FFree := Self.FreeManaged;
+        FFreeItem := Self.FreeManaged;
     end
   end
   else
@@ -486,33 +494,33 @@ begin
         raise ESglError.Create('impossible');
       1:
         begin
-          FAssign := Self.Assign1;
+          FAssignItem := Self.Assign1;
           if not Assigned(OnFree) then
-            FFree := Self.Free1;
+            FFreeItem := Self.Free1;
         end;
       2:
         begin
-          FAssign := Self.Assign2;
+          FAssignItem := Self.Assign2;
           if not Assigned(OnFree) then
-            FFree := Self.Free2;
+            FFreeItem := Self.Free2;
         end;
       4:
         begin
-          FAssign := Self.Assign4;
+          FAssignItem := Self.Assign4;
           if not Assigned(OnFree) then
-            FFree := Self.Free4;
+            FFreeItem := Self.Free4;
         end;
       8:
         begin
-          FAssign := Self.Assign8;
+          FAssignItem := Self.Assign8;
           if not Assigned(OnFree) then
-            FFree := Self.Free8;
+            FFreeItem := Self.Free8;
         end;
       else
       begin
-        FAssign := Self.AssignItem;
+        FAssignItem := Self.AssignItemValue;
         if not Assigned(OnFree) then
-          FFree := Self.FreeItem;
+          FFreeItem := Self.FreeItemValue;
       end;
     end;
 end;
@@ -655,6 +663,11 @@ begin
   Result := Pointer(NativeUInt(ItemsPtr) + NativeUInt(index * sizeof(T)));
 end;
 
+function TMemoryRegion.GetMeta: PsgItemMeta;
+begin
+  Result := @FMeta;
+end;
+
 procedure TMemoryRegion.GetItemAs<T>(Index: Integer; var Item: T);
 type
   PItem = ^T;
@@ -685,7 +698,7 @@ begin
   UInt64(Dest) := UInt64(Value);
 end;
 
-procedure TMemoryRegion.AssignItem(var Dest; const Value);
+procedure TMemoryRegion.AssignItemValue(var Dest; const Value);
 begin
   Move(Value, Dest, FMeta.ItemSize);
 end;
@@ -739,7 +752,7 @@ begin
   UInt64(Value) := 0;
 end;
 
-procedure TMemoryRegion.FreeItem(var Value);
+procedure TMemoryRegion.FreeItemValue(var Value);
 begin
   FillChar(Value, FMeta.ItemSize, 0);
 end;
