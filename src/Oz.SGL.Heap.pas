@@ -30,11 +30,11 @@ uses
 {$Region 'Forward declarations'}
 
 type
-  THeapPool = class;
-  TFreeProc = procedure(Item: Pointer);
-  TPairItemsProc = procedure(A, B: Pointer);
-  THashProc = function(Key: Pointer): Cardinal;
-  TEqualsFunc = function(A, B: Pointer): Boolean;
+  TCompareProc = function(const Value): Integer of object;
+  TEqualsFunc = function(const Value): Boolean of object;
+  THashProc = function: Cardinal of object;
+  TFreeItem = procedure(var Value) of object;
+  TFreeProc = procedure(p: Pointer);
 
 {$EndRegion}
 
@@ -62,33 +62,21 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgItemProc'}
+{$Region 'TsgItemMeta: metadata for item of some type'}
 
-  PsgItemProc = ^TsgItemProc;
-  TsgItemProc = record
-  var
-    FTypeInfo: Pointer;
-    FFreeProc: TFreeProc;
-    FAssignProc: TPairItemsProc;
+type
+  TsgItemMeta = record
+  private
+    TypeInfo: Pointer;
+    ItemSize: Cardinal;
+    OnFree: TFreeProc;
+    TypeKind: System.TTypeKind;
+    ManagedType: Boolean;
+    HasWeakRef: Boolean;
   public
-    procedure Init<T>;
-    // Item := Default(T);
-    class procedure Free<T>(var Item: T); static;
-    // A := B;
-    class procedure Assign<T>(var A, B: T); static;
-    // A <=> B;
-    class procedure Swap<T>(var A, B: T); static;
+    procedure Init<T>(OnFree: TFreeProc = nil);
   end;
-
-  PsgPairProc = ^TsgPairProc;
-  TsgPairProc = record
-  var
-    HashProc: THashProc;
-    EqualsFunc: TEqualsFunc;
-    FreePairProc: TFreeProc;
-  public
-    procedure Init<Key, Value>(Hash: THashProc; Equals: TEqualsFunc; Free: TFreeProc);
-  end;
+  PsgItemMeta = ^TsgItemMeta;
 
 {$EndRegion}
 
@@ -110,10 +98,13 @@ type
 
 {$EndRegion}
 
-{$Region 'TMemoryRegion'}
+{$Region 'TMemoryRegion: typed memory region'}
 
   PMemoryRegion = ^TMemoryRegion;
   TMemoryRegion = record
+  type
+    TAssignProc = procedure(var Dest; const Value) of object;
+    TSwapProc = procedure(var A, B) of object;
   private const
     Seed = 46147635;
   private
@@ -121,19 +112,45 @@ type
     Heap: PMemSegment;
     IsSegmented: Boolean;
     Used: Boolean;
-    FItemSize: Cardinal;
     BlockSize: Cardinal;
     FCapacity: Integer;
-    FOnFree: TFreeProc;
+    FMeta: TsgItemMeta;
+    // procedural types
+    FFree: TFreeItem;
+    FAssign: TAssignProc;
+    FSwap: TSwapProc;
+    FCompare: TCompareProc;
+    FEquals: TEqualsFunc;
+    FHash: THashProc;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
     function GetOccupiedCount(S: PMemSegment): Integer;
     procedure FreeHeap(var Heap: PMemSegment);
     procedure FreeItems(p: PMemSegment);
     function Valid: Boolean;
+  strict private
+    procedure Update(OnFree: TFreeProc);
+    // Dest := Value;
+    procedure Assign1(var Dest; const Value);
+    procedure Assign2(var Dest; const Value);
+    procedure Assign4(var Dest; const Value);
+    procedure Assign8(var Dest; const Value);
+    procedure AssignItem(var Dest; const Value);
+    procedure AssignManaged(var Dest; const Value);
+    procedure AssignVariant(var Dest; const Value);
+    procedure AssignMRef(var Dest; const Value);
+    // Value.Free;
+    procedure Free1(var Value);
+    procedure Free2(var Value);
+    procedure Free4(var Value);
+    procedure Free8(var Value);
+    procedure FreeItem(var Value);
+    procedure FreeManaged(var Value);
+    procedure FreeVariant(var Value);
+    procedure FreeMRef(var Value);
   public
     // Segmented region provides immutable pointer addresses
-    procedure Init(IsSegmented: Boolean; ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
+    procedure Init(IsSegmented: Boolean; const Meta: TsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free;
     // Erases all elements from the memory region.
@@ -149,10 +166,24 @@ type
     // Get a piece of memory as an array element of the specified type
     procedure GetItemAs<T>(Index: Integer; var Item: T);
     // propeties
-    property OnFree: TFreeProc read FOnFree;
     property Capacity: Integer read FCapacity;
-    property ItemSize: Cardinal read FItemSize;
+    property ItemSize: Cardinal read FMeta.ItemSize;
   end;
+
+{$EndRegion}
+
+{$Region 'TsgItem: structure for a collection item of some type'}
+
+  TsgItem = record
+  private
+    Ptr: Pointer;
+    Region: PMemoryRegion;
+  public
+    procedure Init<T>(const Region: TMemoryRegion; var Value: T);
+    procedure Assign(const Value);
+    procedure Free;
+  end;
+  PsgItem = ^TsgItem;
 
 {$EndRegion}
 
@@ -169,10 +200,9 @@ type
     FListRegion: PMemoryRegion;
     // region for items
     FItemsRegion: PMemoryRegion;
-    // item size
-    FItemSize: Cardinal;
+    function GetItemSize: Cardinal;
   public
-    constructor From(ItemSize: Integer; OnFree: TFreeProc);
+    constructor From(const Meta: TsgItemMeta);
     procedure Free;
     // Change the list capacity and return the heap address to store list pointers
     procedure CheckCapacity(var List: PsgPointers; NewCount: Integer);
@@ -180,7 +210,7 @@ type
     function AddItem(Item: Pointer): Pointer;
     // Create an empty item and return its pointer
     function CreateItem: Pointer;
-    property ItemSize: Cardinal read FItemSize;
+    property ItemSize: Cardinal read GetItemSize;
     property ItemsRegion: PMemoryRegion read FItemsRegion;
   end;
 
@@ -217,17 +247,15 @@ type
     FRealesed: TRegionItems;
     FBlockSize: Cardinal;
     // Occupy region
-    function FindOrCreateRegion(IsSegmented: Boolean; ItemSize: Cardinal;
-      OnFree: TFreeProc): PMemoryRegion;
+    function FindOrCreateRegion(IsSegmented: Boolean;
+      const Meta: TsgItemMeta): PMemoryRegion;
   public
     constructor Create(BlockSize: Cardinal = 8 * 1024);
     destructor Destroy; override;
     // Create a continuous region (e.g. memory for arrays)
-    function CreateUnbrokenRegion(ItemSize: Cardinal;
-      OnFree: TFreeProc = nil): PMemoryRegion;
+    function CreateUnbrokenRegion(const Meta: TsgItemMeta): PMemoryRegion;
     // Create a segmented region (for elements with a fixed address)
-    function CreateRegion(ItemSize: Cardinal;
-      OnFree: TFreeProc = nil): PMemoryRegion;
+    function CreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
     // Release the region
     procedure Release(r: PMemoryRegion);
     function Valid: Boolean;
@@ -248,6 +276,10 @@ procedure Check(ok: Boolean; const Msg: string = '');
 procedure FatalError(const Msg: string);
 
 {$EndRegion}
+
+var
+  PointerMeta: TsgItemMeta;
+  MemoryRegionMeta: TsgItemMeta;
 
 implementation
 
@@ -311,42 +343,38 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgItemProc'}
+{$Region 'TsgItemMeta'}
 
-procedure TsgItemProc.Init<T>;
+procedure TsgItemMeta.Init<T>(OnFree: TFreeProc);
 begin
-  FFreeProc := TFreeProc(@TsgItemProc.Free<T>);
-  FTypeInfo := TypeInfo(TArray<T>);
-end;
-
-class procedure TsgItemProc.Free<T>(var Item: T);
-begin
-  Item := Default(T);
-end;
-
-class procedure TsgItemProc.Assign<T>(var A, B: T);
-begin
-  A := B;
-end;
-
-class procedure TsgItemProc.Swap<T>(var A, B: T);
-var
-  Temp: T;
-begin
-  Temp := A;
-  A := B;
-  B := Temp;
+  TypeInfo := System.TypeInfo(T);
+  TypeKind := System.GetTypeKind(T);
+  ManagedType := System.IsManagedType(T);
+  HasWeakRef := System.HasWeakRef(T);
+  ItemSize := sizeof(T);
+  Self.OnFree := OnFree;
 end;
 
 {$EndRegion}
 
-{$Region 'TsgPairProc'}
+{$Region 'TsgItem'}
 
-procedure TsgPairProc.Init<Key, Value>(Hash: THashProc; Equals: TEqualsFunc; Free: TFreeProc);
+procedure TsgItem.Init<T>(const Region: TMemoryRegion; var Value: T);
 begin
-  HashProc := Hash;
-  EqualsFunc := Equals;
-  FreePairProc := Free;
+  Self.Region := @Region;
+  if System.TypeInfo(T) <> Region.FMeta.TypeInfo then
+    raise ESglError.Create(ESglError.IncompatibleDataType);
+  Ptr := @Value;
+end;
+
+procedure TsgItem.Assign(const Value);
+begin
+  Region.FAssign(Ptr^, Value);
+end;
+
+procedure TsgItem.Free;
+begin
+  Region.FFree(Ptr^);
 end;
 
 {$EndRegion}
@@ -416,17 +444,77 @@ end;
 
 {$Region 'TMemoryRegion'}
 
-procedure TMemoryRegion.Init(IsSegmented: Boolean;
-  ItemSize, BlockSize: Cardinal; OnFree: TFreeProc);
+procedure TMemoryRegion.Init(IsSegmented: Boolean; const Meta: TsgItemMeta;
+  BlockSize: Cardinal);
 begin
   Self.FSeed := Seed;
   Self.IsSegmented := IsSegmented;
   Self.Used := True;
+  Self.FMeta := Meta;
   Self.BlockSize := BlockSize;
-  Self.FItemSize := ItemSize;
   Self.FCapacity := 0;
   Self.Heap := nil;
-  Self.FOnFree := OnFree;
+end;
+
+procedure TMemoryRegion.Update(OnFree: TFreeProc);
+begin
+  if FMeta.ManagedType then
+  begin
+    if (FMeta.ItemSize = SizeOf(Pointer)) and not FMeta.HasWeakRef and
+      not (FMeta.TypeKind in [tkRecord, tkMRecord]) then
+    begin
+      FAssign := Self.AssignMRef;
+      if not Assigned(OnFree) then
+        FFree := Self.FreeMRef;
+    end
+    else if FMeta.TypeKind = TTypeKind.tkVariant then
+    begin
+      FAssign := Self.AssignVariant;
+      if not Assigned(OnFree) then
+        FFree := Self.FreeVariant;
+    end
+    else
+    begin
+      FAssign := Self.AssignManaged;
+      if not Assigned(OnFree) then
+        FFree := Self.FreeManaged;
+    end
+  end
+  else
+    case FMeta.ItemSize of
+      0:
+        raise ESglError.Create('impossible');
+      1:
+        begin
+          FAssign := Self.Assign1;
+          if not Assigned(OnFree) then
+            FFree := Self.Free1;
+        end;
+      2:
+        begin
+          FAssign := Self.Assign2;
+          if not Assigned(OnFree) then
+            FFree := Self.Free2;
+        end;
+      4:
+        begin
+          FAssign := Self.Assign4;
+          if not Assigned(OnFree) then
+            FFree := Self.Free4;
+        end;
+      8:
+        begin
+          FAssign := Self.Assign8;
+          if not Assigned(OnFree) then
+            FFree := Self.Free8;
+        end;
+      else
+      begin
+        FAssign := Self.AssignItem;
+        if not Assigned(OnFree) then
+          FFree := Self.FreeItem;
+      end;
+    end;
 end;
 
 function TMemoryRegion.Valid: Boolean;
@@ -473,17 +561,17 @@ var
   Ptr: Pointer;
   a, b: NativeUInt;
 begin
-  if Assigned(OnFree) then
+  if Assigned(FMeta.OnFree) then
   begin
     Ptr := p.GetHeapRef;
     N := GetOccupiedCount(p);
     while N > 0 do
     begin
-      OnFree(Ptr);
+      FMeta.OnFree(Ptr);
       a := NativeUInt(Ptr);
-      Ptr := Pointer(NativeUInt(Ptr) + FItemSize);
+      Ptr := Pointer(NativeUInt(Ptr) + FMeta.ItemSize);
       b := NativeUInt(Ptr);
-      Check(a + FItemSize = b);
+      Check(a + FMeta.ItemSize = b);
       Dec(N);
     end;
   end;
@@ -501,13 +589,13 @@ var
 begin
   Old := Capacity;
   Result := IncreaseCapacity(NewCount);
-  Size := (Capacity - Old) * Integer(FItemSize);
+  Size := (Capacity - Old) * Integer(FMeta.ItemSize);
   Alloc(Size);
 end;
 
 function TMemoryRegion.GetOccupiedCount(S: PMemSegment): Integer;
 begin
-  Result := (S.HeapSize - sizeof(TMemSegment) - S.FreeSize) div FItemSize;
+  Result := (S.HeapSize - sizeof(TMemSegment) - S.FreeSize) div FMeta.ItemSize;
 end;
 
 procedure TMemoryRegion.GrowHeap(NewCount: Integer);
@@ -515,7 +603,7 @@ var
   BlockCount, Size, NewHeapSize: Cardinal;
   p: PMemSegment;
 begin
-  Size := Grow(NewCount) * Integer(FItemSize);
+  Size := Grow(NewCount) * Integer(FMeta.ItemSize);
   BlockCount := (Size + sizeof(TMemoryRegion)) div BlockSize + 1;
   NewHeapSize := BlockCount * BlockSize;
   if Heap = nil then
@@ -531,7 +619,7 @@ begin
     p.Next := Heap;
     Heap := p;
   end;
-  FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div FItemSize;
+  FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div FMeta.ItemSize;
 end;
 
 function TMemoryRegion.Grow(NewCount: Integer): Integer;
@@ -550,10 +638,10 @@ end;
 function TMemoryRegion.Alloc(Size: Cardinal): Pointer;
 begin
 {$IFDEF DEBUG}
-  Check(Valid and (Size mod FItemSize = 0));
+  Check(Valid and (Size mod FMeta.ItemSize = 0));
 {$ENDIF}
   if (Heap = nil) or (Heap.FreeSize < Size) then
-    GrowHeap(Size div FItemSize + 1);
+    GrowHeap(Size div FMeta.ItemSize + 1);
   Result := Heap.Occupy(Size);
   if Result = nil then
     OutOfMemoryError;
@@ -577,22 +665,122 @@ begin
   Item := PItem(p)^;
 end;
 
+procedure TMemoryRegion.Assign1(var Dest; const Value);
+begin
+  Byte(Dest) := Byte(Value)
+end;
+
+procedure TMemoryRegion.Assign2(var Dest; const Value);
+begin
+  Word(Dest) := Word(Value)
+end;
+
+procedure TMemoryRegion.Assign4(var Dest; const Value);
+begin
+  Cardinal(Dest) := Cardinal(Value);
+end;
+
+procedure TMemoryRegion.Assign8(var Dest; const Value);
+begin
+  UInt64(Dest) := UInt64(Value);
+end;
+
+procedure TMemoryRegion.AssignItem(var Dest; const Value);
+begin
+  Move(Value, Dest, FMeta.ItemSize);
+end;
+
+procedure TMemoryRegion.AssignManaged(var Dest; const Value);
+begin
+  System.CopyArray(@Dest, @Value, FMeta.TypeInfo, 1);
+end;
+
+procedure TMemoryRegion.AssignVariant(var Dest; const Value);
+begin
+  Variant(Dest) := Variant(Value)
+end;
+
+procedure TMemoryRegion.AssignMRef(var Dest; const Value);
+type
+  PBytes = ^TBytes;
+  PInterface = ^IInterface;
+begin
+  case FMeta.TypeKind of
+    TTypeKind.tkUString: string(Dest) := string(Value);
+    TTypeKind.tkDynArray: TBytes(Dest) := TBytes(Value);
+    TTypeKind.tkInterface: IInterface(Dest) := IInterface(Value);
+{$IF Defined(AUTOREFCOUNT)}
+    TTypeKind.tkClass: TObject(Dest) := TObject(Value);
+{$ENDIF}
+    TTypeKind.tkLString: RawByteString(Dest) := RawByteString(Value);
+{$IF not Defined(NEXTGEN)}
+    TTypeKind.tkWString: WideString(Dest) := WideString(Value);
+{$ENDIF}
+  end;
+end;
+
+procedure TMemoryRegion.Free1(var Value);
+begin
+  Byte(Value) := 0;
+end;
+
+procedure TMemoryRegion.Free2(var Value);
+begin
+  Word(Value) := 0;
+end;
+
+procedure TMemoryRegion.Free4(var Value);
+begin
+  Cardinal(Value) := 0;
+end;
+
+procedure TMemoryRegion.Free8(var Value);
+begin
+  UInt64(Value) := 0;
+end;
+
+procedure TMemoryRegion.FreeItem(var Value);
+begin
+  FillChar(Value, FMeta.ItemSize, 0);
+end;
+
+procedure TMemoryRegion.FreeManaged(var Value);
+begin
+  FinalizeArray(@Value, FMeta.TypeInfo, 1);
+  FillChar(Value, FMeta.ItemSize, 0);
+end;
+
+procedure TMemoryRegion.FreeMRef(var Value);
+begin
+  FinalizeArray(@Value, FMeta.TypeInfo, 1);
+  Pointer(Value) := nil;
+end;
+
+procedure TMemoryRegion.FreeVariant(var Value);
+begin
+  Variant(Value) := 0;
+  FillChar(Value, sizeof(Variant), 0);
+end;
+
 {$EndRegion}
 
 {$Region 'TsgItemFactory'}
 
-constructor TsgItemFactory.From(ItemSize: Integer; OnFree: TFreeProc);
+constructor TsgItemFactory.From(const Meta: TsgItemMeta);
 begin
-  FListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
-  FItemSize := ItemSize;
-  FItemsRegion := HeapPool.CreateRegion(ItemSize, OnFree);
+  FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
+  FItemsRegion := HeapPool.CreateRegion(Meta);
+end;
+
+function TsgItemFactory.GetItemSize: Cardinal;
+begin
+  Result := FItemsRegion.FMeta.ItemSize;
 end;
 
 procedure TsgItemFactory.Free;
 begin
   FItemsRegion.Free;
   FListRegion.Free;
-  FItemSize := 0;
 end;
 
 procedure TsgItemFactory.CheckCapacity(var List: PsgPointers; NewCount: Integer);
@@ -602,15 +790,18 @@ begin
 end;
 
 function TsgItemFactory.AddItem(Item: Pointer): Pointer;
+var
+  ItemSize: Cardinal;
 begin
-  Result := ItemsRegion.Alloc(FItemSize);
+  ItemSize := FItemsRegion.FMeta.ItemSize;
+  Result := ItemsRegion.Alloc(ItemSize);
   // todo:
-  Move(Item^, Result^, FItemSize);
+  Move(Item^, Result^, ItemSize);
 end;
 
 function TsgItemFactory.CreateItem: Pointer;
 begin
-  Result := ItemsRegion.Alloc(FItemSize);
+  Result := ItemsRegion.Alloc(FItemsRegion.FMeta.ItemSize);
 end;
 
 {$EndRegion}
@@ -661,7 +852,7 @@ begin
   FSeed := Seed;
   FBlockSize := BlockSize;
   New(FRegions);
-  FRegions.Init(True, sizeof(TMemoryRegion), BlockSize, FreeRegion);
+  FRegions.Init(True, MemoryRegionMeta, BlockSize);
   FRealesed.Init;
 end;
 
@@ -676,20 +867,18 @@ begin
   inherited;
 end;
 
-function THeapPool.CreateUnbrokenRegion(ItemSize: Cardinal;
-  OnFree: TFreeProc): PMemoryRegion;
+function THeapPool.CreateUnbrokenRegion(const Meta: TsgItemMeta): PMemoryRegion;
 begin
-  Result := FindOrCreateRegion(False, ItemSize, OnFree);
+  Result := FindOrCreateRegion(False, Meta);
 end;
 
-function THeapPool.CreateRegion(ItemSize: Cardinal;
-  OnFree: TFreeProc): PMemoryRegion;
+function THeapPool.CreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
 begin
-  Result := FindOrCreateRegion(True, ItemSize, OnFree);
+  Result := FindOrCreateRegion(True, Meta);
 end;
 
-function THeapPool.FindOrCreateRegion(IsSegmented: Boolean; ItemSize: Cardinal;
-  OnFree: TFreeProc): PMemoryRegion;
+function THeapPool.FindOrCreateRegion(IsSegmented: Boolean;
+  const Meta: TsgItemMeta): PMemoryRegion;
 var
   p: PRegionItem;
 begin
@@ -697,7 +886,7 @@ begin
     p := FRealesed.Remove
   else
     p := FRegions.Alloc(sizeof(TMemoryRegion));
-  p.r.Init(IsSegmented, ItemSize, FBlockSize, OnFree);
+  p.r.Init(IsSegmented, Meta, FBlockSize);
   Result := @p.r;
 end;
 
@@ -716,10 +905,16 @@ end;
 
 {$EndRegion}
 
+procedure InitMeta;
+begin
+  PointerMeta.Init<Pointer>;
+  MemoryRegionMeta.Init<TMemoryRegion>(FreeRegion);
+end;
+
 initialization
+  InitMeta;
 
 finalization
-
-ClearHeapPool;
+  ClearHeapPool;
 
 end.
