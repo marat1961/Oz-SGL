@@ -31,10 +31,10 @@ uses
 
 type
   TCompareProc = function(const Value): Integer of object;
-  TEqualsFunc = function(const Value): Boolean of object;
-  THashProc = function: Cardinal of object;
   TFreeItem = procedure(var Value) of object;
   TFreeProc = procedure(p: Pointer);
+  TEqualsFunc = function(const A, B): Boolean;
+  THashProc = function(const Value): Cardinal;
 
 {$EndRegion}
 
@@ -120,15 +120,13 @@ type
     FAssignItem: TAssignProc;
     FSwapItems: TSwapProc;
     FCompareItems: TCompareProc;
-    FEqualItems: TEqualsFunc;
-    FHashItem: THashProc;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
     function GetOccupiedCount(S: PMemSegment): Integer;
     procedure FreeHeap(var Heap: PMemSegment);
     procedure FreeItems(p: PMemSegment);
     function Valid: Boolean;
-    function GetMeta: PsgItemMeta;
+    function GetMeta: PsgItemMeta; inline;
   strict private
     procedure Update(OnFree: TFreeProc);
     // Dest := Value;
@@ -175,8 +173,6 @@ type
     property AssignItem: TAssignProc read FAssignItem;
     property SwapItems: TSwapProc read FSwapItems;
     property CompareItems: TCompareProc read FCompareItems;
-    property EqualItems: TEqualsFunc read FEqualItems;
-    property HashItem: THashProc read FHashItem;
   end;
 
 {$EndRegion}

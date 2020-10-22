@@ -28,64 +28,9 @@ uses
 
 {$T+}
 
-{$Region 'TsgItemMeta: metadata for item of some type'}
+{$Region 'TsgList<T>: Generic List of Values'}
 
 type
-  TsgItemMeta = record
-  private
-    TypeInfo: Pointer;
-    ItemSize: Cardinal;
-    TypeKind: System.TTypeKind;
-    ManagedType: Boolean;
-    HasWeakRef: Boolean;
-  public
-    procedure Init<T>;
-  end;
-  PsgItemMeta = ^TsgItemMeta;
-
-{$EndRegion}
-
-{$Region 'TsgItem: structure for a collection item of some type'}
-
-  TsgItem = record
-  type
-    TAssignMethod = procedure(const Value) of object;
-    TFreeMethod = procedure of object;
-  private
-    Ptr: Pointer;
-    Meta: PsgItemMeta;
-    FFree: TFreeMethod;
-    FAssign: TAssignMethod;
-  private
-    // Ptr^ := Value;
-    procedure Assign1(const Value);
-    procedure Assign2(const Value);
-    procedure Assign4(const Value);
-    procedure Assign8(const Value);
-    procedure AssignItem(const Value);
-    procedure AssignManaged(const Value);
-    procedure AssignVariant(const Value);
-    procedure AssignMRef(const Value);
-    // Ptr.Free;
-    procedure Free1;
-    procedure Free2;
-    procedure Free4;
-    procedure Free8;
-    procedure FreeItem;
-    procedure FreeManaged;
-    procedure FreeVariant;
-    procedure FreeMRef;
-  public
-    procedure Init(const Meta: TsgItemMeta; OnFree: TFreeMethod = nil);
-    procedure SetPtr<T>(var Value: T);
-    property Free: TFreeMethod read FFree;
-    property Assign: TAssignMethod read FAssign;
-  end;
-  PsgItem = ^TsgItem;
-
-{$EndRegion}
-
-{$Region 'TsgList<T>: Generic List of Values'}
 
   PsgListHelper = ^TsgListHelper;
   TsgListHelper = record
@@ -110,13 +55,12 @@ type
   private
     FRegion: PMemoryRegion;
     FCount: Integer;
-    FSizeItem: Integer;
-    FItemProc: PsgItemProc;
+    FItemSize: Integer;
     procedure SetCount(NewCount: Integer);
     procedure CheckCapacity(NewCount: Integer); inline;
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
   public
-    procedure Init(SizeItem: Integer; ItemProc: PsgItemProc);
+    procedure Init(const Meta: TsgItemMeta);
     procedure Free;
     procedure Clear;
     function GetPtr(Index: Integer): Pointer;
@@ -152,7 +96,7 @@ type
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
   public
-    constructor From(const ItemProc: TsgItemProc);
+    constructor From(const Meta: TsgItemMeta);
     procedure Free; inline;
     procedure Clear; inline;
     function Add(const Value: T): Integer; overload;
@@ -235,7 +179,7 @@ type
     procedure CheckCapacity(NewCount: Integer);
     procedure SetCount(NewCount: Integer);
   public
-    constructor From(ItemSize: Integer; OnFree: TFreeProc);
+    constructor From(const Meta: TsgItemMeta);
     procedure Free;
     procedure Clear;
     function First: Pointer; inline;
@@ -328,7 +272,7 @@ type
     FHead: PItem;
     FLast: PItem;
   public
-    procedure Init(ItemSize: Cardinal; OnFree: TFreeProc);
+    procedure Init(const Meta: TsgItemMeta);
     procedure Free;
     // Erases all elements from the container. After this call, Count returns zero.
     // Invalidates any references, pointers, or iterators referring to contained
@@ -499,14 +443,16 @@ type
     end;
   private
     FSeed: Integer;
-    FPairProc: TsgPairProc;
     FEntries: TsgList<TEntry>;
     FCollisionRegion: PMemoryRegion;
     FPairs: TsgList<TPair<Key, T>>;
+    FEquals: TEqualsFunc;
+    FHash: THashProc;
     // Set entry table size
     procedure SetEntriesLength(ExpectedSize: Integer);
   public
-    constructor From(ExpectedSize: Integer; const PairProc: TsgPairProc);
+    constructor From(ExpectedSize: Integer;
+      HashKey: THashProc; Equals: TEqualsFunc; FreePair: TFreeProc);
     procedure Free;
     // Already initialized
     function Valid: Boolean; inline;
@@ -577,8 +523,8 @@ type
     procedure Search(var p: PNode; var prm: TParams);
     procedure CreateNode(var p: PNode);
   public
-    procedure Init(ItemSize: Cardinal; Compare: TListSortCompare;
-      Update: TUpdateProc; OnFreeNode: TFreeProc = nil);
+    procedure Init(const Meta: TsgItemMeta; Compare: TListSortCompare;
+      Update: TUpdateProc);
     procedure Free;
     procedure Clear;
     procedure Find(pval: Pointer; var iter: TsgTreeIterator);
@@ -686,7 +632,7 @@ type
     tree: TsgCustomTree;
     procedure UpdateValue(pnd: TsgCustomTree.PNode; pval: Pointer);
   public
-    procedure Init(Compare: TListSortCompare; OnFree: TFreeProc = nil);
+    procedure Init(Compare: TListSortCompare; OnFreeNode: TFreeProc = nil);
     procedure Free; inline;
     procedure Clear(Compare: TListSortCompare; OnFree: TFreeProc = nil);
     procedure Insert(const k: Key); inline;
@@ -828,190 +774,6 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgItem'}
-
-procedure TsgItem.Init(const Meta: TsgItemMeta; OnFree: TFreeMethod);
-begin
-  Self.Ptr := nil;
-  Self.Meta := @Meta;
-  if Meta.ManagedType then
-  begin
-    if (Meta.ItemSize = SizeOf(Pointer)) and not Meta.HasWeakRef and
-      not (Meta.TypeKind in [tkRecord, tkMRecord]) then
-    begin
-      FAssign := Self.AssignMRef;
-      if not Assigned(OnFree) then
-        FFree := Self.FreeMRef;
-    end
-    else if Meta.TypeKind = TTypeKind.tkVariant then
-    begin
-      FAssign := Self.AssignVariant;
-      if not Assigned(OnFree) then
-        FFree := Self.FreeVariant;
-    end
-    else
-    begin
-      FAssign := Self.AssignManaged;
-      if not Assigned(OnFree) then
-        FFree := Self.FreeManaged;
-    end
-  end
-  else
-    case Meta.ItemSize of
-      0:
-        raise ESglError.Create('impossible');
-      1:
-        begin
-          FAssign := Self.Assign1;
-          if not Assigned(OnFree) then
-            FFree := Self.Free1;
-        end;
-      2:
-        begin
-          FAssign := Self.Assign2;
-          if not Assigned(OnFree) then
-            FFree := Self.Free2;
-        end;
-      4:
-        begin
-          FAssign := Self.Assign4;
-          if not Assigned(OnFree) then
-            FFree := Self.Free4;
-        end;
-      8:
-        begin
-          FAssign := Self.Assign8;
-          if not Assigned(OnFree) then
-            FFree := Self.Free8;
-        end;
-      else
-      begin
-        FAssign := Self.AssignItem;
-        if not Assigned(OnFree) then
-          FFree := Self.FreeItem;
-      end;
-    end;
-end;
-
-procedure TsgItem.SetPtr<T>(var Value: T);
-begin
-  if System.TypeInfo(T) <> Meta.TypeInfo then
-    raise ESglError.Create(ESglError.IncompatibleDataType);
-  Ptr := @Value;
-end;
-
-procedure TsgItem.Assign1(const Value);
-begin
-  PByte(Ptr)^ := Byte(Value)
-end;
-
-procedure TsgItem.Assign2(const Value);
-begin
-  PWord(Ptr)^ := Word(Value)
-end;
-
-procedure TsgItem.Assign4(const Value);
-begin
-  PCardinal(Ptr)^ := Cardinal(Value);
-end;
-
-procedure TsgItem.Assign8(const Value);
-begin
-  PUInt64(Ptr)^ := UInt64(Value);
-end;
-
-procedure TsgItem.AssignItem(const Value);
-begin
-  Move(Value, Ptr^, Meta.ItemSize);
-end;
-
-procedure TsgItem.AssignManaged(const Value);
-begin
-  System.CopyArray(Ptr, @Value, Meta.TypeInfo, 1);
-end;
-
-procedure TsgItem.AssignVariant(const Value);
-begin
-  PVariant(Ptr)^ := Variant(Value)
-end;
-
-procedure TsgItem.AssignMRef(const Value);
-type
-  PBytes = ^TBytes;
-  PInterface = ^IInterface;
-begin
-  case Meta.TypeKind of
-    TTypeKind.tkUString: PString(Ptr)^ := string(Value);
-    TTypeKind.tkDynArray: PBytes(Ptr)^ := TBytes(Value);
-    TTypeKind.tkInterface: PInterface(Ptr)^ := IInterface(Value);
-{$IF Defined(AUTOREFCOUNT)}
-    TTypeKind.tkClass: PObject(Ptr)^ := TObject(Value);
-{$ENDIF}
-    TTypeKind.tkLString: PRawByteString(Ptr)^ := RawByteString(Value);
-{$IF not Defined(NEXTGEN)}
-    TTypeKind.tkWString: PWideString(Ptr)^ := WideString(Value);
-{$ENDIF}
-  end;
-end;
-
-procedure TsgItem.Free1;
-begin
-  PByte(Ptr)^ := 0;
-end;
-
-procedure TsgItem.Free2;
-begin
-  PWord(Ptr)^ := 0;
-end;
-
-procedure TsgItem.Free4;
-begin
-  PCardinal(Ptr)^ := 0;
-end;
-
-procedure TsgItem.Free8;
-begin
-  PUInt64(Ptr)^ := 0;
-end;
-
-procedure TsgItem.FreeItem;
-begin
-  FillChar(Ptr^, Meta.ItemSize, 0);
-end;
-
-procedure TsgItem.FreeManaged;
-begin
-  FinalizeArray(Ptr, Meta.TypeInfo, 1);
-  FillChar(Ptr^, Meta.ItemSize, 0);
-end;
-
-procedure TsgItem.FreeMRef;
-begin
-  FinalizeArray(Ptr, Meta.TypeInfo, 1);
-  PPointer(Ptr^) := nil;
-end;
-
-procedure TsgItem.FreeVariant;
-begin
-  PVariant(Ptr)^ := 0;
-  FillChar(Ptr^, sizeof(Variant), 0);
-end;
-
-{$EndRegion}
-
-{$Region 'TsgItemMeta'}
-
-procedure TsgItemMeta.Init<T>;
-begin
-  TypeInfo := System.TypeInfo(T);
-  TypeKind := System.GetTypeKind(T);
-  ManagedType := System.IsManagedType(T);
-  HasWeakRef := System.HasWeakRef(T);
-  ItemSize := sizeof(T);
-end;
-
-{$EndRegion}
-
 {$Region 'TsgListHelper.TEnumerator'}
 
 constructor TsgListHelper.TEnumerator.From(const Value: TsgListHelper);
@@ -1035,18 +797,17 @@ end;
 
 {$Region 'TsgListHelper'}
 
-procedure TsgListHelper.Init(SizeItem: Integer; ItemProc: PsgItemProc);
+procedure TsgListHelper.Init(const Meta: TsgItemMeta);
 begin
-  FRegion := HeapPool.CreateUnbrokenRegion(SizeItem, ItemProc.FFreeProc);
+  FRegion := HeapPool.CreateUnbrokenRegion(Meta);
+  FItemSize := Meta.ItemSize;
   FCount := 0;
-  FSizeItem := SizeItem;
 end;
 
 procedure TsgListHelper.Free;
 begin
   FRegion.Free;
   FCount := 0;
-  FSizeItem := 0;
 end;
 
 procedure TsgListHelper.Clear;
@@ -1058,15 +819,15 @@ end;
 function TsgListHelper.GetPtr(Index: Integer): Pointer;
 begin
   CheckIndex(Index, FCount);
-  Result := @PByte(GetFItems^)[(Index) * FSizeItem];
+  Result := @PByte(GetFItems^)[(Index) * FItemSize];
 end;
 
 function TsgListHelper.Add: Pointer;
 begin
   if FRegion.Capacity <= FCount then
     GetFItems^ := FRegion.IncreaseCapacity(FCount + 1);
-  FRegion.Alloc(FSizeItem);
-  Result := @PByte(GetFItems^)[FCount * FSizeItem];
+  FRegion.Alloc(FItemSize);
+  Result := @PByte(GetFItems^)[FCount * FItemSize];
   Inc(FCount);
 end;
 
@@ -1093,10 +854,10 @@ begin
   Dec(FCount);
   if Index < FCount then
   begin
-    MemSize := (FCount - Index) * FSizeItem;
+    MemSize := (FCount - Index) * FItemSize;
     System.Move(
-      PByte(GetFItems^)[(Index + 1) * FSizeItem],
-      PByte(GetFItems^)[(Index) * FSizeItem],
+      PByte(GetFItems^)[(Index + 1) * FItemSize],
+      PByte(GetFItems^)[(Index) * FItemSize],
       MemSize);
   end;
 end;
@@ -1164,14 +925,14 @@ begin
   PTemp := @STemp[0];
   Items := GetFItems;
   try
-    if FSizeItem > sizeof(STemp) then
+    if FItemSize > sizeof(STemp) then
     begin
-      GetMem(DTemp, FSizeItem);
+      GetMem(DTemp, FItemSize);
       PTemp := DTemp;
     end;
-    Move(PByte(Items^)[Index1 * FSizeItem], PTemp[0], FSizeItem);
-    Move(PByte(Items^)[Index2 * FSizeItem], PByte(Items^)[Index1 * FSizeItem], FSizeItem);
-    Move(PTemp[0], PByte(Items^)[Index2 * FSizeItem], FSizeItem);
+    Move(PByte(Items^)[Index1 * FItemSize], PTemp[0], FItemSize);
+    Move(PByte(Items^)[Index2 * FItemSize], PByte(Items^)[Index1 * FItemSize], FItemSize);
+    Move(PTemp[0], PByte(Items^)[Index2 * FItemSize], FItemSize);
   finally
     FreeMem(DTemp);
   end;
@@ -1186,16 +947,16 @@ begin
   Items := GetFItems;
   if FRegion.Capacity <= FCount then
     GetFItems^ := FRegion.IncreaseCapacity(FCount + 1);
-  FRegion.Alloc(FSizeItem);
+  FRegion.Alloc(FItemSize);
   if Index <> FCount then
   begin
-    MemSize := (FCount - Index) * FSizeItem;
+    MemSize := (FCount - Index) * FItemSize;
     System.Move(
-      PByte(Items^)[Index * FSizeItem],
-      PByte(Items^)[(Index + 1) * FSizeItem],
+      PByte(Items^)[Index * FItemSize],
+      PByte(Items^)[(Index + 1) * FItemSize],
       MemSize);
   end;
-  Move(Value, PByte(Items^)[Index * FSizeItem], FSizeItem);
+  Move(Value, PByte(Items^)[Index * FItemSize], FItemSize);
   Inc(FCount);
 end;
 
@@ -1204,7 +965,7 @@ var
   i: Integer;
 begin
   for i := 0 to FCount - 1 do
-    if Compare(PByte(GetFItems^)[i * FSizeItem], Byte(Value)) then
+    if Compare(PByte(GetFItems^)[i * FItemSize], Byte(Value)) then
       exit(i);
   Result := -1;
 end;
@@ -1234,9 +995,9 @@ begin
   Src := Source.GetFItems^;
   while Cnt > 0 do
   begin
-    FItemProc.FAssignProc(Dst, Src);
-    Inc(PByte(Dst), FSizeItem);
-    Inc(PByte(Src), FSizeItem);
+    FRegion.AssignItem(Dst, Src);
+    Inc(PByte(Dst), FItemSize);
+    Inc(PByte(Src), FItemSize);
     Dec(Cnt);
   end;
 end;
@@ -1248,7 +1009,7 @@ end;
 
 function TsgListHelper.Compare(const Left, Right): Boolean;
 begin
-  Result := CompareMem(@Left, @Right, FSizeItem)
+  Result := CompareMem(@Left, @Right, FItemSize)
 end;
 
 {$EndRegion}
@@ -1274,9 +1035,9 @@ end;
 
 {$Region 'TsgList<T>'}
 
-constructor TsgList<T>.From(const ItemProc: TsgItemProc);
+constructor TsgList<T>.From(const Meta: TsgItemMeta);
 begin
-  FListHelper.Init(sizeof(T), @ItemProc);
+  FListHelper.Init(Meta);
 end;
 
 procedure TsgList<T>.Free;
@@ -1393,7 +1154,7 @@ end;
 
 constructor TsgPointerArray.From(Capacity: Integer);
 begin
-  FListRegion := HeapPool.CreateUnbrokenRegion(sizeof(Pointer));
+  FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
   FList := FListRegion.IncreaseCapacity(Capacity);
   FCount := 0;
 end;
@@ -1468,11 +1229,11 @@ end;
 
 {$Region 'TsgPointerList'}
 
-constructor TsgPointerList.From(ItemSize: Integer; OnFree: TFreeProc);
+constructor TsgPointerList.From(const Meta: TsgItemMeta);
 begin
   FList := nil;
   FCount := 0;
-  FFactory := TsgItemFactory.From(ItemSize, OnFree);
+  FFactory := TsgItemFactory.From(Meta);
 end;
 
 procedure TsgPointerList.Free;
@@ -1484,14 +1245,12 @@ end;
 
 procedure TsgPointerList.Clear;
 var
-  ItemSize: Integer;
-  OnFree: TFreeProc;
+  Meta: TsgItemMeta;
 begin
   Check(FFactory.ItemSize > 0, 'TsgPointerList.Clear: uninitialized');
-  ItemSize := FFactory.ItemSize;
-  OnFree := FFactory.ItemsRegion.OnFree;
+  Meta := FFactory.ItemsRegion.Meta^;
   Free;
-  Self := TsgPointerList.From(ItemSize, OnFree);
+  Self := TsgPointerList.From(Meta);
 end;
 
 function TsgPointerList.First: Pointer;
@@ -1737,8 +1496,11 @@ end;
 {$Region 'TsgRecordList<T>'}
 
 constructor TsgRecordList<T>.From(OnFree: TFreeProc);
+var
+  Meta: TsgItemMeta;
 begin
-  FList := TsgPointerList.From(sizeof(T), OnFree);
+  Meta.Init<T>(OnFree);
+  FList := TsgPointerList.From(Meta);
 end;
 
 procedure TsgRecordList<T>.Free;
@@ -1849,9 +1611,9 @@ end;
 
 {$Region 'TCustomLinkedList'}
 
-procedure TCustomLinkedList.Init(ItemSize: Cardinal; OnFree: TFreeProc);
+procedure TCustomLinkedList.Init(const Meta: TsgItemMeta);
 begin
-  FRegion := HeapPool.CreateRegion(ItemSize, OnFree);
+  FRegion := HeapPool.CreateRegion(Meta);
   FHead := FRegion.Alloc(FRegion.ItemSize);
   FLast := FHead;
 end;
@@ -2079,8 +1841,11 @@ end;
 {$Region 'TsgLinkedList<T>'}
 
 procedure TsgLinkedList<T>.Init(OnFree: TFreeProc);
+var
+  Meta: TsgItemMeta;
 begin
-  FList.Init(sizeof(TItem), OnFree);
+  Meta.Init<T>(OnFree);
+  FList.Init(Meta);
 end;
 
 function TsgLinkedList<T>.Insert(Pos: TIterator; const Value: T): TIterator;
@@ -2214,18 +1979,21 @@ end;
 
 {$Region 'TsgHashMap<Key, T>'}
 
-constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer; const PairProc: TsgPairProc);
+constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer;
+  HashKey: THashProc; Equals: TEqualsFunc; FreePair: TFreeProc);
 var
-  ItemProc: TsgItemProc;
+  PairMeta, CollisionMeta: TsgItemMeta;
 begin
   Self := Default(TsgHashMap<Key, T>);
   FSeed := SeedValue;
-  FPairProc := PairProc;
-  ItemProc.Init<TPair<Key, T>>;
-  FPairs := TsgList<TPair<Key, T>>.From(ItemProc);
-  FCollisionRegion := HeapPool.CreateRegion(sizeof(TCollision));
-  ItemProc.Init<TEntry>;
-  FEntries := TsgList<TEntry>.From(ItemProc);
+  FHash := HashKey;
+  FEquals := Equals;
+  PairMeta.Init<TPair<Key, T>>(FreePair);
+  FPairs := TsgList<TPair<Key, T>>.From(PairMeta);
+  CollisionMeta.Init<TCollision>;
+  FCollisionRegion := HeapPool.CreateRegion(CollisionMeta);
+  PairMeta.Init<TEntry>;
+  FEntries := TsgList<TEntry>.From(PairMeta);
   SetEntriesLength(ExpectedSize);
 end;
 
@@ -2248,11 +2016,11 @@ var
   eidx: Cardinal;
   p: PCollision;
 begin
-  eidx := Cardinal(FPairProc.HashProc(@k)) mod Cardinal(FEntries.Count);
+  eidx := FHash(k) mod Cardinal(FEntries.Count);
   p := FEntries.GetPtr(eidx).Head;
   while p <> nil do
   begin
-    if FPairProc.EqualsFunc(@k, @FPairs[p.PairIndex].Key) then
+    if FEquals(k, FPairs[p.PairIndex].Key) then
     begin
       Result.Init(FPairs.FListHelper, p.PairIndex);
       exit;
@@ -2269,12 +2037,12 @@ var
   eidx, idx: Integer;
   p: PCollision;
 begin
-  eidx := Cardinal(FPairProc.HashProc(@pair.Key)) mod Cardinal(FEntries.Count);
+  eidx := FHash(pair.Key) mod Cardinal(FEntries.Count);
   entry := FEntries.GetPtr(eidx);
   p := entry.Head;
   while p <> nil do
   begin
-    if FPairProc.EqualsFunc(@pair.Key, @FPairs[p.PairIndex].Key) then
+    if FEquals(pair.Key, FPairs[p.PairIndex].Key) then
     begin
       Result.Init(FPairs.FListHelper, p.PairIndex);
       exit;
@@ -2408,11 +2176,11 @@ begin
   Self.pval := pval;
 end;
 
-procedure TsgCustomTree.Init(ItemSize: Cardinal; Compare: TListSortCompare;
-  Update: TUpdateProc; OnFreeNode: TFreeProc);
+procedure TsgCustomTree.Init(const Meta: TsgItemMeta; Compare: TListSortCompare;
+  Update: TUpdateProc);
 begin
   Self := Default(TsgCustomTree);
-  Region := HeapPool.CreateRegion(ItemSize, OnFreeNode);
+  Region := HeapPool.CreateRegion(Meta);
   Self.Compare := Compare;
   Self.Update := Update;
   CreateNode(Sentinel);
@@ -2431,14 +2199,14 @@ var
   ItemSize: Cardinal;
   Compare: TListSortCompare;
   Update: TUpdateProc;
-  OnFree: TFreeProc;
+  Meta: TsgItemMeta;
 begin
   ItemSize := Region.ItemSize;
-  OnFree := Region.OnFree;
+  Meta := Region.Meta^;
   Compare := Self.Compare;
   Update := Self.Update;
   Free;
-  Init(ItemSize, Compare, Update, OnFree);
+  Init(Meta, Compare, Update);
 end;
 
 procedure TsgCustomTree.Find(pval: Pointer; var iter: TsgTreeIterator);
@@ -2649,10 +2417,11 @@ end;
 
 constructor TsgMap<Key, T>.From(Compare: TListSortCompare;
   OnFreeNode: TFreeProc);
-var size: Integer;
+var
+  Meta: TsgItemMeta;
 begin
-  size := sizeof(TsgMapIterator<Key, T>.TNode);
-  tree.Init(size, Compare, UpdateValue, OnFreeNode);
+  Meta.Init<TsgMapIterator<Key, T>.TNode>(OnFreeNode);
+  tree.Init(Meta, Compare, UpdateValue);
 end;
 
 procedure TsgMap<Key, T>.Free;
@@ -2773,9 +2542,12 @@ end;
 
 {$Region 'TsgSet<Key>'}
 
-procedure TsgSet<Key>.Init(Compare: TListSortCompare; OnFree: TFreeProc);
+procedure TsgSet<Key>.Init(Compare: TListSortCompare; OnFreeNode: TFreeProc);
+var
+  Meta: TsgItemMeta;
 begin
-  tree.Init(sizeof(TsgSetIterator<Key>.TNode), Compare, UpdateValue, OnFree);
+  Meta.Init<TsgSetIterator<Key>.TNode>(OnFreeNode);
+  tree.Init(Meta, Compare, UpdateValue);
 end;
 
 procedure TsgSet<Key>.Free;
