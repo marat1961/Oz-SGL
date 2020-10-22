@@ -124,7 +124,7 @@ type
     FCompareItems: TCompareProc;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
-    function GetOccupiedCount(S: PMemSegment): Integer;
+    function GetOccupiedCount(p: PMemSegment): Integer;
     procedure FreeHeap(var Heap: PMemSegment);
     procedure FreeItems(p: PMemSegment);
     function Valid: Boolean;
@@ -503,7 +503,8 @@ begin
   // Clear the memory of all segments.
   // Return to the heap memory of all segments except the first.
   FreeHeap(Heap.Next);
-  FreeItems(Heap);
+  if Assigned(FFreeItem) then
+    FreeItems(Heap);
   // Determine the size of free memory
   Heap.FreeSize := Heap.HeapSize - sizeof(TMemSegment);
   // Set the free memory pointer to the rest of the block
@@ -524,7 +525,8 @@ begin
   while p <> nil do
   begin
     q := p.Next;
-    FreeItems(p);
+    if Assigned(FFreeItem) then
+      FreeItems(p);
     FreeMem(p);
     p := q;
   end;
@@ -537,19 +539,16 @@ var
   Ptr: Pointer;
   a, b: NativeUInt;
 begin
-  if Assigned(FFreeItem) then
+  Ptr := p.GetHeapRef;
+  N := GetOccupiedCount(p);
+  while N > 0 do
   begin
-    Ptr := p.GetHeapRef;
-    N := GetOccupiedCount(p);
-    while N > 0 do
-    begin
-      FFreeItem(Ptr);
-      a := NativeUInt(Ptr);
-      Ptr := Pointer(NativeUInt(Ptr) + FMeta.ItemSize);
-      b := NativeUInt(Ptr);
-      Check(a + FMeta.ItemSize = b);
-      Dec(N);
-    end;
+    FFreeItem(Ptr);
+    a := NativeUInt(Ptr);
+    Ptr := Pointer(NativeUInt(Ptr) + FMeta.ItemSize);
+    b := NativeUInt(Ptr);
+    Check(a + FMeta.ItemSize = b);
+    Dec(N);
   end;
 end;
 
@@ -569,9 +568,9 @@ begin
   Alloc(Size);
 end;
 
-function TMemoryRegion.GetOccupiedCount(S: PMemSegment): Integer;
+function TMemoryRegion.GetOccupiedCount(p: PMemSegment): Integer;
 begin
-  Result := (S.HeapSize - sizeof(TMemSegment) - S.FreeSize) div FMeta.ItemSize;
+  Result := (p.HeapSize - sizeof(TMemSegment) - p.FreeSize) div FMeta.ItemSize;
 end;
 
 procedure TMemoryRegion.GrowHeap(NewCount: Integer);
