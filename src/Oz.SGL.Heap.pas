@@ -30,8 +30,8 @@ uses
 {$Region 'Forward declarations'}
 
 type
-  TCompareProc = function(const Value): Integer of object;
-  TFreeItem = procedure(var Value) of object;
+  TCompareProc = function(const A, B): Integer of object;
+  TFreeItem = procedure(p: Pointer) of object;
   TFreeProc = procedure(p: Pointer);
   TEqualsFunc = function(const A, B): Boolean;
   THashProc = function(const Value): Cardinal;
@@ -103,8 +103,10 @@ type
   PMemoryRegion = ^TMemoryRegion;
   TMemoryRegion = record
   type
-    TAssignProc = procedure(var Dest; const Value) of object;
-    TSwapProc = procedure(var A, B) of object;
+    TAssignProc = procedure(Dest, Value: Pointer) of object;
+    TSwapProc = procedure(A, B: Pointer) of object;
+    PBytes = ^TBytes;
+    PInterface = ^IInterface;
   private const
     Seed = 46147635;
   private
@@ -127,25 +129,21 @@ type
     procedure FreeItems(p: PMemSegment);
     function Valid: Boolean;
     function GetMeta: PsgItemMeta; inline;
+    procedure UDFree(p: Pointer);
   strict private
     // Dest := Value;
-    procedure Assign1(var Dest; const Value);
-    procedure Assign2(var Dest; const Value);
-    procedure Assign4(var Dest; const Value);
-    procedure Assign8(var Dest; const Value);
-    procedure AssignItemValue(var Dest; const Value);
-    procedure AssignManaged(var Dest; const Value);
-    procedure AssignVariant(var Dest; const Value);
-    procedure AssignMRef(var Dest; const Value);
+    procedure Assign1(Dest, Value: Pointer);
+    procedure Assign2(Dest, Value: Pointer);
+    procedure Assign4(Dest, Value: Pointer);
+    procedure Assign8(Dest, Value: Pointer);
+    procedure AssignItemValue(Dest, Value: Pointer);
+    procedure AssignManaged(Dest, Value: Pointer);
+    procedure AssignVariant(Dest, Value: Pointer);
+    procedure AssignMRef(Dest, Value: Pointer);
     // Value.Free;
-    procedure Free1(var Value);
-    procedure Free2(var Value);
-    procedure Free4(var Value);
-    procedure Free8(var Value);
-    procedure FreeItemValue(var Value);
-    procedure FreeManaged(var Value);
-    procedure FreeVariant(var Value);
-    procedure FreeMRef(var Value);
+    procedure FreeManaged(p: Pointer);
+    procedure FreeVariant(p: Pointer);
+    procedure FreeMRef(p: Pointer);
   public
     // Segmented region provides immutable pointer addresses
     procedure Init(IsSegmented: Boolean; const Meta: TsgItemMeta; BlockSize: Cardinal);
@@ -372,12 +370,12 @@ end;
 
 procedure TsgItem.Assign(const Value);
 begin
-  Region.FAssignItem(Ptr^, Value);
+  Region.FAssignItem(Ptr, @Value);
 end;
 
 procedure TsgItem.Free;
 begin
-  Region.FFreeItem(Ptr^);
+  Region.FFreeItem(Ptr);
 end;
 
 {$EndRegion}
@@ -481,40 +479,18 @@ begin
     end
   end
   else
+  begin
     case FMeta.ItemSize of
-      0:
-        raise ESglError.Create('impossible');
-      1:
-        begin
-          FAssignItem := Self.Assign1;
-          if not Assigned(FMeta.OnFree) then
-            FFreeItem := Self.Free1;
-        end;
-      2:
-        begin
-          FAssignItem := Self.Assign2;
-          if not Assigned(FMeta.OnFree) then
-            FFreeItem := Self.Free2;
-        end;
-      4:
-        begin
-          FAssignItem := Self.Assign4;
-          if not Assigned(FMeta.OnFree) then
-            FFreeItem := Self.Free4;
-        end;
-      8:
-        begin
-          FAssignItem := Self.Assign8;
-          if not Assigned(FMeta.OnFree) then
-            FFreeItem := Self.Free8;
-        end;
-      else
-      begin
-        FAssignItem := Self.AssignItemValue;
-        if not Assigned(FMeta.OnFree) then
-          FFreeItem := Self.FreeItemValue;
-      end;
+      0: raise ESglError.Create('impossible');
+      1: FAssignItem := Self.Assign1;
+      2: FAssignItem := Self.Assign2;
+      4: FAssignItem := Self.Assign4;
+      8: FAssignItem := Self.Assign8;
+      else FAssignItem := Self.AssignItemValue;
     end;
+    if Assigned(FMeta.OnFree) then
+      FFreeItem := UDFree;
+  end;
 end;
 
 function TMemoryRegion.Valid: Boolean;
@@ -561,13 +537,13 @@ var
   Ptr: Pointer;
   a, b: NativeUInt;
 begin
-  if Assigned(FMeta.OnFree) then
+  if Assigned(FFreeItem) then
   begin
     Ptr := p.GetHeapRef;
     N := GetOccupiedCount(p);
     while N > 0 do
     begin
-      FMeta.OnFree(Ptr);
+      FFreeItem(Ptr);
       a := NativeUInt(Ptr);
       Ptr := Pointer(NativeUInt(Ptr) + FMeta.ItemSize);
       b := NativeUInt(Ptr);
@@ -670,101 +646,87 @@ begin
   Item := PItem(p)^;
 end;
 
-procedure TMemoryRegion.Assign1(var Dest; const Value);
+procedure TMemoryRegion.Assign1(Dest, Value: Pointer);
 begin
-  Byte(Dest) := Byte(Value)
+  PByte(Dest)^ := PByte(Value)^;
 end;
 
-procedure TMemoryRegion.Assign2(var Dest; const Value);
+procedure TMemoryRegion.Assign2(Dest, Value: Pointer);
 begin
-  Word(Dest) := Word(Value)
+  PWord(Dest)^ := PWord(Value)^;
 end;
 
-procedure TMemoryRegion.Assign4(var Dest; const Value);
+procedure TMemoryRegion.Assign4(Dest, Value: Pointer);
 begin
-  Cardinal(Dest) := Cardinal(Value);
+  PCardinal(Dest)^ := PCardinal(Value)^;
 end;
 
-procedure TMemoryRegion.Assign8(var Dest; const Value);
+procedure TMemoryRegion.Assign8(Dest, Value: Pointer);
 begin
-  UInt64(Dest) := UInt64(Value);
+  PUInt64(Dest)^ := PUInt64(Value)^;
 end;
 
-procedure TMemoryRegion.AssignItemValue(var Dest; const Value);
+procedure TMemoryRegion.AssignItemValue(Dest, Value: Pointer);
 begin
-  Move(Value, Dest, FMeta.ItemSize);
+  Move(Value^, Dest^, FMeta.ItemSize);
 end;
 
-procedure TMemoryRegion.AssignManaged(var Dest; const Value);
+procedure TMemoryRegion.AssignManaged(Dest, Value: Pointer);
 begin
-  System.CopyRecord(@Dest, @Value, FMeta.TypeInfo);
+  System.CopyRecord(Dest, Value, FMeta.TypeInfo);
 end;
 
-procedure TMemoryRegion.AssignVariant(var Dest; const Value);
+procedure TMemoryRegion.AssignVariant(Dest, Value: Pointer);
 begin
-  Variant(Dest) := Variant(Value)
+  PVariant(Dest)^ := PVariant(Value)^;
 end;
 
-procedure TMemoryRegion.AssignMRef(var Dest; const Value);
-type
-  PBytes = ^TBytes;
-  PInterface = ^IInterface;
+procedure TMemoryRegion.AssignMRef(Dest, Value: Pointer);
 begin
   case FMeta.TypeKind of
-    TTypeKind.tkUString: string(Dest) := string(Value);
-    TTypeKind.tkDynArray: TBytes(Dest) := TBytes(Value);
-    TTypeKind.tkInterface: IInterface(Dest) := IInterface(Value);
+    TTypeKind.tkUString: PString(Dest)^ := PString(Value)^;
+    TTypeKind.tkDynArray: PBytes(Dest)^ := PBytes(Value)^;
+    TTypeKind.tkInterface: PInterface(Dest)^ := PInterface(Value)^;
 {$IF Defined(AUTOREFCOUNT)}
-    TTypeKind.tkClass: TObject(Dest) := TObject(Value);
+    TTypeKind.tkClass: PObject(Dest)^ := PObject(Value)^;
 {$ENDIF}
-    TTypeKind.tkLString: RawByteString(Dest) := RawByteString(Value);
+    TTypeKind.tkLString: PRawByteString(Dest)^ := PRawByteString(Value)^;
 {$IF not Defined(NEXTGEN)}
-    TTypeKind.tkWString: WideString(Dest) := WideString(Value);
+    TTypeKind.tkWString: PWideString(Dest)^ := PWideString(Value)^;
 {$ENDIF}
   end;
 end;
 
-procedure TMemoryRegion.Free1(var Value);
+procedure TMemoryRegion.UDFree(p: Pointer);
 begin
-  Byte(Value) := 0;
+  FMeta.OnFree(p);
 end;
 
-procedure TMemoryRegion.Free2(var Value);
+procedure TMemoryRegion.FreeManaged(p: Pointer);
 begin
-  Word(Value) := 0;
+  FinalizeRecord(p, FMeta.TypeInfo);
+  FillChar(p^, FMeta.ItemSize, 0);
 end;
 
-procedure TMemoryRegion.Free4(var Value);
+procedure TMemoryRegion.FreeMRef(p: Pointer);
 begin
-  Cardinal(Value) := 0;
+  case FMeta.TypeKind of
+    TTypeKind.tkUString: PString(p)^ := '';
+    TTypeKind.tkDynArray: PBytes(p)^ := nil;
+    TTypeKind.tkInterface: PInterface(p)^ := nil;
+{$IF Defined(AUTOREFCOUNT)}
+    TTypeKind.tkClass: PObject(p)^ := nil;
+{$ENDIF}
+    TTypeKind.tkLString: PRawByteString(p)^ := '';
+{$IF not Defined(NEXTGEN)}
+    TTypeKind.tkWString: PWideString(p)^ := '';
+{$ENDIF}
+  end;
 end;
 
-procedure TMemoryRegion.Free8(var Value);
+procedure TMemoryRegion.FreeVariant(p: Pointer);
 begin
-  UInt64(Value) := 0;
-end;
-
-procedure TMemoryRegion.FreeItemValue(var Value);
-begin
-  FillChar(Value, FMeta.ItemSize, 0);
-end;
-
-procedure TMemoryRegion.FreeManaged(var Value);
-begin
-  FinalizeArray(@Value, FMeta.TypeInfo, 1);
-  FillChar(Value, FMeta.ItemSize, 0);
-end;
-
-procedure TMemoryRegion.FreeMRef(var Value);
-begin
-  FinalizeArray(@Value, FMeta.TypeInfo, 1);
-  Pointer(Value) := nil;
-end;
-
-procedure TMemoryRegion.FreeVariant(var Value);
-begin
-  Variant(Value) := 0;
-  FillChar(Value, sizeof(Variant), 0);
+  PVariant(p)^ := 0;
 end;
 
 {$EndRegion}
@@ -923,3 +885,4 @@ finalization
   ClearHeapPool;
 
 end.
+

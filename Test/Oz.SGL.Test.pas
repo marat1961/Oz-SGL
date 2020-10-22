@@ -400,8 +400,6 @@ begin
   InitItem<Byte>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.TestChar;
@@ -413,8 +411,6 @@ begin
   InitItem<Char>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = Chr(0));
 end;
 
 procedure TsgItemTest.TestWord;
@@ -426,8 +422,6 @@ begin
   InitItem<Word>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.Test4;
@@ -439,8 +433,6 @@ begin
   InitItem<Integer>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.Test8;
@@ -452,8 +444,6 @@ begin
   InitItem<Int64>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.Test0;
@@ -491,10 +481,6 @@ begin
   CheckTrue(a.a = b.a);
   CheckTrue(a.b = b.b);
   CheckTrue(a.c = b.c);
-  item.Free;
-  CheckTrue(a.a = 0);
-  CheckTrue(a.b = 0);
-  CheckTrue(a.c = 0);
 end;
 
 procedure TsgItemTest.TestItem;
@@ -514,9 +500,6 @@ begin
   item.Assign(b);
   for i := 0 to High(t7) do
     CheckTrue(a[i]= b[i]);
-  item.Free;
-  for i := 0 to High(t7) do
-    CheckTrue(a[i] = 0);
 end;
 
 procedure TsgItemTest.TestManaged;
@@ -551,7 +534,7 @@ begin
   item.Assign(b);
   CheckTrue(SameValue(a, 12.45));
   item.Free;
-  CheckTrue(TVarData(a).VType = varEmpty);
+  CheckTrue(a = 0);
 end;
 
 procedure TsgItemTest.TestObject;
@@ -566,8 +549,6 @@ begin
   x := a;
   item.Assign(b);
   CheckTrue(a.Id = b.Id);
-  item.Free;
-  CheckTrue(a = nil);
   x.Free;
   b.Free;
 end;
@@ -583,8 +564,6 @@ begin
   InitItem<IIntId>(a);
   item.Assign(b);
   CheckTrue(a.Id = b.Id);
-  item.Free;
-  CheckTrue(a = nil);
 end;
 
 procedure TsgItemTest.TestWeakRef;
@@ -602,8 +581,6 @@ begin
   item.Assign(b);
   CheckTrue(Length(a) = 1);
   CheckTrue(a[0] = 43);
-  item.Free;
-  CheckTrue(a = nil);
 end;
 
 procedure TsgItemTest.TestString;
@@ -615,8 +592,6 @@ begin
   InitItem<string>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = '');
 end;
 
 procedure TsgItemTest.TestWideString;
@@ -628,8 +603,6 @@ begin
   InitItem<WideString>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = '');
 end;
 
 procedure TsgItemTest.TestRawByteString;
@@ -641,8 +614,6 @@ begin
   InitItem<RawByteString>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  item.Free;
-  CheckTrue(a = '');
 end;
 
 {$EndRegion}
@@ -751,7 +722,7 @@ end;
 
 procedure TestTsgList.TearDown;
 begin
-  List.Clear;
+  List.Free;
 end;
 
 procedure TestTsgList.TestAdd;
@@ -920,24 +891,34 @@ begin
 end;
 
 procedure TestTsgList.TestAssign;
+const
+  Cnt = 200;
 var
   Source: TsgList<TTestRecord>;
-  v, r: TTestRecord;
+  v, r, n: TTestRecord;
   p: PTestRecord;
+  i: Integer;
 begin
   v.Init(25, 1);
   v.s := '123';
   Source := TsgList<TTestRecord>.From(Meta);
   try
     Source.Add(v);
+    for i := 1 to Cnt do
+    begin
+      n.Init(i, i * 2);
+      n.s := IntToStr(i);
+      Source.Add(n);
+    end;
+    List.Assign(Source);
+    CheckTrue(List.Count = Cnt + 1);
     p := Source.GetPtr(0);
     CheckTrue(p.s = '123');
-    List.Assign(Source);
-    CheckTrue(List.Count = 1);
     r := List.Items[0];
     CheckTrue(r.Equals(v));
+    FinalizeRecord(@r, Meta.TypeInfo);
   finally
-    Source.Clear;
+    Source.Free;
   end;
 end;
 

@@ -987,16 +987,17 @@ end;
 procedure TsgListHelper.Assign(const Source: TsgListHelper);
 var
   Cnt: Integer;
-  Dst, Src: Pointer;
+  Dest, Src: Pointer;
 begin
   Cnt := Source.FCount;
   SetCount(Cnt);
-  Dst := Self.GetFItems^;
+  if Cnt = 0 then exit;  
+  Dest := Self.GetFItems^;
   Src := Source.GetFItems^;
   while Cnt > 0 do
   begin
-    FRegion.AssignItem(Dst, Src);
-    Inc(PByte(Dst), FItemSize);
+    FRegion.AssignItem(Dest, Src);
+    Inc(PByte(Dest), FItemSize);
     Inc(PByte(Src), FItemSize);
     Dec(Cnt);
   end;
