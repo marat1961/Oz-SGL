@@ -128,7 +128,6 @@ type
     function Valid: Boolean;
     function GetMeta: PsgItemMeta; inline;
   strict private
-    procedure Update(OnFree: TFreeProc);
     // Dest := Value;
     procedure Assign1(var Dest; const Value);
     procedure Assign2(var Dest; const Value);
@@ -451,6 +450,7 @@ end;
 procedure TMemoryRegion.Init(IsSegmented: Boolean; const Meta: TsgItemMeta;
   BlockSize: Cardinal);
 begin
+  FillChar(Self, sizeof(TMemoryRegion), 0);
   Self.FSeed := Seed;
   Self.IsSegmented := IsSegmented;
   Self.Used := True;
@@ -458,29 +458,25 @@ begin
   Self.BlockSize := BlockSize;
   Self.FCapacity := 0;
   Self.Heap := nil;
-end;
-
-procedure TMemoryRegion.Update(OnFree: TFreeProc);
-begin
   if FMeta.ManagedType then
   begin
     if (FMeta.ItemSize = SizeOf(Pointer)) and not FMeta.HasWeakRef and
       not (FMeta.TypeKind in [tkRecord, tkMRecord]) then
     begin
       FAssignItem := Self.AssignMRef;
-      if not Assigned(OnFree) then
+      if not Assigned(FMeta.OnFree) then
         FFreeItem := Self.FreeMRef;
     end
     else if FMeta.TypeKind = TTypeKind.tkVariant then
     begin
       FAssignItem := Self.AssignVariant;
-      if not Assigned(OnFree) then
+      if not Assigned(FMeta.OnFree) then
         FFreeItem := Self.FreeVariant;
     end
     else
     begin
       FAssignItem := Self.AssignManaged;
-      if not Assigned(OnFree) then
+      if not Assigned(FMeta.OnFree) then
         FFreeItem := Self.FreeManaged;
     end
   end
@@ -491,31 +487,31 @@ begin
       1:
         begin
           FAssignItem := Self.Assign1;
-          if not Assigned(OnFree) then
+          if not Assigned(FMeta.OnFree) then
             FFreeItem := Self.Free1;
         end;
       2:
         begin
           FAssignItem := Self.Assign2;
-          if not Assigned(OnFree) then
+          if not Assigned(FMeta.OnFree) then
             FFreeItem := Self.Free2;
         end;
       4:
         begin
           FAssignItem := Self.Assign4;
-          if not Assigned(OnFree) then
+          if not Assigned(FMeta.OnFree) then
             FFreeItem := Self.Free4;
         end;
       8:
         begin
           FAssignItem := Self.Assign8;
-          if not Assigned(OnFree) then
+          if not Assigned(FMeta.OnFree) then
             FFreeItem := Self.Free8;
         end;
       else
       begin
         FAssignItem := Self.AssignItemValue;
-        if not Assigned(OnFree) then
+        if not Assigned(FMeta.OnFree) then
           FFreeItem := Self.FreeItemValue;
       end;
     end;
@@ -701,7 +697,7 @@ end;
 
 procedure TMemoryRegion.AssignManaged(var Dest; const Value);
 begin
-  System.CopyArray(@Dest, @Value, FMeta.TypeInfo, 1);
+  System.CopyRecord(@Dest, @Value, FMeta.TypeInfo);
 end;
 
 procedure TMemoryRegion.AssignVariant(var Dest; const Value);

@@ -119,8 +119,12 @@ type
 
   TsgItemTest = class(TTestCase)
   public
+    region: TMemoryRegion;
+    meta: TsgItemMeta;
+    item: TsgItem;
     procedure SetUp; override;
     procedure TearDown; override;
+    procedure InitItem<T>(var value: T);
   published
     procedure TestByte;
     procedure TestChar;
@@ -168,7 +172,7 @@ type
   TestTsgList = class(TTestCase)
   public
     List: TsgList<TTestRecord>;
-    ItemProc: TsgItemProc;
+    Meta: TsgItemMeta;
     procedure SetUp; override;
     procedure TearDown; override;
   published
@@ -241,7 +245,6 @@ type
     TIter = TsgHashMapIterator<TVector, Integer>;
   strict private
     FMap: TsgHashMap<TVector, Integer>;
-    FPairProc: TsgPairProc;
   public
     procedure SetUp; override;
     procedure TearDown; override;
@@ -381,17 +384,20 @@ begin
   inherited;
 end;
 
+procedure TsgItemTest.InitItem<T>(var value: T);
+begin
+  meta.Init<T>;
+  region.Init(False, meta, 1024);
+  item.Init(region, value);
+end;
+
 procedure TsgItemTest.TestByte;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: Byte;
 begin
   a := 5;
   b := 43;
-  meta.Init<Byte>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<Byte>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -400,15 +406,11 @@ end;
 
 procedure TsgItemTest.TestChar;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: Char;
 begin
   a := 'Q';
   b := 'F';
-  meta.Init<Char>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<Char>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -417,15 +419,11 @@ end;
 
 procedure TsgItemTest.TestWord;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: Word;
 begin
   a := 5;
   b := 43;
-  meta.Init<Word>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<Word>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -434,15 +432,11 @@ end;
 
 procedure TsgItemTest.Test4;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: Integer;
 begin
   a := 5;
   b := 43;
-  meta.Init<Integer>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<Integer>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -451,15 +445,11 @@ end;
 
 procedure TsgItemTest.Test8;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: Int64;
 begin
   a := 5;
   b := 43;
-  meta.Init<Int64>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<Int64>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -470,22 +460,23 @@ procedure TsgItemTest.Test0;
 type
   t0 = record end;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a: t0;
+  ok: Boolean;
 begin
   CheckTrue(sizeof(t0) = 0);
-  meta.Init<t0>;
-  item.Init(meta);
-  item.SetPtr(a);
+  ok := False;
+  try
+    InitItem<t0>(a);
+  except
+    ok := True;
+  end;
+  CheckTrue(ok);
 end;
 
 procedure TsgItemTest.TestOtherSize;
 type
   t3 = record a, b, c: Byte; end;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: t3;
 begin
   CheckTrue(sizeof(t3) = 3);
@@ -495,9 +486,7 @@ begin
   b.a := 5;
   b.b := 145;
   b.c := 178;
-  meta.Init<t3>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<t3>(a);
   item.Assign(b);
   CheckTrue(a.a = b.a);
   CheckTrue(a.b = b.b);
@@ -512,8 +501,6 @@ procedure TsgItemTest.TestItem;
 type
   t7 = array [0..6] of Byte;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   i: Integer;
   a, b: t7;
 begin
@@ -523,9 +510,7 @@ begin
     a[i] := 23;
     b[i] := i;
   end;
-  meta.Init<t7>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<t7>(a);
   item.Assign(b);
   for i := 0 to High(t7) do
     CheckTrue(a[i]= b[i]);
@@ -536,18 +521,17 @@ end;
 
 procedure TsgItemTest.TestManaged;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
-  a, b: TPerson;
+  a, b, c: TPerson;
 begin
   // record with managed fields
   a := TPerson.From('Peter');
   a.id := 1;
-  b := TPerson.From('Peter');
+  b := TPerson.From('Nick');
   b.id := 43;
-  meta.Init<TPerson>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<TPerson>(a);
+  System.CopyRecord(@c, @a, Meta.TypeInfo);
+  CheckTrue(a.id = c.id);
+  CheckTrue(a.name = c.name);
   item.Assign(b);
   CheckTrue(a.id = b.id);
   CheckTrue(a.name = b.name);
@@ -558,16 +542,12 @@ end;
 
 procedure TsgItemTest.TestVariant;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: Variant;
 begin
   // record with managed fields
   a := 'Peter';
   b := 12.45;
-  meta.Init<Variant>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<Variant>(a);
   item.Assign(b);
   CheckTrue(SameValue(a, 12.45));
   item.Free;
@@ -576,17 +556,13 @@ end;
 
 procedure TsgItemTest.TestObject;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b, x: TIntId;
 begin
   a := TIntId.Create;
   a.Id := 75;
   b := TIntId.Create;
   b.Id := 43;
-  meta.Init<TIntId>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<TIntId>(a);
   x := a;
   item.Assign(b);
   CheckTrue(a.Id = b.Id);
@@ -598,17 +574,13 @@ end;
 
 procedure TsgItemTest.TestInterface;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: IIntId;
 begin
   a := TIntId.Create;
   a.Id := 75;
   b := TIntId.Create;
   b.Id := 43;
-  meta.Init<IIntId>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<IIntId>(a);
   item.Assign(b);
   CheckTrue(a.Id = b.Id);
   item.Free;
@@ -622,15 +594,11 @@ end;
 
 procedure TsgItemTest.TestDynArray;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: TArray<Integer>;
 begin
   a := [5, 75, 588];
   b := [43];
-  meta.Init<TArray<Integer>>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<TArray<Integer>>(a);
   item.Assign(b);
   CheckTrue(Length(a) = 1);
   CheckTrue(a[0] = 43);
@@ -640,15 +608,11 @@ end;
 
 procedure TsgItemTest.TestString;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: string;
 begin
   a := 'string a';
   b := 'string b';
-  meta.Init<string>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<string>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -657,15 +621,11 @@ end;
 
 procedure TsgItemTest.TestWideString;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: WideString;
 begin
   a := 'string a';
   b := 'string b';
-  meta.Init<WideString>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<WideString>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -674,15 +634,11 @@ end;
 
 procedure TsgItemTest.TestRawByteString;
 var
-  meta: TsgItemMeta;
-  item: TsgItem;
   a, b: RawByteString;
 begin
   a := 'string a';
   b := 'string b';
-  meta.Init<RawByteString>;
-  item.Init(meta);
-  item.SetPtr(a);
+  InitItem<RawByteString>(a);
   item.Assign(b);
   CheckTrue(a = b);
   item.Free;
@@ -711,8 +667,10 @@ var
   i: Integer;
   r: PMemoryRegion;
   head, newNode: PListNode;
+  meta: TsgItemMeta;
 begin
-  r := HeapPool.CreateRegion(sizeof(TListNode));
+  meta.Init<TListNode>;
+  r := HeapPool.CreateRegion(meta);
   try
     head := nil;
     for i := 1 to ItemsCount do
@@ -734,8 +692,10 @@ var
   p, q, b: PListNode;
   a: TArray<NativeUInt>;
   pa, qa, a0, a1: NativeUInt;
+  meta: TsgItemMeta;
 begin
-  r := HeapPool.CreateUnbrokenRegion(sizeof(TListNode));
+  meta.Init<TListNode>;
+  r := HeapPool.CreateUnbrokenRegion(meta);
   try
     q := nil;
     for i := 0 to ItemsCount - 1 do
@@ -785,8 +745,8 @@ end;
 
 procedure TestTsgList.SetUp;
 begin
-  ItemProc.Init<TTestRecord>;
-  List := TsgList<TTestRecord>.From(ItemProc);
+  Meta.Init<TTestRecord>;
+  List := TsgList<TTestRecord>.From(Meta);
 end;
 
 procedure TestTsgList.TearDown;
@@ -967,12 +927,11 @@ var
 begin
   v.Init(25, 1);
   v.s := '123';
-  ItemProc.FAssignProc(@r, @v);
-  CheckTrue(r.Equals(v));
-  Source := TsgList<TTestRecord>.From(ItemProc);
+  Source := TsgList<TTestRecord>.From(Meta);
   try
     Source.Add(v);
     p := Source.GetPtr(0);
+    CheckTrue(p.s = '123');
     List.Assign(Source);
     CheckTrue(List.Count = 1);
     r := List.Items[0];
@@ -1621,20 +1580,24 @@ end;
 
 {$Region 'TestTsgHashMap'}
 
-function VectorHash(v: Pointer): Cardinal;
+function VectorHash(const Value): Cardinal;
 begin
-  Result := PVector(v).Hash;
+  Result := TVector(Value).Hash;
 end;
 
-function VectorEquals(a, b: Pointer): Boolean;
+function VectorEquals(const A, B): Boolean;
 begin
-  Result := PVector(a).Equals(PVector(b)^);
+  Result := TVector(A).Equals(TVector(B));
 end;
 
 procedure TestTsgHashMap.SetUp;
+var
+  Hash: THashProc;
+  Equals: TEqualsFunc;
 begin
-  FPairProc.Init<TVector, Integer>(VectorHash, VectorEquals, nil);
-  FMap := TsgHashMap<TVector, Integer>.From(300, FPairProc);
+  Hash := VectorHash;
+  Equals := VectorEquals;
+  FMap := TsgHashMap<TVector, Integer>.From(300, Hash, Equals, nil);
 end;
 
 procedure TestTsgHashMap.TearDown;
