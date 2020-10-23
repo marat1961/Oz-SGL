@@ -120,6 +120,10 @@ type
 
 {$Region 'TsgPointerArray: Untyped List of Pointers'}
 
+  TsgPointersArrayRange = 0..$7FFFFFFF div (sizeof(Pointer) * 2) - 1;
+  TsgPointers = array [TsgPointersArrayRange] of Pointer;
+  PsgPointers = ^TsgPointers;
+
   // An array of pointers for quick sorting and searching.
   PsgPointerArray = ^TsgPointerArray;
   TsgPointerArray = record
@@ -173,7 +177,10 @@ type
   private
     FList: PsgPointers;
     FCount: Integer;
-    FFactory: TsgItemFactory;
+    // region for pointers
+    FListRegion: PMemoryRegion;
+    // region for items
+    FItemsRegion: PMemoryRegion;
     function Get(Index: Integer): Pointer;
     procedure Put(Index: Integer; Item: Pointer);
     procedure CheckCapacity(NewCount: Integer);
@@ -1234,22 +1241,24 @@ constructor TsgPointerList.From(const Meta: TsgItemMeta);
 begin
   FList := nil;
   FCount := 0;
-  FFactory := TsgItemFactory.From(Meta);
+  FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
+  FItemsRegion := HeapPool.CreateRegion(Meta);
 end;
 
 procedure TsgPointerList.Free;
 begin
   FList := nil;
   FCount := 0;
-  FFactory.Free;
+  FItemsRegion.Free;
+  FListRegion.Free;
 end;
 
 procedure TsgPointerList.Clear;
 var
   Meta: TsgItemMeta;
 begin
-  Check(FFactory.ItemSize > 0, 'TsgPointerList.Clear: uninitialized');
-  Meta := FFactory.ItemsRegion.Meta^;
+  Meta := FItemsRegion.Meta^;
+  Check(Meta.h.Valid, 'TsgPointerList.Clear: uninitialized');
   Free;
   Self := TsgPointerList.From(Meta);
 end;
@@ -1277,7 +1286,7 @@ begin
   else if prev = FList[Count - 1] then
     Result := nil
   else
-    Result := Pointer(NativeUInt(prev) + NativeUInt(FFactory.ItemSize));
+    Result := Pointer(NativeUInt(prev) + NativeUInt(FItemsRegion.ItemSize));
 end;
 
 procedure TsgPointerList.Assign(const Source: TsgPointerList);
@@ -1290,17 +1299,22 @@ begin
 end;
 
 function TsgPointerList.Add(Item: Pointer): Integer;
+var
+  p: Pointer;
 begin
   Check(Item <> nil);
   Result := FCount;
   CheckCapacity(Result);
   Inc(FCount);
-  FList[Result] := FFactory.AddItem(Item);
+  p := FItemsRegion.Alloc(FItemsRegion.ItemSize);
+  FItemsRegion.AssignItem(p, Item);
+  FList[Result] := p;
 end;
 
 procedure TsgPointerList.Insert(Index: Integer; Item: Pointer);
 var
   MemSize: Integer;
+  Dest: Pointer;
 begin
   if Index = FCount then
     Add(Item)
@@ -1311,7 +1325,8 @@ begin
     CheckCapacity(FCount);
     MemSize := (FCount - Index) * SizeOf(Pointer);
     System.Move(FList[Index], FList[Index + 1], MemSize);
-    FList[Index] := FFactory.AddItem(Item);
+    Dest := FItemsRegion.GetItemPtr(Index);
+    FItemsRegion.AssignItem(Dest, Item);
     Inc(FCount);
   end;
 end;
@@ -1323,7 +1338,7 @@ begin
   Index := FCount;
   CheckCapacity(Index);
   Inc(FCount);
-  Result := FFactory.CreateItem;
+  Result := FItemsRegion.Alloc(FItemsRegion.ItemSize);
   FList[Index] := Result;
 end;
 
@@ -1423,7 +1438,8 @@ end;
 
 procedure TsgPointerList.CheckCapacity(NewCount: Integer);
 begin
-  FFactory.CheckCapacity(FList, NewCount);
+  if FListRegion.Capacity <= NewCount then
+    FList := FListRegion.IncreaseAndAlloc(NewCount);
 end;
 
 procedure TsgPointerList.SetCount(NewCount: Integer);

@@ -717,7 +717,7 @@ begin
         // copy data
         for j := 0 to i do
         begin
-          b := PListNode(r.GetItemPtr<TListNode>(j));
+          b := PListNode(r.GetItemPtr(j));
           a[j] := NativeUInt(b);
           CheckTrue(b.n = j + 1);
         end;

@@ -198,9 +198,9 @@ type
     // Allocate memory of a specified size and return its pointer
     function Alloc(Size: Cardinal): Pointer;
     // Get a pointer to an element of an array of the specified type
-    function GetItemPtr<T>(Index: Integer): Pointer;
-    // Get a piece of memory as an array element of the specified type
-    procedure GetItemAs<T>(Index: Integer; var Item: T);
+    function GetItemPtr(Index: Cardinal): Pointer;
+    // Add an element and return a pointer to it
+    function AddItem(Item: Pointer): Pointer;
     // propeties
     property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FCapacity;
@@ -229,35 +229,6 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgItemFactory: Factory of list items using the memory pool'}
-
-  TsgPointersArrayRange = 0..$7FFFFFFF div (sizeof(Pointer) * 2) - 1;
-  TsgPointers = array [TsgPointersArrayRange] of Pointer;
-  PsgPointers = ^TsgPointers;
-
-  PsgItemFactory = ^TsgItemFactory;
-  TsgItemFactory = record
-  private
-    // region for pointers
-    FListRegion: PMemoryRegion;
-    // region for items
-    FItemsRegion: PMemoryRegion;
-    function GetItemSize: Cardinal;
-  public
-    constructor From(const Meta: TsgItemMeta);
-    procedure Free;
-    // Change the list capacity and return the heap address to store list pointers
-    procedure CheckCapacity(var List: PsgPointers; NewCount: Integer);
-    // Add an element and return its pointer
-    function AddItem(Item: Pointer): Pointer;
-    // Create an empty item and return its pointer
-    function CreateItem: Pointer;
-    property ItemSize: Cardinal read GetItemSize;
-    property ItemsRegion: PMemoryRegion read FItemsRegion;
-  end;
-
-{$EndRegion}
-
 {$Region 'THeapPool: Memory Pool'}
 
   // List item
@@ -282,17 +253,17 @@ type
 
   THeapPool = class
   private const
-    Seed = 45647631;
+    Seed: Word = 19927;
   strict private
-    FSeed: Integer;
     FRegions: PMemoryRegion;
     FRealesed: TRegionItems;
-    FBlockSize: Cardinal;
+    FBlockSize: Word;
+    FSeed: Word;
     // Occupy region
     function FindOrCreateRegion(Segmented: Boolean;
       const Meta: TsgItemMeta): PMemoryRegion;
   public
-    constructor Create(BlockSize: Cardinal = 8 * 1024);
+    constructor Create(BlockSize: Word = 8 * 1024);
     destructor Destroy; override;
     // Create a continuous region (e.g. memory for arrays)
     function CreateUnbrokenRegion(const Meta: TsgItemMeta): PMemoryRegion;
@@ -300,7 +271,7 @@ type
     function CreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
     // Release the region
     procedure Release(r: PMemoryRegion);
-    function Valid: Boolean;
+    function Valid: Boolean; inline;
   end;
 
 {$EndRegion}
@@ -769,27 +740,23 @@ begin
     OutOfMemoryError;
 end;
 
-function TMemoryRegion.GetItemPtr<T>(Index: Integer): Pointer;
+function TMemoryRegion.GetItemPtr(Index: Cardinal): Pointer;
 var
   ItemsPtr: Pointer;
 begin
   ItemsPtr := Heap.GetHeapRef;
-  Result := Pointer(NativeUInt(ItemsPtr) + NativeUInt(index * sizeof(T)));
+  Result := Pointer(NativeUInt(ItemsPtr) + NativeUInt(Index * FMeta.ItemSize));
+end;
+
+function TMemoryRegion.AddItem(Item: Pointer): Pointer;
+begin
+  Result := Alloc(ItemSize);
+  FAssignItem(Result, Item);
 end;
 
 function TMemoryRegion.GetMeta: PsgItemMeta;
 begin
   Result := @FMeta;
-end;
-
-procedure TMemoryRegion.GetItemAs<T>(Index: Integer; var Item: T);
-type
-  PItem = ^T;
-var
-  p: Pointer;
-begin
-  p := GetItemPtr<T>(index);
-  Item := PItem(p)^;
 end;
 
 procedure TMemoryRegion.Assign1(Dest, Value: Pointer);
@@ -877,48 +844,6 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgItemFactory'}
-
-constructor TsgItemFactory.From(const Meta: TsgItemMeta);
-begin
-  FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
-  FItemsRegion := HeapPool.CreateRegion(Meta);
-end;
-
-function TsgItemFactory.GetItemSize: Cardinal;
-begin
-  Result := FItemsRegion.FMeta.ItemSize;
-end;
-
-procedure TsgItemFactory.Free;
-begin
-  FItemsRegion.Free;
-  FListRegion.Free;
-end;
-
-procedure TsgItemFactory.CheckCapacity(var List: PsgPointers; NewCount: Integer);
-begin
-  if FListRegion.Capacity <= NewCount then
-    List := FListRegion.IncreaseAndAlloc(NewCount);
-end;
-
-function TsgItemFactory.AddItem(Item: Pointer): Pointer;
-var
-  ItemSize: Cardinal;
-begin
-  ItemSize := FItemsRegion.FMeta.ItemSize;
-  Result := ItemsRegion.Alloc(ItemSize);
-  // todo:
-  Move(Item^, Result^, ItemSize);
-end;
-
-function TsgItemFactory.CreateItem: Pointer;
-begin
-  Result := ItemsRegion.Alloc(FItemsRegion.FMeta.ItemSize);
-end;
-
-{$EndRegion}
-
 {$Region 'TRegionItems'}
 
 procedure TRegionItems.Init;
@@ -959,7 +884,7 @@ begin
   Item.r.FreeHeap(Item.r.Heap);
 end;
 
-constructor THeapPool.Create(BlockSize: Cardinal);
+constructor THeapPool.Create(BlockSize: Word);
 begin
   inherited Create;
   FSeed := Seed;
