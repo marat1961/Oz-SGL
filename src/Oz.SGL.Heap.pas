@@ -580,19 +580,25 @@ begin
       not (FMeta.h.TypeKind in [tkRecord, tkMRecord]) then
     begin
       FAssignItem := Self.AssignMRef;
-      if not Assigned(FMeta.OnFree) then
+      if Assigned(FMeta.OnFree) then
+        FFreeItem := UDFree
+      else
         FFreeItem := Self.FreeMRef;
     end
     else if FMeta.h.TypeKind = TTypeKind.tkVariant then
     begin
       FAssignItem := Self.AssignVariant;
-      if not Assigned(FMeta.OnFree) then
+      if Assigned(FMeta.OnFree) then
+        FFreeItem := UDFree
+      else
         FFreeItem := Self.FreeVariant;
     end
     else
     begin
       FAssignItem := Self.AssignManaged;
-      if not Assigned(FMeta.OnFree) then
+      if Assigned(FMeta.OnFree) then
+        FFreeItem := UDFree
+      else
         FFreeItem := Self.FreeManaged;
     end
   end

@@ -998,7 +998,7 @@ var
 begin
   Cnt := Source.FCount;
   SetCount(Cnt);
-  if Cnt = 0 then exit;  
+  if Cnt = 0 then exit;
   Dest := Self.GetFItems^;
   Src := Source.GetFItems^;
   while Cnt > 0 do
