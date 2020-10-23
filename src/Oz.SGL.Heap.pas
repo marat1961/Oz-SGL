@@ -65,14 +65,59 @@ type
 {$Region 'TsgItemMeta: metadata for item of some type'}
 
 type
+
+  // Action to remove an element from the collection
+  TRemoveAction = (
+    HoldValue = 0,  // Hold the item value
+    Clear = 1,      // Clear the item value
+    Reuse = 2,      // Clear the item value and allow reuse
+    Other = 3);     // Reserved
+
+  // packed collection flags
+  hMeta = packed record
+  private const
+    Seed: Word = 25117;
+    function GetTypeKind: System.TTypeKind;
+    function GetManagedType: Boolean;
+    function GetHasWeakRef: Boolean;
+    function GetSegmented: Boolean;
+    procedure SetSegmented(const Value: Boolean);
+    function GetRangeCheck: Boolean;
+    procedure SetRangeCheck(const Value: Boolean);
+    function GetNotification: Boolean;
+    procedure SetNotification(const Value: Boolean);
+    function GetOwnedObject: Boolean;
+    procedure SetOwnedObject(const Value: Boolean);
+    function GetRemoveAction: TRemoveAction;
+    procedure SetRemoveAction(const Value: TRemoveAction);
+  public
+    constructor From(TypeKind: System.TTypeKind; ManagedType, HasWeakRef: Boolean);
+    function Valid: Boolean; inline;
+    // property
+    property TypeKind: System.TTypeKind read GetTypeKind;
+    property ManagedType: Boolean read GetManagedType;
+    property HasWeakRef: Boolean read GetHasWeakRef;
+    property Segmented: Boolean read GetSegmented write SetSegmented;
+    property RangeCheck: Boolean read GetRangeCheck write SetRangeCheck;
+    property Notification: Boolean read GetNotification write SetNotification;
+    property OwnedObject: Boolean read GetOwnedObject write SetOwnedObject;
+    property RemoveAction: TRemoveAction read GetRemoveAction write SetRemoveAction;
+  case Integer of
+    0: (
+      v: Integer);
+    1: (
+      MetaFlags: Byte;
+      RegionFlags: Byte;
+      SeedValue: Word
+      );
+  end;
+
   TsgItemMeta = record
   var
     TypeInfo: Pointer;
     ItemSize: Cardinal;
+    h: hMeta;
     OnFree: TFreeProc;
-    TypeKind: System.TTypeKind;
-    ManagedType: Boolean;
-    HasWeakRef: Boolean;
   public
     procedure Init<T>(OnFree: TFreeProc = nil);
   end;
@@ -107,13 +152,8 @@ type
     TSwapProc = procedure(A, B: Pointer) of object;
     PBytes = ^TBytes;
     PInterface = ^IInterface;
-  private const
-    Seed = 46147635;
   private
-    FSeed: Integer;
     Heap: PMemSegment;
-    IsSegmented: Boolean;
-    Used: Boolean;
     BlockSize: Cardinal;
     FCapacity: Integer;
     FMeta: TsgItemMeta;
@@ -127,7 +167,7 @@ type
     function GetOccupiedCount(p: PMemSegment): Integer;
     procedure FreeHeap(var Heap: PMemSegment);
     procedure FreeItems(p: PMemSegment);
-    function Valid: Boolean;
+    function Valid: Boolean; inline;
     function GetMeta: PsgItemMeta; inline;
     procedure UDFree(p: Pointer);
   strict private
@@ -146,7 +186,7 @@ type
     procedure FreeMRef(p: Pointer);
   public
     // Segmented region provides immutable pointer addresses
-    procedure Init(IsSegmented: Boolean; const Meta: TsgItemMeta; BlockSize: Cardinal);
+    procedure Init(Segmented: Boolean; const Meta: TsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free;
     // Erases all elements from the memory region.
@@ -249,7 +289,7 @@ type
     FRealesed: TRegionItems;
     FBlockSize: Cardinal;
     // Occupy region
-    function FindOrCreateRegion(IsSegmented: Boolean;
+    function FindOrCreateRegion(Segmented: Boolean;
       const Meta: TsgItemMeta): PMemoryRegion;
   public
     constructor Create(BlockSize: Cardinal = 8 * 1024);
@@ -344,14 +384,123 @@ end;
 
 {$EndRegion}
 
+{$Region 'hMeta'}
+
+constructor hMeta.From(TypeKind: System.TTypeKind; ManagedType, HasWeakRef: Boolean);
+var
+  b: Integer;
+begin
+  b := Seed shl 9;
+  if HasWeakRef then b := b or 1;
+  b := b shl 1;
+  if ManagedType then b := b or 1;
+  b := b shl 6;
+  b := b + Ord(TypeKind) and $1F;
+  v := b;
+end;
+
+function hMeta.Valid: Boolean;
+begin
+  Result := SeedValue = Seed;
+end;
+
+function hMeta.GetTypeKind: System.TTypeKind;
+begin
+  Result := System.TTypeKind(MetaFlags and $1F);
+end;
+
+function hMeta.GetManagedType: Boolean;
+begin
+  Result := False;
+  if v and $40 <> 0 then
+    Result := True;
+end;
+
+function hMeta.GetHasWeakRef: Boolean;
+begin
+  Result := False;
+  if v and $80 <> 0 then
+    Result := True;
+end;
+
+function hMeta.GetSegmented: Boolean;
+begin
+  Result := False;
+  if v and $8000 <> 0 then
+    Result := True;
+end;
+
+procedure hMeta.SetSegmented(const Value: Boolean);
+begin
+  if Value then
+    v := v or $8000
+  else
+    v := v and not $8000;
+end;
+
+function hMeta.GetRangeCheck: Boolean;
+begin
+  Result := False;
+  if v and $100 <> 0 then
+    Result := True;
+end;
+
+procedure hMeta.SetRangeCheck(const Value: Boolean);
+begin
+  if Value then
+    v := v or $100
+  else
+    v := v and not $100;
+end;
+
+function hMeta.GetNotification: Boolean;
+begin
+  Result := False;
+  if v and $200 <> 0 then
+    Result := True;
+end;
+
+procedure hMeta.SetNotification(const Value: Boolean);
+begin
+  if Value then
+    v := v or $200
+  else
+    v := v and not $200;
+end;
+
+function hMeta.GetOwnedObject: Boolean;
+begin
+  Result := False;
+  if v and $400 <> 0 then
+    Result := True;
+end;
+
+procedure hMeta.SetOwnedObject(const Value: Boolean);
+begin
+  if Value then
+    v := v or $400
+  else
+    v := v and not $400;
+end;
+
+function hMeta.GetRemoveAction: TRemoveAction;
+begin
+  Result := TRemoveAction((v shr 11) and $3);
+end;
+
+procedure hMeta.SetRemoveAction(const Value: TRemoveAction);
+begin
+  v := v or ((Ord(Value) and $3) shl 11);
+end;
+
+{$EndRegion}
+
 {$Region 'TsgItemMeta'}
 
 procedure TsgItemMeta.Init<T>(OnFree: TFreeProc);
 begin
   TypeInfo := System.TypeInfo(T);
-  TypeKind := System.GetTypeKind(T);
-  ManagedType := System.IsManagedType(T);
-  HasWeakRef := System.HasWeakRef(T);
+  h := hMeta.From(System.GetTypeKind(T), System.IsManagedType(T), System.HasWeakRef(T));
   ItemSize := sizeof(T);
   Self.OnFree := OnFree;
 end;
@@ -445,27 +594,25 @@ end;
 
 {$Region 'TMemoryRegion'}
 
-procedure TMemoryRegion.Init(IsSegmented: Boolean; const Meta: TsgItemMeta;
+procedure TMemoryRegion.Init(Segmented: Boolean; const Meta: TsgItemMeta;
   BlockSize: Cardinal);
 begin
   FillChar(Self, sizeof(TMemoryRegion), 0);
-  Self.FSeed := Seed;
-  Self.IsSegmented := IsSegmented;
-  Self.Used := True;
   Self.FMeta := Meta;
+  Self.FMeta.h.Segmented := Segmented;
   Self.BlockSize := BlockSize;
   Self.FCapacity := 0;
   Self.Heap := nil;
-  if FMeta.ManagedType then
+  if FMeta.h.ManagedType then
   begin
-    if (FMeta.ItemSize = SizeOf(Pointer)) and not FMeta.HasWeakRef and
-      not (FMeta.TypeKind in [tkRecord, tkMRecord]) then
+    if (FMeta.ItemSize = SizeOf(Pointer)) and not FMeta.h.HasWeakRef and
+      not (FMeta.h.TypeKind in [tkRecord, tkMRecord]) then
     begin
       FAssignItem := Self.AssignMRef;
       if not Assigned(FMeta.OnFree) then
         FFreeItem := Self.FreeMRef;
     end
-    else if FMeta.TypeKind = TTypeKind.tkVariant then
+    else if FMeta.h.TypeKind = TTypeKind.tkVariant then
     begin
       FAssignItem := Self.AssignVariant;
       if not Assigned(FMeta.OnFree) then
@@ -495,7 +642,7 @@ end;
 
 function TMemoryRegion.Valid: Boolean;
 begin
-  Result := FSeed = Seed;
+  Result := FMeta.h.Valid;
 end;
 
 procedure TMemoryRegion.Clear;
@@ -584,7 +731,7 @@ begin
   if Heap = nil then
     // create a new segment
     NewSegment(Heap, NewHeapSize)
-  else if not IsSegmented then
+  else if not FMeta.h.Segmented then
     // increase the size of the memory segment
     IncreaseHeapSize(Heap, NewHeapSize)
   else
@@ -682,7 +829,7 @@ end;
 
 procedure TMemoryRegion.AssignMRef(Dest, Value: Pointer);
 begin
-  case FMeta.TypeKind of
+  case FMeta.h.TypeKind of
     TTypeKind.tkUString: PString(Dest)^ := PString(Value)^;
     TTypeKind.tkDynArray: PBytes(Dest)^ := PBytes(Value)^;
     TTypeKind.tkInterface: PInterface(Dest)^ := PInterface(Value)^;
@@ -709,7 +856,7 @@ end;
 
 procedure TMemoryRegion.FreeMRef(p: Pointer);
 begin
-  case FMeta.TypeKind of
+  case FMeta.h.TypeKind of
     TTypeKind.tkUString: PString(p)^ := '';
     TTypeKind.tkDynArray: PBytes(p)^ := nil;
     TTypeKind.tkInterface: PInterface(p)^ := nil;
@@ -843,7 +990,7 @@ begin
   Result := FindOrCreateRegion(True, Meta);
 end;
 
-function THeapPool.FindOrCreateRegion(IsSegmented: Boolean;
+function THeapPool.FindOrCreateRegion(Segmented: Boolean;
   const Meta: TsgItemMeta): PMemoryRegion;
 var
   p: PRegionItem;
@@ -852,7 +999,7 @@ begin
     p := FRealesed.Remove
   else
     p := FRegions.Alloc(sizeof(TMemoryRegion));
-  p.r.Init(IsSegmented, Meta, FBlockSize);
+  p.r.Init(Segmented, Meta, FBlockSize);
   Result := @p.r;
 end;
 

@@ -161,6 +161,7 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
+    procedure _hMeta;
     procedure _CreateRegion;
     procedure _CreateUnbrokenRegion;
   end;
@@ -631,6 +632,32 @@ begin
   inherited;
   HeapPool.Free;
   HeapPool := nil;
+end;
+
+procedure THeapPoolTest._hMeta;
+var
+  size: Integer;
+  h: hMeta;
+begin
+  size := sizeof(hMeta);
+  CheckTrue(size = 4);
+  h := hMeta.From(System.TTypeKind.tkMRecord, True, True);
+  CheckTrue(h.TypeKind = System.TTypeKind.tkMRecord);
+  CheckTrue(h.ManagedType);
+  CheckTrue(h.HasWeakRef);
+  CheckTrue(not h.RangeCheck);
+  CheckTrue(not h.Notification);
+  CheckTrue(not h.OwnedObject);
+  CheckTrue(h.RemoveAction = TRemoveAction(0));
+  CheckTrue(not h.Segmented);
+  CheckTrue(h.SeedValue = 25117);
+  CheckTrue(h.Valid);
+  h.Segmented := True;
+  CheckTrue(h.Segmented);
+  h.RemoveAction := TRemoveAction.Other;
+  CheckTrue(not h.OwnedObject);
+  CheckTrue(h.RemoveAction = TRemoveAction.Other);
+  CheckTrue(h.SeedValue = 25117);
 end;
 
 procedure THeapPoolTest._CreateRegion;

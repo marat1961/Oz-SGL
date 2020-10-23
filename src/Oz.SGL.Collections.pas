@@ -2197,12 +2197,10 @@ end;
 
 procedure TsgCustomTree.Clear;
 var
-  ItemSize: Cardinal;
   Compare: TListSortCompare;
   Update: TUpdateProc;
   Meta: TsgItemMeta;
 begin
-  ItemSize := Region.ItemSize;
   Meta := Region.Meta^;
   Compare := Self.Compare;
   Update := Self.Update;
