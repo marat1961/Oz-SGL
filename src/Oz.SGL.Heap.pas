@@ -133,6 +133,16 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgTuple'}
+
+  TsgTuple = record
+    procedure InitPair<T1, T2>(OnFree: TFreeProc = nil);
+    procedure InitTrio<T1, T2, T3>(OnFree: TFreeProc = nil);
+    procedure InitQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil);
+  end;
+
+{$EndRegion}
+
 {$Region 'TMemSegment'}
 
   PMemSegment = ^TMemSegment;
@@ -496,6 +506,25 @@ begin
   if rfOwnedObject in Flags then
     h.SetOwnedObject(True);
   h.RemoveAction := RemoveAction;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgTuple'}
+
+procedure TsgTuple.InitPair<T1, T2>(OnFree: TFreeProc);
+begin
+
+end;
+
+procedure TsgTuple.InitQuad<T1, T2, T3, T4>(OnFree: TFreeProc);
+begin
+
+end;
+
+procedure TsgTuple.InitTrio<T1, T2, T3>(OnFree: TFreeProc);
+begin
+
 end;
 
 {$EndRegion}

@@ -419,10 +419,7 @@ type
       Next: PCollision;
     end;
     // Hash table element (entry)
-    PEntry = ^TEntry;
-    TEntry = record
-      Head: PCollision;
-    end;
+    TEntry = PCollision;
     TIterator = record
     private
       vidx: Integer;
@@ -446,7 +443,9 @@ type
     procedure Free;
     // Already initialized
     function Valid: Boolean; inline;
-    function Find(key: Pointer): Pointer;
+    // Find item by key
+    function Find(key: Pointer): TIterator;
+    // Insert pair
     function Insert(pair: Pointer): TIterator;
     // Return the iterator to the beginning
     function Begins: TIterator;
@@ -2100,6 +2099,23 @@ begin
   SetEntriesLength(ExpectedSize);
 end;
 
+procedure TsgCustomHashMap.SetEntriesLength(ExpectedSize: Integer);
+var TabSize: Integer;
+begin
+  // the size of the entry table must be a prime number
+  if ExpectedSize < 1000 then
+    TabSize := 307
+  else if ExpectedSize < 3000 then
+    TabSize := 1103
+  else if ExpectedSize < 10000 then
+    TabSize := 2903
+  else if ExpectedSize < 30000 then
+    TabSize := 19477
+  else
+    TabSize := 32469;
+//  FEntries.Count := TabSize;
+end;
+
 procedure TsgCustomHashMap.Free;
 begin
   Check(Valid);
@@ -2113,17 +2129,7 @@ begin
   Result := FEntries.Meta.h.Valid and FCollisions.Meta.h.Valid;
 end;
 
-function TsgCustomHashMap.Begins: TIterator;
-begin
-  Result.Init(@Self, -1);
-end;
-
-function TsgCustomHashMap.Ends: TIterator;
-begin
-
-end;
-
-function TsgCustomHashMap.Find(key: Pointer): Pointer;
+function TsgCustomHashMap.Find(key: Pointer): TIterator;
 begin
 
 end;
@@ -2133,7 +2139,12 @@ begin
 
 end;
 
-procedure TsgCustomHashMap.SetEntriesLength(ExpectedSize: Integer);
+function TsgCustomHashMap.Begins: TIterator;
+begin
+  Result.Init(@Self, -1);
+end;
+
+function TsgCustomHashMap.Ends: TIterator;
 begin
 
 end;
