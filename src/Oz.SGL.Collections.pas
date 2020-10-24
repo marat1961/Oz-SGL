@@ -21,8 +21,7 @@ interface
 {$Region 'Uses'}
 
 uses
-  System.Classes, System.SysUtils, System.Math, System.Generics.Collections,
-  System.Generics.Defaults, Oz.SGL.Heap;
+  System.Classes, System.SysUtils, System.Math, Oz.SGL.Heap;
 
 {$EndRegion}
 
@@ -406,7 +405,64 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgCustomHashMap: Untyped Unordered dictionary'}
+
+  PsgCustomHashMap = ^TsgCustomHashMap;
+  TsgCustomHashMap = record
+  public type
+    TKeyHash = function(k: Pointer): Cardinal;
+    TKeyEquals = function(a, b: Pointer): Boolean;
+  private type
+    // Collision list element
+    PCollision = ^TCollision;
+    TCollision = record
+      Next: PCollision;
+    end;
+    // Hash table element (entry)
+    PEntry = ^TEntry;
+    TEntry = record
+      Head: PCollision;
+    end;
+    TIterator = record
+    private
+      vidx: Integer;
+      map: PsgCustomHashMap;
+      procedure Init(const map: PsgCustomHashMap; vidx: Integer);
+    public
+      procedure Next;
+      function GetKey: Pointer; inline;
+      function GetValue: Pointer; inline;
+    end;
+  private
+    FEntries: PMemoryRegion;
+    FCollisions: PMemoryRegion;
+    FHash: THashProc;
+    FEquals: TEqualsFunc;
+    // Set entry table size
+    procedure SetEntriesLength(ExpectedSize: Integer);
+  public
+    constructor From(PairMeta: TsgItemMeta; ExpectedSize: Integer;
+      HashKey: THashProc; Equals: TEqualsFunc);
+    procedure Free;
+    // Already initialized
+    function Valid: Boolean; inline;
+    function Find(key: Pointer): Pointer;
+    function Insert(pair: Pointer): TIterator;
+    // Return the iterator to the beginning
+    function Begins: TIterator;
+    // Next to the last one.
+    function Ends: TIterator;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgHashMap<Key, T>: Generic Unordered dictionary'}
+
+  TPair<TKey, TValue> = record
+    Key: TKey;
+    Value: TValue;
+    constructor From(const Key: TKey; const Value: TValue);
+  end;
 
   TsgHashMapIterator<Key, T> = record
   type
@@ -451,7 +507,7 @@ type
   private
     FSeed: Integer;
     FEntries: TsgList<TEntry>;
-    FCollisionRegion: PMemoryRegion;
+    FCollisions: PMemoryRegion;
     FPairs: TsgList<TPair<Key, T>>;
     FEquals: TEqualsFunc;
     FHash: THashProc;
@@ -1948,6 +2004,16 @@ end;
 
 {$EndRegion}
 
+{$Region 'TPair<TKey, TValue>'}
+
+constructor TPair<TKey, TValue>.From(const Key: TKey; const Value: TValue);
+begin
+  Self.Key := Key;
+  Self.Value := Value;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgHashMapIterator<Key, T>'}
 
 procedure TsgHashMapIterator<Key, T>.Init(const Pairs: TsgListHelper;
@@ -1994,6 +2060,86 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgCustomHashMap.TIterator'}
+
+procedure TsgCustomHashMap.TIterator.Init(const map: PsgCustomHashMap; vidx: Integer);
+begin
+
+end;
+
+function TsgCustomHashMap.TIterator.GetKey: Pointer;
+begin
+
+end;
+
+function TsgCustomHashMap.TIterator.GetValue: Pointer;
+begin
+
+end;
+
+procedure TsgCustomHashMap.TIterator.Next;
+begin
+
+end;
+
+{$EndRegion}
+
+{$Region 'TsgCustomHashMap'}
+
+constructor TsgCustomHashMap.From(PairMeta: TsgItemMeta; ExpectedSize: Integer;
+  HashKey: THashProc; Equals: TEqualsFunc);
+var
+  CollisionMeta: TsgItemMeta;
+begin
+  FHash := HashKey;
+  FEquals := Equals;
+  CollisionMeta.Init<TCollision>;
+  CollisionMeta.ItemSize := sizeof(TCollision) + PairMeta.ItemSize;
+  FCollisions := HeapPool.CreateRegion(CollisionMeta);
+  PairMeta.Init<TEntry>;
+  SetEntriesLength(ExpectedSize);
+end;
+
+procedure TsgCustomHashMap.Free;
+begin
+  Check(Valid);
+  FCollisions.Free;
+  FEntries.Free;
+  Fillchar(Self, sizeof(Self), 0);
+end;
+
+function TsgCustomHashMap.Valid: Boolean;
+begin
+  Result := FEntries.Meta.h.Valid and FCollisions.Meta.h.Valid;
+end;
+
+function TsgCustomHashMap.Begins: TIterator;
+begin
+  Result.Init(@Self, -1);
+end;
+
+function TsgCustomHashMap.Ends: TIterator;
+begin
+
+end;
+
+function TsgCustomHashMap.Find(key: Pointer): Pointer;
+begin
+
+end;
+
+function TsgCustomHashMap.Insert(pair: Pointer): TIterator;
+begin
+
+end;
+
+procedure TsgCustomHashMap.SetEntriesLength(ExpectedSize: Integer);
+begin
+
+end;
+
+{$EndRegion}
+
 {$Region 'TsgHashMap<Key, T>'}
 
 constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer;
@@ -2008,7 +2154,7 @@ begin
   PairMeta.Init<TPair<Key, T>>(FreePair);
   FPairs := TsgList<TPair<Key, T>>.From(PairMeta);
   CollisionMeta.Init<TCollision>;
-  FCollisionRegion := HeapPool.CreateRegion(CollisionMeta);
+  FCollisions := HeapPool.CreateRegion(CollisionMeta);
   PairMeta.Init<TEntry>;
   FEntries := TsgList<TEntry>.From(PairMeta);
   SetEntriesLength(ExpectedSize);
@@ -2017,7 +2163,7 @@ end;
 procedure TsgHashMap<Key, T>.Free;
 begin
   Check(Valid);
-  FCollisionRegion.Free;
+  FCollisions.Free;
   FEntries.Free;
   FPairs.Free;
   Fillchar(Self, sizeof(Self), 0);
@@ -2067,7 +2213,7 @@ begin
     p := p.Next;
   end;
   // Insert collision at the beginning of the list
-  p := FCollisionRegion.Alloc(sizeof(TCollision));
+  p := FCollisions.Alloc(sizeof(TCollision));
   p.Next := entry.Head;
   entry.Head := p;
   Inc(entry.Cnt);
