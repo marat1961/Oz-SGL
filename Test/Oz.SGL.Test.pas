@@ -388,7 +388,7 @@ end;
 procedure TsgItemTest.InitItem<T>(var value: T);
 begin
   meta.Init<T>;
-  region.Init(False, meta, 1024);
+  region.Init(meta, 1024);
   item.Init(region, value);
 end;
 

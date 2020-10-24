@@ -112,6 +112,12 @@ type
       );
   end;
 
+  TRegionFlag = (
+    rfSegmented,
+    rfRangeCheck,
+    rfNotification,
+    rfOwnedObject);
+  TRegionFlagSet = Set of TRegionFlag;
   TsgItemMeta = record
   var
     TypeInfo: Pointer;
@@ -119,7 +125,9 @@ type
     h: hMeta;
     OnFree: TFreeProc;
   public
-    procedure Init<T>(OnFree: TFreeProc = nil);
+    procedure Init<T>(OnFree: TFreeProc = nil); overload;
+    procedure Init<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
+      OnFree: TFreeProc = nil); overload;
   end;
   PsgItemMeta = ^TsgItemMeta;
 
@@ -186,7 +194,7 @@ type
     procedure FreeMRef(p: Pointer);
   public
     // Segmented region provides immutable pointer addresses
-    procedure Init(Segmented: Boolean; const Meta: TsgItemMeta; BlockSize: Cardinal);
+    procedure Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free;
     // Erases all elements from the memory region.
@@ -260,15 +268,14 @@ type
     FBlockSize: Word;
     FSeed: Word;
     // Occupy region
-    function FindOrCreateRegion(Segmented: Boolean;
-      const Meta: TsgItemMeta): PMemoryRegion;
+    function FindOrCreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
   public
     constructor Create(BlockSize: Word = 8 * 1024);
     destructor Destroy; override;
     // Create a continuous region (e.g. memory for arrays)
-    function CreateUnbrokenRegion(const Meta: TsgItemMeta): PMemoryRegion;
+    function CreateUnbrokenRegion(Meta: TsgItemMeta): PMemoryRegion;
     // Create a segmented region (for elements with a fixed address)
-    function CreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
+    function CreateRegion(Meta: TsgItemMeta): PMemoryRegion;
     // Release the region
     procedure Release(r: PMemoryRegion);
     function Valid: Boolean; inline;
@@ -476,6 +483,21 @@ begin
   Self.OnFree := OnFree;
 end;
 
+procedure TsgItemMeta.Init<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
+  OnFree: TFreeProc);
+begin
+  Init<T>(OnFree);
+  if rfSegmented in Flags then
+    h.SetSegmented(True);
+  if rfRangeCheck in Flags then
+    h.SetRangeCheck(True);
+  if rfNotification in Flags then
+    h.SetNotification(True);
+  if rfOwnedObject in Flags then
+    h.SetOwnedObject(True);
+  h.RemoveAction := RemoveAction;
+end;
+
 {$EndRegion}
 
 {$Region 'TsgItem'}
@@ -565,12 +587,10 @@ end;
 
 {$Region 'TMemoryRegion'}
 
-procedure TMemoryRegion.Init(Segmented: Boolean; const Meta: TsgItemMeta;
-  BlockSize: Cardinal);
+procedure TMemoryRegion.Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
 begin
   FillChar(Self, sizeof(TMemoryRegion), 0);
   Self.FMeta := Meta;
-  Self.FMeta.h.Segmented := Segmented;
   Self.BlockSize := BlockSize;
   Self.FCapacity := 0;
   Self.Heap := nil;
@@ -896,7 +916,7 @@ begin
   FSeed := Seed;
   FBlockSize := BlockSize;
   New(FRegions);
-  FRegions.Init(True, MemoryRegionMeta, BlockSize);
+  FRegions.Init(MemoryRegionMeta, BlockSize);
   FRealesed.Init;
 end;
 
@@ -911,18 +931,19 @@ begin
   inherited;
 end;
 
-function THeapPool.CreateUnbrokenRegion(const Meta: TsgItemMeta): PMemoryRegion;
+function THeapPool.CreateUnbrokenRegion(Meta: TsgItemMeta): PMemoryRegion;
 begin
-  Result := FindOrCreateRegion(False, Meta);
+  Meta.h.SetSegmented(False);
+  Result := FindOrCreateRegion(Meta);
 end;
 
-function THeapPool.CreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
+function THeapPool.CreateRegion(Meta: TsgItemMeta): PMemoryRegion;
 begin
-  Result := FindOrCreateRegion(True, Meta);
+  Meta.h.SetSegmented(True);
+  Result := FindOrCreateRegion(Meta);
 end;
 
-function THeapPool.FindOrCreateRegion(Segmented: Boolean;
-  const Meta: TsgItemMeta): PMemoryRegion;
+function THeapPool.FindOrCreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
 var
   p: PRegionItem;
 begin
@@ -930,7 +951,7 @@ begin
     p := FRealesed.Remove
   else
     p := FRegions.Alloc(sizeof(TMemoryRegion));
-  p.r.Init(Segmented, Meta, FBlockSize);
+  p.r.Init(Meta, FBlockSize);
   Result := @p.r;
 end;
 
@@ -952,7 +973,8 @@ end;
 procedure InitMeta;
 begin
   PointerMeta.Init<Pointer>;
-  MemoryRegionMeta.Init<TMemoryRegion>(FreeRegion);
+  MemoryRegionMeta.Init<TMemoryRegion>([rfSegmented],
+    TRemoveAction.HoldValue, FreeRegion);
 end;
 
 initialization
