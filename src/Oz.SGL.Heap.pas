@@ -133,12 +133,57 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTuple'}
+{$Region 'TsgTupleMeta'}
 
-  TsgTuple = record
-    procedure InitPair<T1, T2>(OnFree: TFreeProc = nil);
-    procedure InitTrio<T1, T2, T3>(OnFree: TFreeProc = nil);
-    procedure InitQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil);
+  TsgAlignFields = (Align1, Align2, Align4, Align8, Align16);
+  TsgTupleMeta = record
+    TypeInfo: Pointer;
+    ItemSize: Word;
+    Offset: Word;
+    h: hMeta;
+    procedure Init<T>(AlignFields: TsgAlignFields = Align8);
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgPairMeta'}
+
+  TsgPairMeta = record
+  public
+    procedure Init<T1, T2>(OnFree: TFreeProc = nil);
+  var
+    OnFree: TFreeProc;
+    Meta1: TsgTupleMeta;
+    Meta2: TsgTupleMeta;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTrioMeta'}
+
+  TsgTrioMeta = record
+  public
+    procedure Init<T1, T2, T3>(OnFree: TFreeProc = nil);
+  var
+    OnFree: TFreeProc;
+    Meta1: TsgTupleMeta;
+    Meta2: TsgTupleMeta;
+    Meta3: TsgTupleMeta;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgQuadMeta'}
+
+  TsgQuadMeta = record
+  public
+    procedure Init<T1, T2, T3, T4>(OnFree: TFreeProc = nil);
+  var
+    OnFree: TFreeProc;
+    Meta1: TsgTupleMeta;
+    Meta2: TsgTupleMeta;
+    Meta3: TsgTupleMeta;
+    Meta4: TsgTupleMeta;
   end;
 
 {$EndRegion}
@@ -510,21 +555,49 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgTuple'}
+{$Region 'TsgTupleMeta'}
 
-procedure TsgTuple.InitPair<T1, T2>(OnFree: TFreeProc);
+procedure TsgTupleMeta.Init<T>(AlignFields: TsgAlignFields);
 begin
-
+  TypeInfo := System.TypeInfo(T);
+  h := hMeta.From(System.GetTypeKind(T), System.IsManagedType(T), System.HasWeakRef(T));
+  ItemSize := sizeof(T);
 end;
 
-procedure TsgTuple.InitQuad<T1, T2, T3, T4>(OnFree: TFreeProc);
-begin
+{$EndRegion}
 
+{$Region 'TsgPairMeta'}
+
+procedure TsgPairMeta.Init<T1, T2>(OnFree: TFreeProc);
+begin
+  Self.OnFree := OnFree;
+  Meta1.Init<T1>;
+  Meta2.Init<T2>;
 end;
 
-procedure TsgTuple.InitTrio<T1, T2, T3>(OnFree: TFreeProc);
-begin
+{$EndRegion}
 
+{$Region 'TsgTrioMeta'}
+
+procedure TsgTrioMeta.Init<T1, T2, T3>(OnFree: TFreeProc);
+begin
+  Self.OnFree := OnFree;
+  Meta1.Init<T1>;
+  Meta2.Init<T2>;
+  Meta3.Init<T3>;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgQuadMeta'}
+
+procedure TsgQuadMeta.Init<T1, T2, T3, T4>(OnFree: TFreeProc);
+begin
+  Self.OnFree := OnFree;
+  Meta1.Init<T1>;
+  Meta2.Init<T2>;
+  Meta3.Init<T3>;
+  Meta4.Init<T4>;
 end;
 
 {$EndRegion}
