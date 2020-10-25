@@ -145,7 +145,7 @@ type
     h: hMeta;
   public
     procedure Init<T>(Offset: Cardinal);
-    // Determine the offset to the next word-aligned tuple.
+    // Determine the offset to the start of the next tuple.
     function NextTupleOffset(Allign: Boolean): Cardinal;
   end;
 
@@ -208,6 +208,7 @@ type
     FreeSize: Cardinal;
   public
     function GetHeapRef: Pointer; inline;
+    function GetHignRef: Pointer; inline;
     procedure CheckPointer(Ptr: Pointer; Size: Cardinal);
     function Occupy(Size: Cardinal): Pointer;
   end;
@@ -272,6 +273,8 @@ type
     function GetItemPtr(Index: Cardinal): Pointer;
     // Get index for pointer to an element
     function GetItemIndex(Item: Pointer): Integer;
+    // Increment pointer to an element
+    function NextItem(Item: Pointer): Pointer;
     // Add an element and return a pointer to it
     function AddItem(Item: Pointer): Pointer;
     // propeties
@@ -708,6 +711,11 @@ begin
   Result := Pointer(NativeUInt(@Self) + sizeof(TMemSegment));
 end;
 
+function TMemSegment.GetHignRef: Pointer;
+begin
+  Result := Pointer(NativeUInt(@Self) + sizeof(TMemSegment) + HeapSize);
+end;
+
 {$EndRegion}
 
 {$Region 'TMemoryRegion'}
@@ -906,6 +914,17 @@ begin
   p := NativeUInt(Heap.GetHeapRef);
   Heap.CheckPointer(Item, FMeta.ItemSize);
   Result := (NativeUInt(Item) - p) div FMeta.ItemSize;
+end;
+
+function TMemoryRegion.NextItem(Item: Pointer): Pointer;
+var
+  p: NativeUInt;
+begin
+  p := NativeUInt(Item) - NativeUInt(Heap.GetHeapRef);
+  if p < Heap.HeapSize then
+    Result := Pointer(NativeUInt(Item) + FMeta.ItemSize)
+  else
+    Result := nil;
 end;
 
 function TMemoryRegion.AddItem(Item: Pointer): Pointer;

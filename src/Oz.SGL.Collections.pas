@@ -432,7 +432,7 @@ type
       map: PsgCustomHashMap;
       procedure Init(const map: PsgCustomHashMap; p: PCollision);
     public
-      procedure Next;
+      procedure Next; inline;
       function GetKey: PCollision; inline;
       function GetValue: PCollision; inline;
     end;
@@ -2092,7 +2092,7 @@ end;
 
 procedure TsgCustomHashMap.TIterator.Next;
 begin
-
+  ptr := map.FCollisions.NextItem(ptr);
 end;
 
 {$EndRegion}
