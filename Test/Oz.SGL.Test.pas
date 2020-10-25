@@ -1593,9 +1593,9 @@ begin
   Result := TVector(Value).Hash;
 end;
 
-function VectorEquals(const A, B): Boolean;
+function VectorEquals(A, B: Pointer): Boolean;
 begin
-  Result := TVector(A).Equals(TVector(B));
+  Result := TVector(A^).Equals(TVector(B^));
 end;
 
 procedure TestTsgHashMap.SetUp;
@@ -1943,6 +1943,8 @@ end;
 {$EndRegion}
 
 initialization
+  RegisterTest(TestTsgHashMap.Suite);
+
   // Oz.SGL.Heap
   RegisterTest(THeapPoolTest.Suite);
   RegisterTest(TsgItemTest.Suite);

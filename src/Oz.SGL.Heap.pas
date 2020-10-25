@@ -33,7 +33,7 @@ type
   TCompareProc = function(const A, B): Integer of object;
   TFreeItem = procedure(p: Pointer) of object;
   TFreeProc = procedure(p: Pointer);
-  TEqualsFunc = function(const A, B): Boolean;
+  TEqualsFunc = function(a, b: Pointer): Boolean;
   THashProc = function(const Value): Cardinal;
 
 {$EndRegion}
