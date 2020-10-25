@@ -157,6 +157,7 @@ type
   public
     procedure Init<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
   var
+    Size: Integer;
     OnFree: TFreeProc;
     Meta1: TsgTupleMeta;
     Meta2: TsgTupleMeta;
@@ -170,6 +171,7 @@ type
   public
     procedure Init<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
   var
+    Size: Integer;
     OnFree: TFreeProc;
     Meta1: TsgTupleMeta;
     Meta2: TsgTupleMeta;
@@ -184,6 +186,7 @@ type
   public
     procedure Init<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
   var
+    Size: Integer;
     OnFree: TFreeProc;
     Meta1: TsgTupleMeta;
     Meta2: TsgTupleMeta;
@@ -267,6 +270,8 @@ type
     function Alloc(Size: Cardinal): Pointer;
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
+    // Get index for pointer to an element
+    function GetItemIndex(Item: Pointer): Integer;
     // Add an element and return a pointer to it
     function AddItem(Item: Pointer): Pointer;
     // propeties
@@ -588,6 +593,7 @@ begin
   Self.OnFree := OnFree;
   Meta1.Init<T1>(0);
   Meta2.Init<T2>(Meta1.NextTupleOffset(Allign));
+  Size := Meta2.NextTupleOffset(Allign);
 end;
 
 {$EndRegion}
@@ -600,6 +606,7 @@ begin
   Meta1.Init<T1>(0);
   Meta2.Init<T2>(Meta1.NextTupleOffset(Allign));
   Meta3.Init<T3>(Meta2.NextTupleOffset(Allign));
+  Size := Meta3.NextTupleOffset(Allign);
 end;
 
 {$EndRegion}
@@ -613,6 +620,7 @@ begin
   Meta2.Init<T2>(Meta1.NextTupleOffset(Allign));
   Meta3.Init<T3>(Meta2.NextTupleOffset(Allign));
   Meta4.Init<T4>(Meta3.NextTupleOffset(Allign));
+  Size := Meta4.NextTupleOffset(Allign);
 end;
 
 {$EndRegion}
@@ -885,10 +893,19 @@ end;
 
 function TMemoryRegion.GetItemPtr(Index: Cardinal): Pointer;
 var
-  ItemsPtr: Pointer;
+  p: NativeUInt;
 begin
-  ItemsPtr := Heap.GetHeapRef;
-  Result := Pointer(NativeUInt(ItemsPtr) + NativeUInt(Index * FMeta.ItemSize));
+  p := NativeUInt(Heap.GetHeapRef);
+  Result := Pointer(p + NativeUInt(Index * FMeta.ItemSize));
+end;
+
+function TMemoryRegion.GetItemIndex(Item: Pointer): Integer;
+var
+  p: NativeUInt;
+begin
+  p := NativeUInt(Heap.GetHeapRef);
+  Heap.CheckPointer(Item, FMeta.ItemSize);
+  Result := (NativeUInt(Item) - p) div FMeta.ItemSize;
 end;
 
 function TMemoryRegion.AddItem(Item: Pointer): Pointer;

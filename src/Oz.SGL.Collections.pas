@@ -54,7 +54,6 @@ type
   private
     FRegion: PMemoryRegion;
     FCount: Integer;
-    FItemSize: Integer;
     procedure SetCount(NewCount: Integer);
     procedure CheckCapacity(NewCount: Integer); inline;
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
@@ -62,7 +61,7 @@ type
     procedure Init(const Meta: TsgItemMeta);
     procedure Free;
     procedure Clear;
-    function GetPtr(Index: Integer): Pointer;
+    function GetPtr(Index: Cardinal): Pointer;
     function Add: Pointer;
     procedure Delete(Index: Integer);
     procedure Insert(Index: Integer; const Value);
@@ -417,28 +416,37 @@ type
     PCollision = ^TCollision;
     TCollision = record
       Next: PCollision;
+      case Integer of
+        1: (b: Byte);
+        2: (w: Word);
+        4: (i: Integer);
     end;
     // Hash table element (entry)
-    TEntry = PCollision;
+    pEntry = ^TEntry;
+    TEntry = record
+      root: PCollision;
+    end;
     TIterator = record
     private
-      vidx: Integer;
+      ptr: PCollision;
       map: PsgCustomHashMap;
-      procedure Init(const map: PsgCustomHashMap; vidx: Integer);
+      procedure Init(const map: PsgCustomHashMap; p: PCollision);
     public
       procedure Next;
-      function GetKey: Pointer; inline;
-      function GetValue: Pointer; inline;
+      function GetKey: PCollision; inline;
+      function GetValue: PCollision; inline;
     end;
   private
     FEntries: PMemoryRegion;
     FCollisions: PMemoryRegion;
+    FPairMeta: TsgPairMeta;
+    FCount: Integer;
     FHash: THashProc;
     FEquals: TEqualsFunc;
     // Set entry table size
     procedure SetEntriesLength(ExpectedSize: Integer);
   public
-    constructor From(PairMeta: TsgItemMeta; ExpectedSize: Integer;
+    constructor From(const PairMeta: TsgPairMeta; ExpectedSize: Integer;
       HashKey: THashProc; Equals: TEqualsFunc);
     procedure Free;
     // Already initialized
@@ -862,7 +870,6 @@ end;
 procedure TsgListHelper.Init(const Meta: TsgItemMeta);
 begin
   FRegion := HeapPool.CreateUnbrokenRegion(Meta);
-  FItemSize := Meta.ItemSize;
   FCount := 0;
 end;
 
@@ -878,18 +885,18 @@ begin
 
 end;
 
-function TsgListHelper.GetPtr(Index: Integer): Pointer;
+function TsgListHelper.GetPtr(Index: Cardinal): Pointer;
 begin
   CheckIndex(Index, FCount);
-  Result := @PByte(GetFItems^)[(Index) * FItemSize];
+  Result := @PByte(GetFItems^)[Index * FRegion.Meta.ItemSize];
 end;
 
 function TsgListHelper.Add: Pointer;
 begin
   if FRegion.Capacity <= FCount then
     GetFItems^ := FRegion.IncreaseCapacity(FCount + 1);
-  FRegion.Alloc(FItemSize);
-  Result := @PByte(GetFItems^)[FCount * FItemSize];
+  FRegion.Alloc(FRegion.Meta.ItemSize);
+  Result := @PByte(GetFItems^)[Cardinal(FCount) * FRegion.Meta.ItemSize];
   Inc(FCount);
 end;
 
@@ -910,16 +917,17 @@ end;
 
 procedure TsgListHelper.Delete(Index: Integer);
 var
-  MemSize: Integer;
+  ItemSize, MemSize: Integer;
 begin
   CheckIndex(Index, FCount);
   Dec(FCount);
   if Index < FCount then
   begin
-    MemSize := (FCount - Index) * FItemSize;
+    ItemSize := FRegion.Meta.ItemSize;
+    MemSize := (FCount - Index) * ItemSize;
     System.Move(
-      PByte(GetFItems^)[(Index + 1) * FItemSize],
-      PByte(GetFItems^)[(Index) * FItemSize],
+      PByte(GetFItems^)[(Index + 1) * ItemSize],
+      PByte(GetFItems^)[(Index) * ItemSize],
       MemSize);
   end;
 end;
@@ -978,23 +986,25 @@ end;
 
 procedure TsgListHelper.Exchange(Index1, Index2: Integer);
 var
-  STemp: array [0..255] of Byte;
+  ItemSize: Integer;
   DTemp: PByte;
   PTemp: PByte;
   Items: PPointer;
+  STemp: array [0..255] of Byte;
 begin
+  ItemSize := FRegion.Meta.ItemSize;
   DTemp := nil;
   PTemp := @STemp[0];
   Items := GetFItems;
   try
-    if FItemSize > sizeof(STemp) then
+    if ItemSize > sizeof(STemp) then
     begin
-      GetMem(DTemp, FItemSize);
+      GetMem(DTemp, ItemSize);
       PTemp := DTemp;
     end;
-    Move(PByte(Items^)[Index1 * FItemSize], PTemp[0], FItemSize);
-    Move(PByte(Items^)[Index2 * FItemSize], PByte(Items^)[Index1 * FItemSize], FItemSize);
-    Move(PTemp[0], PByte(Items^)[Index2 * FItemSize], FItemSize);
+    Move(PByte(Items^)[Index1 * ItemSize], PTemp[0], ItemSize);
+    Move(PByte(Items^)[Index2 * ItemSize], PByte(Items^)[Index1 * ItemSize], ItemSize);
+    Move(PTemp[0], PByte(Items^)[Index2 * ItemSize], ItemSize);
   finally
     FreeMem(DTemp);
   end;
@@ -1003,31 +1013,33 @@ end;
 procedure TsgListHelper.Insert(Index: Integer; const Value);
 var
   Items: PPointer;
-  MemSize: Integer;
+  ItemSize, MemSize: Integer;
 begin
   CheckIndex(Index, FCount + 1);
+  ItemSize := FRegion.Meta.ItemSize;
   Items := GetFItems;
   if FRegion.Capacity <= FCount then
     GetFItems^ := FRegion.IncreaseCapacity(FCount + 1);
-  FRegion.Alloc(FItemSize);
+  FRegion.Alloc(ItemSize);
   if Index <> FCount then
   begin
-    MemSize := (FCount - Index) * FItemSize;
+    MemSize := (FCount - Index) * ItemSize;
     System.Move(
-      PByte(Items^)[Index * FItemSize],
-      PByte(Items^)[(Index + 1) * FItemSize],
+      PByte(Items^)[Index * ItemSize],
+      PByte(Items^)[(Index + 1) * ItemSize],
       MemSize);
   end;
-  Move(Value, PByte(Items^)[Index * FItemSize], FItemSize);
+  FRegion.AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
   Inc(FCount);
 end;
 
 function TsgListHelper.Remove(const Value): Integer;
 var
-  i: Integer;
+  i, ItemSize: Integer;
 begin
+  ItemSize := FRegion.Meta.ItemSize;
   for i := 0 to FCount - 1 do
-    if Compare(PByte(GetFItems^)[i * FItemSize], Byte(Value)) then
+    if Compare(PByte(GetFItems^)[i * ItemSize], Byte(Value)) then
       exit(i);
   Result := -1;
 end;
@@ -1048,9 +1060,10 @@ end;
 
 procedure TsgListHelper.Assign(const Source: TsgListHelper);
 var
-  Cnt: Integer;
+  Cnt, ItemSize: Integer;
   Dest, Src: Pointer;
 begin
+  ItemSize := FRegion.Meta.ItemSize;
   Cnt := Source.FCount;
   SetCount(Cnt);
   if Cnt = 0 then exit;
@@ -1059,8 +1072,8 @@ begin
   while Cnt > 0 do
   begin
     FRegion.AssignItem(Dest, Src);
-    Inc(PByte(Dest), FItemSize);
-    Inc(PByte(Src), FItemSize);
+    Inc(PByte(Dest), ItemSize);
+    Inc(PByte(Src), ItemSize);
     Dec(Cnt);
   end;
 end;
@@ -1072,7 +1085,7 @@ end;
 
 function TsgListHelper.Compare(const Left, Right): Boolean;
 begin
-  Result := CompareMem(@Left, @Right, FItemSize)
+  Result := CompareMem(@Left, @Right, FRegion.Meta.ItemSize)
 end;
 
 {$EndRegion}
@@ -2061,19 +2074,20 @@ end;
 
 {$Region 'TsgCustomHashMap.TIterator'}
 
-procedure TsgCustomHashMap.TIterator.Init(const map: PsgCustomHashMap; vidx: Integer);
+procedure TsgCustomHashMap.TIterator.Init(const map: PsgCustomHashMap; p: PCollision);
 begin
-
+  Self.ptr := p;
+  Self.map := map;
 end;
 
-function TsgCustomHashMap.TIterator.GetKey: Pointer;
+function TsgCustomHashMap.TIterator.GetKey: PCollision;
 begin
-
+  Result := PCollision(NativeUInt(ptr) + sizeof(Pointer));
 end;
 
-function TsgCustomHashMap.TIterator.GetValue: Pointer;
+function TsgCustomHashMap.TIterator.GetValue: PCollision;
 begin
-
+  Result := PCollision(NativeUInt(ptr) + sizeof(Pointer) + map.FPairMeta.Meta2.Offset);
 end;
 
 procedure TsgCustomHashMap.TIterator.Next;
@@ -2085,22 +2099,23 @@ end;
 
 {$Region 'TsgCustomHashMap'}
 
-constructor TsgCustomHashMap.From(PairMeta: TsgItemMeta; ExpectedSize: Integer;
+constructor TsgCustomHashMap.From(const PairMeta: TsgPairMeta; ExpectedSize: Integer;
   HashKey: THashProc; Equals: TEqualsFunc);
 var
   CollisionMeta: TsgItemMeta;
 begin
+  FPairMeta := PairMeta;
   FHash := HashKey;
   FEquals := Equals;
   CollisionMeta.Init<TCollision>;
-  CollisionMeta.ItemSize := sizeof(TCollision) + PairMeta.ItemSize;
+  CollisionMeta.ItemSize := sizeof(TCollision) + PairMeta.Size;
   FCollisions := HeapPool.CreateRegion(CollisionMeta);
-  PairMeta.Init<TEntry>;
   SetEntriesLength(ExpectedSize);
 end;
 
 procedure TsgCustomHashMap.SetEntriesLength(ExpectedSize: Integer);
-var TabSize: Integer;
+var
+  TabSize: Integer;
 begin
   // the size of the entry table must be a prime number
   if ExpectedSize < 1000 then
@@ -2113,7 +2128,8 @@ begin
     TabSize := 19477
   else
     TabSize := 32469;
-//  FEntries.Count := TabSize;
+  FEntries.IncreaseAndAlloc(TabSize);
+  FCount := TabSize;
 end;
 
 procedure TsgCustomHashMap.Free;
@@ -2130,23 +2146,57 @@ begin
 end;
 
 function TsgCustomHashMap.Find(key: Pointer): TIterator;
+var
+  eidx: Cardinal;
+  p: PCollision;
 begin
-
+  eidx := FHash(key) mod Cardinal(FCount);
+  p := PCollision(FEntries.GetItemPtr(eidx));
+  while p <> nil do
+  begin
+    if FEquals(key, p.b) then
+    begin
+      Result.Init(@Self, p);
+      exit;
+    end;
+    p := p.Next;
+  end;
+  Result.Init(@Self, nil);
 end;
 
 function TsgCustomHashMap.Insert(pair: Pointer): TIterator;
+var
+  eidx: Integer;
+  entry: pEntry;
+  p, n: PCollision;
 begin
-
+  eidx := FHash(pair) mod Cardinal(FCount);
+  entry := FEntries.GetItemPtr(eidx);
+  p := entry.root;
+  while p <> nil do
+  begin
+    if FEquals(pair, p.b) then
+    begin
+      Result.Init(@Self, p);
+      exit;
+    end;
+    p := p.Next;
+  end;
+  // Insert collision at the beginning of the list
+  n := FCollisions.Alloc(sizeof(TCollision));
+  n.Next := entry.root;
+  entry.root := n;
+  Result.Init(@Self, n);
 end;
 
 function TsgCustomHashMap.Begins: TIterator;
 begin
-  Result.Init(@Self, -1);
+  Result.Init(@Self, PCollision(FEntries.GetItemPtr(0)));
 end;
 
 function TsgCustomHashMap.Ends: TIterator;
 begin
-
+  Result.Init(@Self, PCollision(FEntries.GetItemPtr(FCount - 1)));
 end;
 
 {$EndRegion}
