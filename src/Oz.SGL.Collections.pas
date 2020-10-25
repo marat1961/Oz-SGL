@@ -2115,7 +2115,7 @@ begin
   p := PCollision(FEntries.GetItemPtr(eidx));
   while p <> nil do
   begin
-    if FEquals(key, PByte(p.Next) + sizeof(Pointer)) then
+    if FEquals(key, p.GetPairRef) then
     begin
       Result.Init(@Self, p);
       exit;
@@ -2144,7 +2144,7 @@ begin
     p := p.Next;
   end;
   // Insert collision at the beginning of the list
-  n := FCollisions.Alloc(sizeof(TCollision));
+  n := FCollisions.Alloc(FCollisions.Meta.ItemSize);
   n.Next := entry.root;
   entry.root := n;
   Result.Init(@Self, n);
