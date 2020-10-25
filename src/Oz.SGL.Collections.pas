@@ -436,7 +436,7 @@ type
   private
     FEntries: PMemoryRegion;
     FCollisions: PMemoryRegion;
-    FPairMeta: TsgPairMeta;
+    FValueOffset: Cardinal;
     FCount: Integer;
     FHash: THashProc;
     FEquals: TEqualsFunc;
@@ -2046,7 +2046,7 @@ end;
 
 function TsgCustomHashMap.TIterator.GetValue: PCollision;
 begin
-  Result := PCollision(NativeUInt(ptr) + sizeof(Pointer) + map.FPairMeta.Meta2.Offset);
+  Result := PCollision(NativeUInt(ptr) + sizeof(Pointer) + map.FValueOffset);
 end;
 
 procedure TsgCustomHashMap.TIterator.Next;
@@ -2061,9 +2061,11 @@ end;
 constructor TsgCustomHashMap.From(const PairMeta: TsgPairMeta; ExpectedSize: Integer;
   HashKey: THashProc; Equals: TEqualsFunc);
 var
-  CollisionMeta: TsgItemMeta;
+  EntryMeta, CollisionMeta: TsgItemMeta;
 begin
-  FPairMeta := PairMeta;
+  EntryMeta.Init<TEntry>;
+  FEntries := HeapPool.CreateRegion(EntryMeta);
+  FValueOffset := PairMeta.Meta2.Offset;
   FHash := HashKey;
   FEquals := Equals;
   CollisionMeta.Init<TCollision>;
@@ -2109,7 +2111,7 @@ var
   eidx: Cardinal;
   p: PCollision;
 begin
-  eidx := FHash(key) mod Cardinal(FCount);
+  eidx := FHash(key^) mod Cardinal(FCount);
   p := PCollision(FEntries.GetItemPtr(eidx));
   while p <> nil do
   begin
@@ -2129,7 +2131,7 @@ var
   entry: pEntry;
   p, n: PCollision;
 begin
-  eidx := FHash(pair) mod Cardinal(FCount);
+  eidx := FHash(pair^) mod Cardinal(FCount);
   entry := FEntries.GetItemPtr(eidx);
   p := entry.root;
   while p <> nil do

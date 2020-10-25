@@ -117,7 +117,7 @@ type
     rfRangeCheck,
     rfNotification,
     rfOwnedObject);
-  TRegionFlagSet = Set of TRegionFlag;
+  TRegionFlagSet = set of TRegionFlag;
   TsgItemMeta = record
   var
     TypeInfo: Pointer;
@@ -573,8 +573,9 @@ end;
 procedure TsgTupleMeta.Init<T>(Offset: Cardinal);
 begin
   TypeInfo := System.TypeInfo(T);
-  h := hMeta.From(System.GetTypeKind(T), System.IsManagedType(T), System.HasWeakRef(T));
   Size := sizeof(T);
+  Self.Offset := Offset;
+  h := hMeta.From(System.GetTypeKind(T), System.IsManagedType(T), System.HasWeakRef(T));
 end;
 
 function TsgTupleMeta.NextTupleOffset(Allign: Boolean): Cardinal;
@@ -583,7 +584,7 @@ var
 begin
   n := Size;
   if Allign then
-    n := ((n + AllignTuple) div AllignTuple) * AllignTuple;
+    n := ((n + AllignTuple - 1) div AllignTuple) * AllignTuple;
   Result := Offset + n;
 end;
 
