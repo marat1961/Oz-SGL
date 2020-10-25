@@ -135,13 +135,18 @@ type
 
 {$Region 'TsgTupleMeta'}
 
-  TsgAlignFields = (Align1, Align2, Align4, Align8, Align16);
   TsgTupleMeta = record
+  const
+    AllignTuple = sizeof(Pointer); // Align tuple to the word boundary
+  var
     TypeInfo: Pointer;
-    ItemSize: Word;
-    Offset: Word;
+    Size: Cardinal;    // Memory size
+    Offset: Cardinal;  // The offset of an element in a tuple
     h: hMeta;
-    procedure Init<T>(AlignFields: TsgAlignFields = Align8);
+  public
+    procedure Init<T>(Offset: Cardinal);
+    // Determine the offset to the next word-aligned tuple.
+    function NextTupleOffset(Allign: Boolean): Cardinal;
   end;
 
 {$EndRegion}
@@ -150,7 +155,7 @@ type
 
   TsgPairMeta = record
   public
-    procedure Init<T1, T2>(OnFree: TFreeProc = nil);
+    procedure Init<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
   var
     OnFree: TFreeProc;
     Meta1: TsgTupleMeta;
@@ -163,7 +168,7 @@ type
 
   TsgTrioMeta = record
   public
-    procedure Init<T1, T2, T3>(OnFree: TFreeProc = nil);
+    procedure Init<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
   var
     OnFree: TFreeProc;
     Meta1: TsgTupleMeta;
@@ -177,7 +182,7 @@ type
 
   TsgQuadMeta = record
   public
-    procedure Init<T1, T2, T3, T4>(OnFree: TFreeProc = nil);
+    procedure Init<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
   var
     OnFree: TFreeProc;
     Meta1: TsgTupleMeta;
@@ -557,47 +562,57 @@ end;
 
 {$Region 'TsgTupleMeta'}
 
-procedure TsgTupleMeta.Init<T>(AlignFields: TsgAlignFields);
+procedure TsgTupleMeta.Init<T>(Offset: Cardinal);
 begin
   TypeInfo := System.TypeInfo(T);
   h := hMeta.From(System.GetTypeKind(T), System.IsManagedType(T), System.HasWeakRef(T));
-  ItemSize := sizeof(T);
+  Size := sizeof(T);
+end;
+
+function TsgTupleMeta.NextTupleOffset(Allign: Boolean): Cardinal;
+var
+  n: Cardinal;
+begin
+  n := Size;
+  if Allign then
+    n := ((n + AllignTuple) div AllignTuple) * AllignTuple;
+  Result := Offset + n;
 end;
 
 {$EndRegion}
 
 {$Region 'TsgPairMeta'}
 
-procedure TsgPairMeta.Init<T1, T2>(OnFree: TFreeProc);
+procedure TsgPairMeta.Init<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
 begin
   Self.OnFree := OnFree;
-  Meta1.Init<T1>;
-  Meta2.Init<T2>;
+  Meta1.Init<T1>(0);
+  Meta2.Init<T2>(Meta1.NextTupleOffset(Allign));
 end;
 
 {$EndRegion}
 
 {$Region 'TsgTrioMeta'}
 
-procedure TsgTrioMeta.Init<T1, T2, T3>(OnFree: TFreeProc);
+procedure TsgTrioMeta.Init<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
 begin
   Self.OnFree := OnFree;
-  Meta1.Init<T1>;
-  Meta2.Init<T2>;
-  Meta3.Init<T3>;
+  Meta1.Init<T1>(0);
+  Meta2.Init<T2>(Meta1.NextTupleOffset(Allign));
+  Meta3.Init<T3>(Meta2.NextTupleOffset(Allign));
 end;
 
 {$EndRegion}
 
 {$Region 'TsgQuadMeta'}
 
-procedure TsgQuadMeta.Init<T1, T2, T3, T4>(OnFree: TFreeProc);
+procedure TsgQuadMeta.Init<T1, T2, T3, T4>(OnFree: TFreeProc; Allign: Boolean);
 begin
   Self.OnFree := OnFree;
-  Meta1.Init<T1>;
-  Meta2.Init<T2>;
-  Meta3.Init<T3>;
-  Meta4.Init<T4>;
+  Meta1.Init<T1>(0);
+  Meta2.Init<T2>(Meta1.NextTupleOffset(Allign));
+  Meta3.Init<T3>(Meta2.NextTupleOffset(Allign));
+  Meta4.Init<T4>(Meta3.NextTupleOffset(Allign));
 end;
 
 {$EndRegion}
