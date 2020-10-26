@@ -1,6 +1,6 @@
-#Tuple
+# Tuple
 
-##Tasks
+## Tasks
  - Define semantics and operations for the tuple.
  - Implement structures for working with tuples and their elements.
  - Implement a typed memory region for tuples.
@@ -45,21 +45,15 @@ In the program code for manipulating tuples, we will use proxy objects.
 A proxy object is an intermediate structure that contains a reference to a tuple in a memory region and its metadata.
 
 ### Operations for a tuple
-```Init <T1, ...>```- creates a tuple object of the type defined by generic types
-
-```Assign (TTuple)```- assigns the contents of one tuple to another
-
-```Swap``` - swap the contents of two tuples
-
-```Get (Index: Integer)```- return a reference to the element of the tuple
-
-```Tie``` - returns a tuple of pointers to the elements of the tuple
+ - `Init <T1, ...>` - creates a tuple object of the type defined by generic types
+ - `Assign (TTuple)` - assigns the contents of one tuple to another
+ - `Swap` - swap the contents of two tuples
+ - `Get (Index: Integer)`- return a reference to the element of the tuple
+ - `Tie` - returns a tuple of pointers to the elements of the tuple
 
 ### Tuple element
 Each element of a tuple has a type, size, and offset in the tuple.
 The type defines how operations are performed on an element of a tuple.
 The size and offset are needed to organize access to the element of the tuple.
-
-```procedure Assign(pvalue: PT1);``` - assign value
-
-```function GetPvalue: T1;``` - return a reference to the value
+- `procedure Assign(pvalue: PT1);` - assign value
+ - `function GetPvalue: T1;` - return a reference to the value
