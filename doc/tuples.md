@@ -45,7 +45,7 @@ In the program code for manipulating tuples, we will use proxy objects.
 A proxy object is an intermediate structure that contains a reference to a tuple in a memory region and its metadata.
 
 ### Operations for a tuple
- - `Init <T1, ...>` - creates a tuple object of the type defined by generic types
+ - `Init <T1, ...>` - creates a tuple proxy of the type defined by generic types
  - `Assign (TTuple)` - assigns the contents of one tuple to another
  - `Swap` - swap the contents of two tuples
  - `Get (Index: Integer)`- return a reference to the element of the tuple

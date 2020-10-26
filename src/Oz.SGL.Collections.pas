@@ -436,7 +436,7 @@ type
   private
     FEntries: PMemoryRegion;
     FCollisions: PMemoryRegion;
-    FValueOffset: Cardinal;
+    FPairMeta: TsgPairMeta;
     FCount: Integer;
     FHash: THashProc;
     FEquals: TEqualsFunc;
@@ -2029,8 +2029,11 @@ end;
 {$Region 'TsgCustomHashMap.TIterator'}
 
 function TsgCustomHashMap.TCollision.GetPairRef: Pointer;
+var
+  p: PByte;
 begin
-  Result := PByte(@Next) + sizeof(Pointer);
+  p := PByte(@Next) + sizeof(Pointer);
+  Result := Pointer(NativeUInt(@Self) + sizeof(Pointer));
 end;
 
 procedure TsgCustomHashMap.TIterator.Init(const map: PsgCustomHashMap; p: PCollision);
@@ -2041,12 +2044,12 @@ end;
 
 function TsgCustomHashMap.TIterator.GetKey: PCollision;
 begin
-  Result := PCollision(NativeUInt(ptr) + sizeof(Pointer));
+  Result := PCollision(PByte(ptr) + sizeof(Pointer));
 end;
 
 function TsgCustomHashMap.TIterator.GetValue: PCollision;
 begin
-  Result := PCollision(NativeUInt(ptr) + sizeof(Pointer) + map.FValueOffset);
+  Result := PCollision(PByte(ptr) + sizeof(Pointer) + map.FPairMeta.Meta2.Offset);
 end;
 
 procedure TsgCustomHashMap.TIterator.Next;
@@ -2065,7 +2068,7 @@ var
 begin
   EntryMeta.Init<TEntry>;
   FEntries := HeapPool.CreateRegion(EntryMeta);
-  FValueOffset := PairMeta.Meta2.Offset;
+  FPairMeta := PairMeta;
   FHash := HashKey;
   FEquals := Equals;
   CollisionMeta.Init<TCollision>;
@@ -2146,6 +2149,7 @@ begin
   // Insert collision at the beginning of the list
   n := FCollisions.Alloc(FCollisions.Meta.ItemSize);
   n.Next := entry.root;
+  // n.Value^ := p.GetPairRef^; // FCollisions.Assign?
   entry.root := n;
   Result.Init(@Self, n);
 end;

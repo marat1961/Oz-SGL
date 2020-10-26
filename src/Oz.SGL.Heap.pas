@@ -32,6 +32,7 @@ uses
 type
   TCompareProc = function(const A, B): Integer of object;
   TFreeItem = procedure(p: Pointer) of object;
+  TAssignProc = procedure(Dest, Value: Pointer) of object;
   TFreeProc = procedure(p: Pointer);
   TEqualsFunc = function(a, b: Pointer): Boolean;
   THashProc = function(const Value): Cardinal;
@@ -133,19 +134,22 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTupleMeta'}
+{$Region 'TsgTupleMeta: Meta for tuple element'}
 
+  PsgTupleMeta = ^TsgTupleMeta;
   TsgTupleMeta = record
   const
-    AllignTuple = sizeof(Pointer); // Align tuple to the word boundary
+    AllignTuple = sizeof(Pointer); // Align tuple element to the word boundary
   var
     TypeInfo: Pointer;
     Size: Cardinal;    // Memory size
     Offset: Cardinal;  // The offset of an element in a tuple
     h: hMeta;
+    FFreeItem: TFreeItem;
+    FAssignItem: TAssignProc;
   public
     procedure Init<T>(Offset: Cardinal);
-    // Determine the offset to the start of the next tuple.
+    // Determine the offset to the start of the next tuple element.
     function NextTupleOffset(Allign: Boolean): Cardinal;
   end;
 
@@ -196,6 +200,41 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgTe: Tuple element'}
+
+  PsgTuple = ^TsgTuple;
+  TsgTe = record
+  var
+    Ptr: Pointer;
+    TeMeta: PsgTupleMeta;
+  public
+    // Assign value
+    procedure Assign(pvalue: Pointer);
+    // Return a reference to the element value of the tuple
+    function GetPvalue: Pointer;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTuple: tuple of the type defined by generic types'}
+
+  TsgTuple = record
+  var
+    Meta: PsgTupleMeta;
+    TeCount: Integer;
+  public
+    // creates a proxy for working with a tuple
+    procedure MakePair(const meta: TsgPairMeta);
+    procedure MakeTrio(const meta: TsgTrioMeta);
+    procedure MakeQuad(const meta: TsgQuadMeta);
+    // swap the contents of two tuples
+    procedure Swap(Pvalue: Pointer);
+    // return a reference to the element of the tuple
+    function Get(Index: Integer): TsgTe;
+  end;
+
+{$EndRegion}
+
 {$Region 'TMemSegment'}
 
   PMemSegment = ^TMemSegment;
@@ -220,7 +259,6 @@ type
   PMemoryRegion = ^TMemoryRegion;
   TMemoryRegion = record
   type
-    TAssignProc = procedure(Dest, Value: Pointer) of object;
     TSwapProc = procedure(A, B: Pointer) of object;
     PBytes = ^TBytes;
     PInterface = ^IInterface;
@@ -625,6 +663,49 @@ begin
   Meta3.Init<T3>(Meta2.NextTupleOffset(Allign));
   Meta4.Init<T4>(Meta3.NextTupleOffset(Allign));
   Size := Meta4.NextTupleOffset(Allign);
+end;
+
+{$EndRegion}
+
+{$Region 'TsgTe'}
+
+procedure TsgTe.Assign(pvalue: Pointer);
+begin
+
+end;
+
+function TsgTe.GetPvalue: Pointer;
+begin
+  Result := nil;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgTuple'}
+
+procedure TsgTuple.MakePair(const meta: TsgPairMeta);
+begin
+
+end;
+
+procedure TsgTuple.MakeTrio(const meta: TsgTrioMeta);
+begin
+
+end;
+
+procedure TsgTuple.MakeQuad(const meta: TsgQuadMeta);
+begin
+
+end;
+
+procedure TsgTuple.Swap(Pvalue: Pointer);
+begin
+
+end;
+
+function TsgTuple.Get(Index: Integer): TsgTe;
+begin
+
 end;
 
 {$EndRegion}
