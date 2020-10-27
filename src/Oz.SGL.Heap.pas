@@ -181,21 +181,22 @@ type
 
   TsgTupleMeta = record
   private
-    FSize: Integer;
-    FOnFree: TFreeProc;
-    FCount: Integer;
+    FSize: Cardinal;
+    FCount: Cardinal;
     FElements: PsgTupleElement;
+    FOnFree: TFreeProc;
     procedure AddTe(const meta: TsgTupleElementMeta; Allign: Boolean);
   public
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     // Creates a tuple by concatenating
-    procedure Cat(const TupleMeta: TsgTupleMeta; OnFree: TFreeProc = nil);
+    procedure Cat<T>(OnFree: TFreeProc; Allign: Boolean);
     // Return a reference to the meta element of the tuple
     function Get(Index: Integer): PsgTupleElement;
     // Memory size
-    property Size: Integer read FSize;
+    property Size: Cardinal read FSize;
+    property Count: Cardinal read FCount;
   end;
 
 {$EndRegion}
@@ -397,8 +398,6 @@ implementation
 
 var
   FHeapPool: THeapPool = nil;
-  // meta for region of TMemoryRegion
-  FTeMeta: TsgItemMeta;
   // region of TeMeta
   FTeMetaRegion: TMemoryRegion;
 
@@ -667,11 +666,12 @@ begin
   meta.Init<T4>; AddTe(meta, Allign);
 end;
 
-procedure TsgTupleMeta.Cat(const TupleMeta: TsgTupleMeta; OnFree: TFreeProc);
+procedure TsgTupleMeta.Cat<T>(OnFree: TFreeProc; Allign: Boolean);
 var
   meta: TsgTupleElementMeta;
 begin
   FOnFree := OnFree;
+  meta.Init<T>; AddTe(meta, Allign);
 end;
 
 function TsgTupleMeta.Get(Index: Integer): PsgTupleElement;
@@ -1217,11 +1217,13 @@ end;
 {$EndRegion}
 
 procedure InitMeta;
+var
+  meta: TsgItemMeta;
 begin
   PointerMeta.Init<Pointer>;
   MemoryRegionMeta.Init<TMemoryRegion>([rfSegmented], TRemoveAction.HoldValue, FreeRegion);
-  FTeMeta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
-  FTeMetaRegion.Init(FTeMeta, 8 * 1024);
+  meta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
+  FTeMetaRegion.Init(meta, 8 * 1024);
 end;
 
 initialization
