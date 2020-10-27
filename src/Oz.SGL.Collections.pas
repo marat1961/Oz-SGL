@@ -417,7 +417,6 @@ type
     TCollision = record
       Next: PCollision;
       function GetPairRef: Pointer;
-      procedure AssignPair(pair: Pointer);
     end;
     // Hash table element (entry)
     pEntry = ^TEntry;
@@ -427,8 +426,8 @@ type
     TIterator = record
     private
       ptr: PCollision;
-      map: PsgCustomHashMap;
-      procedure Init(const map: PsgCustomHashMap; p: PCollision);
+      meta: PsgTupleMeta;
+      procedure Init(const meta: TsgTupleMeta; p: PCollision);
     public
       procedure Next; inline;
       function GetKey: Pointer; inline;
@@ -2037,19 +2036,14 @@ begin
   Result := Pointer(NativeUInt(@Self) + sizeof(Pointer));
 end;
 
-procedure TsgCustomHashMap.TCollision.AssignPair(pair: Pointer);
-begin
-
-end;
-
 {$EndRegion}
 
 {$Region 'TsgCustomHashMap.TIterator'}
 
-procedure TsgCustomHashMap.TIterator.Init(const map: PsgCustomHashMap; p: PCollision);
+procedure TsgCustomHashMap.TIterator.Init(const meta: TsgTupleMeta; p: PCollision);
 begin
   Self.ptr := p;
-  Self.map := map;
+  Self.meta := @meta;
 end;
 
 function TsgCustomHashMap.TIterator.GetKey: Pointer;
@@ -2059,12 +2053,11 @@ end;
 
 function TsgCustomHashMap.TIterator.GetValue: Pointer;
 begin
-  Result := PByte(ptr) + map.FPair.Get(1).Offset;
+  Result := PByte(ptr) + meta.Get(1).Offset;
 end;
 
 procedure TsgCustomHashMap.TIterator.Next;
 begin
-  ptr := map.FCollisions.NextItem(ptr);
 end;
 
 {$EndRegion}
@@ -2130,12 +2123,12 @@ begin
   begin
     if FEquals(key, p.GetPairRef) then
     begin
-      Result.Init(@Self, p);
+      Result.Init(FPair, p);
       exit;
     end;
     p := p.Next;
   end;
-  Result.Init(@Self, nil);
+  Result.Init(FPair, nil);
 end;
 
 function TsgCustomHashMap.Insert(pair: Pointer): TIterator;
@@ -2143,6 +2136,7 @@ var
   eidx: Integer;
   entry: pEntry;
   p, n: PCollision;
+  pt: PsgTupleElement;
 begin
   eidx := FHash(pair^) mod Cardinal(FCount);
   entry := FEntries.GetItemPtr(eidx);
@@ -2151,7 +2145,7 @@ begin
   begin
     if FEquals(@pair, p.GetPairRef) then
     begin
-      Result.Init(@Self, p);
+      Result.Init(FPair, p);
       exit;
     end;
     p := p.Next;
@@ -2159,19 +2153,22 @@ begin
   // Insert collision at the beginning of the list
   n := FCollisions.Alloc(FCollisions.Meta.ItemSize);
   n.Next := entry.root;
-  n.AssignPair(p.GetPairRef);
+  pt := FPair.Get(0);
+  pt.Assign(n.GetPairRef, pair);
+  pt := FPair.Get(1);
+  pt.Assign(PByte(n.GetPairRef) + pt.Offset, PByte(pair) + pt.Offset);
   entry.root := n;
-  Result.Init(@Self, n);
+  Result.Init(FPair, n);
 end;
 
 function TsgCustomHashMap.Begins: TIterator;
 begin
-  Result.Init(@Self, PCollision(FEntries.GetItemPtr(0)));
+  Result.Init(FPair, PCollision(FEntries.GetItemPtr(0)));
 end;
 
 function TsgCustomHashMap.Ends: TIterator;
 begin
-  Result.Init(@Self, PCollision(FEntries.GetItemPtr(FCount - 1)));
+  Result.Init(FPair, PCollision(FEntries.GetItemPtr(FCount - 1)));
 end;
 
 {$EndRegion}
