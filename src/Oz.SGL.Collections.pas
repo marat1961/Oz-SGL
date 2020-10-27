@@ -2029,11 +2029,8 @@ end;
 {$Region 'TsgCustomHashMap.TCollision'}
 
 function TsgCustomHashMap.TCollision.GetPairRef: Pointer;
-var
-  p: PByte;
 begin
-  p := PByte(@Next) + sizeof(Pointer);
-  Result := Pointer(NativeUInt(@Self) + sizeof(Pointer));
+  Result := PByte(@Next) + sizeof(Pointer);
 end;
 
 {$EndRegion}

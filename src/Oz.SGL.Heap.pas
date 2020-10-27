@@ -181,21 +181,16 @@ type
     // Align tuple element to the word boundary
     AllignTuple = sizeof(Pointer);
   var
-    TypeInfo: Pointer;
-    Size: Cardinal;    // Memory size
     Offset: Cardinal;  // The offset of an element in a tuple
-    h: hMeta;
-  private
-    FFreeItem: TFreeItem;
-    FAssignItem: TAssignProc;
+    Meta: TsgItemMeta;
   public
-    procedure Init<T>;
+    procedure Init<T>(Offset: Cardinal);
     // Determine the offset to the start of the next tuple element.
     function NextTupleOffset(Allign: Boolean): Cardinal;
     // Free tuple element
-    property Free: TFreeItem read FFreeItem;
+    property Free: TFreeItem read Meta.FFreeItem;
     // Dest^ := Value^; - Assign tuple element
-    property Assign: TAssignProc read FAssignItem;
+    property Assign: TAssignProc read Meta.FAssignItem;
   end;
 
 {$EndRegion}
@@ -209,7 +204,7 @@ type
     FCount: Cardinal;
     FElements: PsgTupleElement;
     FOnFree: TFreeProc;
-    procedure AddTe(const meta: TsgTupleElementMeta; Allign: Boolean);
+    procedure AddTe(const meta: TsgTupleElementMeta);
   public
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
@@ -741,18 +736,17 @@ end;
 
 {$Region 'TsgTupleElementMeta'}
 
-procedure TsgTupleElementMeta.Init<T>;
+procedure TsgTupleElementMeta.Init<T>(Offset: Cardinal);
 begin
-  TypeInfo := System.TypeInfo(T);
-  Size := sizeof(T);
-  h := hMeta.From(System.GetTypeKind(T), System.IsManagedType(T), System.HasWeakRef(T));
+  Self.Offset := Offset;
+  Meta.Init<T>;
 end;
 
 function TsgTupleElementMeta.NextTupleOffset(Allign: Boolean): Cardinal;
 var
   n: Cardinal;
 begin
-  n := Size;
+  n := Meta.ItemSize;
   if Allign then
     n := ((n + AllignTuple - 1) div AllignTuple) * AllignTuple;
   Result := Offset + n;
@@ -762,15 +756,13 @@ end;
 
 {$Region 'TsgTupleMeta'}
 
-procedure TsgTupleMeta.AddTe(const meta: TsgTupleElementMeta; Allign: Boolean);
+procedure TsgTupleMeta.AddTe(const meta: TsgTupleElementMeta);
 var
   p: PsgTupleElement;
 begin
   Inc(FCount);
-  FSize := FSize + meta.Size;
   p := PsgTupleElement(FTeMetaRegion.Alloc(sizeof(TsgTupleElementMeta)));
   p^ := meta;
-  p.Offset := FSize + meta.NextTupleOffset(Allign);
 end;
 
 procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
@@ -780,8 +772,11 @@ begin
   FOnFree := OnFree;
   FSize := 0;
   FCount := 0;
-  meta.Init<T1>; AddTe(meta, Allign);
-  meta.Init<T2>; AddTe(meta, Allign);
+  meta.Init<T1>(0);
+  AddTe(meta);
+  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
+  AddTe(meta);
+  FSize := meta.NextTupleOffset(Allign);
 end;
 
 procedure TsgTupleMeta.MakeTrio<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
@@ -791,9 +786,13 @@ begin
   FOnFree := OnFree;
   FSize := 0;
   FCount := 0;
-  meta.Init<T1>; AddTe(meta, Allign);
-  meta.Init<T2>; AddTe(meta, Allign);
-  meta.Init<T3>; AddTe(meta, Allign);
+  meta.Init<T1>(0);
+  AddTe(meta);
+  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
+  AddTe(meta);
+  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
+  AddTe(meta);
+  meta.Init<T3>(FSize + meta.NextTupleOffset(Allign));
 end;
 
 procedure TsgTupleMeta.MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc; Allign: Boolean);
@@ -803,18 +802,26 @@ begin
   FOnFree := OnFree;
   FSize := 0;
   FCount := 0;
-  meta.Init<T1>; AddTe(meta, Allign);
-  meta.Init<T2>; AddTe(meta, Allign);
-  meta.Init<T3>; AddTe(meta, Allign);
-  meta.Init<T4>; AddTe(meta, Allign);
+  meta.Init<T1>(0);
+  AddTe(meta);
+  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
+  AddTe(meta);
+  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
+  AddTe(meta);
+  meta.Init<T3>(FSize + meta.NextTupleOffset(Allign));
+  AddTe(meta);
+  meta.Init<T4>(FSize + meta.NextTupleOffset(Allign));
 end;
 
 procedure TsgTupleMeta.Cat<T>(OnFree: TFreeProc; Allign: Boolean);
 var
+  Offset: Cardinal;
   meta: TsgTupleElementMeta;
 begin
   FOnFree := OnFree;
-  meta.Init<T>; AddTe(meta, Allign);
+  Offset := FSize + Get(Count - 1).NextTupleOffset(Allign);
+  meta.Init<T>(Offset);
+  AddTe(meta);
 end;
 
 function TsgTupleMeta.Get(Index: Integer): PsgTupleElement;
