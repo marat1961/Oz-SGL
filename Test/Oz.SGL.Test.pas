@@ -174,15 +174,13 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure _NextTupleOffset;
-    procedure _InitTupleElement;
-    procedure _Free;
-    procedure _Assign;
+    procedure _TupleOffset;
     procedure _MakePair;
     procedure _MakeTrio;
     procedure _MakeQuad;
     procedure _Cat;
     procedure _Get;
+    procedure _Assign;
   end;
 
 {$EndRegion}
@@ -772,7 +770,7 @@ begin
 
 end;
 
-procedure TsgTupleTest._NextTupleOffset;
+procedure TsgTupleTest._TupleOffset;
 var
   te: TsgTupleElementMeta;
   offset: Cardinal;
@@ -831,11 +829,9 @@ begin
   for i := 0 to 8 do
   begin
     ptr1 := @bytes[i];
+    ptr2 := @bytes[i + 11];
     if Odd(NativeUInt(ptr1)) then
-    begin
-      ptr2 := @bytes[i + 11];
       break;
-    end;
   end;
   te.Assign(ptr2, @i2);
   CheckTrue(Integer(ptr2^) = 70564);
@@ -859,11 +855,9 @@ begin
   for i := 0 to 8 do
   begin
     ptr1 := @bytes[i];
+    ptr2 := @bytes[i + 11];
     if Odd(NativeUInt(ptr1)) then
-    begin
-      ptr2 := @bytes[i + 11];
       break;
-    end;
   end;
   te.Assign(ptr2, @d2);
   CheckTrue(SameValue(Double(ptr2^), 70564.567));
@@ -906,36 +900,31 @@ begin
   CheckTrue(p1.id = 545);
 end;
 
-procedure TsgTupleTest._InitTupleElement;
-var
-  teInt: TsgTupleElementMeta;
-  tePair: TsgTupleElementMeta;
-begin
-  teInt.Init<Integer>(0);
-  tePair.Init<TsgPair<TVector, Integer>>(0);
-end;
-
-procedure TsgTupleTest._Assign;
-begin
-
-end;
-
-procedure TsgTupleTest._Cat;
-begin
-
-end;
-
-procedure TsgTupleTest._Free;
-begin
-
-end;
-
-procedure TsgTupleTest._Get;
-begin
-
-end;
-
 procedure TsgTupleTest._MakePair;
+var
+  Pair1, Pair4: TsgTupleMeta;
+  te0, te1: PsgTupleElementMeta;
+begin
+  // create a pair without alignment
+  Pair1.MakePair<TVector, string>(nil, False);
+  // check total size, element addresses and offsets
+  te0 := Pair1.Get(0);
+  te1 := Pair1.Get(1);
+  CheckTrue(te0.Size = sizeof(TVector));
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = sizeof(string));
+  CheckTrue(te1.Offset = 24);
+  // create a word-aligned pair
+  Pair4.MakePair<TVector, string>(nil, True);
+  te0 := Pair4.Get(0);
+  te1 := Pair4.Get(1);
+  CheckTrue(te0.Size = sizeof(TVector));
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = sizeof(string));
+  CheckTrue(te1.Offset = 24);
+end;
+
+procedure TsgTupleTest._MakeTrio;
 begin
 
 end;
@@ -945,7 +934,21 @@ begin
 
 end;
 
-procedure TsgTupleTest._MakeTrio;
+procedure TsgTupleTest._Assign;
+var
+  teInt: TsgTupleElementMeta;
+  tePair: TsgTupleElementMeta;
+begin
+  teInt.Init<Integer>(0);
+  tePair.Init<TsgPair<TVector, Integer>>(0);
+end;
+
+procedure TsgTupleTest._Cat;
+begin
+
+end;
+
+procedure TsgTupleTest._Get;
 begin
 
 end;

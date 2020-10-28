@@ -2131,7 +2131,7 @@ var
   eidx: Integer;
   entry: pEntry;
   p, n: PCollision;
-  pt: PsgTupleElement;
+  pt: PsgTupleElementMeta;
 begin
   eidx := FHash(pair^) mod Cardinal(FCount);
   entry := FEntries.GetItemPtr(eidx);

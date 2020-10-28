@@ -159,11 +159,11 @@ type
 
 {$Region 'TsgTupleElement: Tuple element'}
 
-  PsgTupleElement = ^TsgTupleElementMeta;
+  PsgTupleElementMeta = ^TsgTupleElementMeta;
   TsgTupleElement = record
   private
     Ptr: Pointer;
-    TeMeta: PsgTupleElement;
+    TeMeta: PsgTupleElementMeta;
   public
     // Assign value
     procedure Assign(pvalue: Pointer); inline;
@@ -191,6 +191,7 @@ type
     property Free: TFreeItem read Meta.FFreeItem;
     // Dest^ := Value^; - Assign tuple element
     property Assign: TAssignProc read Meta.FAssignItem;
+    property Size: Cardinal read Meta.ItemSize;
   end;
 
 {$EndRegion}
@@ -202,7 +203,7 @@ type
   private
     FSize: Cardinal;
     FCount: Cardinal;
-    FElements: PsgTupleElement;
+    FElements: PsgTupleElementMeta;
     FOnFree: TFreeProc;
     procedure AddTe(const meta: TsgTupleElementMeta);
   public
@@ -212,7 +213,7 @@ type
     // Creates a tuple by concatenating
     procedure Cat<T>(OnFree: TFreeProc; Allign: Boolean);
     // Return a reference to the meta element of the tuple
-    function Get(Index: Integer): PsgTupleElement;
+    function Get(Index: Integer): PsgTupleElementMeta;
     // Memory size
     property Size: Cardinal read FSize;
     property Count: Cardinal read FCount;
@@ -753,10 +754,10 @@ end;
 
 procedure TsgTupleMeta.AddTe(const meta: TsgTupleElementMeta);
 var
-  p: PsgTupleElement;
+  p: PsgTupleElementMeta;
 begin
   Inc(FCount);
-  p := PsgTupleElement(FTeMetaRegion.Alloc(sizeof(TsgTupleElementMeta)));
+  p := PsgTupleElementMeta(FTeMetaRegion.Alloc(sizeof(TsgTupleElementMeta)));
   p^ := meta;
 end;
 
@@ -819,7 +820,7 @@ begin
   AddTe(meta);
 end;
 
-function TsgTupleMeta.Get(Index: Integer): PsgTupleElement;
+function TsgTupleMeta.Get(Index: Integer): PsgTupleElementMeta;
 begin
   Result := FTeMetaRegion.GetItemPtr(Index);
 end;
