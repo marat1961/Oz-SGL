@@ -26,7 +26,6 @@ uses
   System.UITypes,
   System.Classes,
   System.Math,
-  System.Generics.Collections,
   System.Diagnostics,
   TestFramework,
 
@@ -168,6 +167,26 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgTupleTest'}
+
+  TsgTupleTest = class(TTestCase)
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure _InitTupleElement;
+    procedure _NextTupleOffset;
+    procedure _Free;
+    procedure _Assign;
+    procedure _MakePair;
+    procedure _MakeTrio;
+    procedure _MakeQuad;
+    procedure _Cat;
+    procedure _Get;
+  end;
+
+{$EndRegion}
+
 {$Region 'TestTsgList'}
 
   TestTsgList = class(TTestCase)
@@ -242,7 +261,7 @@ type
   // Test methods for class TsgHashMap
   TestTsgHashMap = class(TTestCase)
   type
-    THashMapPair = TPair<TVector, Integer>;
+    THashMapPair = TsgPair<TVector, Integer>;
     TIter = TsgHashMapIterator<TVector, Integer>;
   strict private
     FMap: TsgHashMap<TVector, Integer>;
@@ -260,7 +279,7 @@ type
 
 {$Region 'TestTsgMap'}
 
-  TMapPair = TPair<TPerson, Integer>;
+  TMapPair = TsgPair<TPerson, Integer>;
   PMapPair = ^TMapPair;
 
   // Test methods for class TsgMap
@@ -735,6 +754,105 @@ begin
   finally
     r.Free;
   end;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgTupleTest'}
+
+procedure TsgTupleTest.SetUp;
+begin
+  inherited;
+
+end;
+
+procedure TsgTupleTest.TearDown;
+begin
+  inherited;
+
+end;
+
+procedure TsgTupleTest._InitTupleElement;
+var
+  teInt: TsgTupleElementMeta;
+  tePair: TsgTupleElementMeta;
+begin
+  teInt.Init<Integer>(0);
+  tePair.Init<TsgPair<TVector, Integer>>(0);
+end;
+
+procedure TsgTupleTest._NextTupleOffset;
+var
+  te: TsgTupleElementMeta;
+  offset: Cardinal;
+  b1, b2: Byte;
+  w1, w2: Word;
+begin
+  // Byte
+  te.Init<Byte>(0);
+  CheckTrue(te.Meta.ItemSize = 1);
+  CheckTrue(te.Meta.h.TypeKind = TTypeKind.tkInteger);
+  offset := te.NextTupleOffset(False);
+  CheckTrue(offset = 1);
+  offset := te.NextTupleOffset(True);
+  CheckTrue(offset = 4);
+  b1 := 123;  b2 := 75;
+  CheckTrue(not Assigned(te.Free));
+  CheckTrue(Assigned(te.Assign));
+  te.Assign(@b1, @b2);
+  CheckTrue(b1 = 75);
+
+  // Word
+  te.Init<Word>(0);
+  CheckTrue(te.Meta.ItemSize = 2);
+  offset := te.NextTupleOffset(False);
+  CheckTrue(offset = 2);
+
+  te.Init<Word>(0);
+  offset := te.NextTupleOffset(True);
+  CheckTrue(offset = 4);
+  // Integer
+  te.Init<Integer>(0);
+  CheckTrue(te.Meta.ItemSize = 4);
+  offset := te.NextTupleOffset(False);
+  CheckTrue(offset = 4);
+  offset := te.NextTupleOffset(True);
+  CheckTrue(offset = 4);
+end;
+
+procedure TsgTupleTest._Assign;
+begin
+
+end;
+
+procedure TsgTupleTest._Cat;
+begin
+
+end;
+
+procedure TsgTupleTest._Free;
+begin
+
+end;
+
+procedure TsgTupleTest._Get;
+begin
+
+end;
+
+procedure TsgTupleTest._MakePair;
+begin
+
+end;
+
+procedure TsgTupleTest._MakeQuad;
+begin
+
+end;
+
+procedure TsgTupleTest._MakeTrio;
+begin
+
 end;
 
 {$EndRegion}
@@ -1943,6 +2061,7 @@ end;
 {$EndRegion}
 
 initialization
+  RegisterTest(TsgTupleTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
 
   // Oz.SGL.Heap

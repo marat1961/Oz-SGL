@@ -462,7 +462,7 @@ type
 
 {$Region 'TsgHashMap<Key, T>: Generic Unordered dictionary'}
 
-  TPair<TKey, TValue> = record
+  TsgPair<TKey, TValue> = record
     Key: TKey;
     Value: TValue;
     constructor From(const Key: TKey; const Value: TValue);
@@ -470,8 +470,6 @@ type
 
   TsgHashMapIterator<Key, T> = record
   type
-    PsgPair = ^TsgPair;
-    TsgPair = TPair<Key, T>;
     PItem = ^T;
     PKey = ^Key;
   private
@@ -498,7 +496,7 @@ type
     function Find(const k: Key): TsgHashMapIterator<Key, T>; inline;
     // Inserts element into the container, if the container doesn't already
     // contain an element with an equivalent key.
-    function Insert(const pair: TPair<Key, T>): TsgHashMapIterator<Key, T>; inline;
+    function Insert(const pair: TsgPair<Key, T>): TsgHashMapIterator<Key, T>; inline;
     // Return the iterator to the beginning
     function Begins: TsgHashMapIterator<Key, T>; inline;
     // Next to the last one.
@@ -595,7 +593,7 @@ type
       Dt: TsgTreeIterator.TNode;
       case Integer of
         0: (k: Key; v: T);
-        1: (pair: TPair<Key, T>);
+        1: (pair: TsgPair<Key, T>);
     end;
   private
     Iter: TsgTreeIterator;
@@ -624,9 +622,9 @@ type
     procedure Clear;
     function Find(const k: Key): TsgMapIterator<Key, T>; inline;
     function Count(const k: Key): Integer; inline;
-    procedure Insert(const pair: TPair<Key, T>); inline;
+    procedure Insert(const pair: TsgPair<Key, T>); inline;
     function Emplace(const k: Key): PNode;
-    procedure InsertOrAssign(const pair: TPair<Key, T>);
+    procedure InsertOrAssign(const pair: TsgPair<Key, T>);
     function Begins: TsgMapIterator<Key, T>; inline;
     function Ends: PNode;
     // Bypass the tree in order
@@ -1985,9 +1983,9 @@ end;
 
 {$EndRegion}
 
-{$Region 'TPair<TKey, TValue>'}
+{$Region 'TsgPair<TKey, TValue>'}
 
-constructor TPair<TKey, TValue>.From(const Key: TKey; const Value: TValue);
+constructor TsgPair<TKey, TValue>.From(const Key: TKey; const Value: TValue);
 begin
   Self.Key := Key;
   Self.Value := Value;
@@ -2191,7 +2189,7 @@ begin
   Result := TsgHashMapIterator<Key, T>(FMap.Find(@k));
 end;
 
-function TsgHashMap<Key, T>.Insert(const pair: TPair<Key, T>): TsgHashMapIterator<Key, T>;
+function TsgHashMap<Key, T>.Insert(const pair: TsgPair<Key, T>): TsgHashMapIterator<Key, T>;
 begin
   Result := TsgHashMapIterator<Key, T>(FMap.Insert(@pair));
 end;
@@ -2563,7 +2561,7 @@ begin
   tree.Begins(Result.Iter);
 end;
 
-procedure TsgMap<Key, T>.Insert(const pair: TPair<Key, T>);
+procedure TsgMap<Key, T>.Insert(const pair: TsgPair<Key, T>);
 begin
   tree.Insert(@pair);
 end;
@@ -2578,7 +2576,7 @@ begin
   Result.k := k;
 end;
 
-procedure TsgMap<Key, T>.InsertOrAssign(const pair: TPair<Key, T>);
+procedure TsgMap<Key, T>.InsertOrAssign(const pair: TsgPair<Key, T>);
 begin
   tree.Insert(@pair);
 end;
@@ -2606,7 +2604,7 @@ end;
 
 procedure TsgMap<Key, T>.Put(index: Key; const Value: PItem);
 var
-  pair: TPair<Key, T>;
+  pair: TsgPair<Key, T>;
 begin
   pair.Key := index;
   pair.Value := Value^;
@@ -2615,7 +2613,7 @@ end;
 
 procedure TsgMap<Key, T>.UpdateValue(pnd: TsgCustomTree.PNode; pval: Pointer);
 type
-  TPr = TPair<Key, T>;
+  TPr = TsgPair<Key, T>;
   PT = ^Tpr;
 begin
   PNode(pnd).pair := PT(pval)^;

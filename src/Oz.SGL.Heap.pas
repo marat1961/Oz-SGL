@@ -613,19 +613,19 @@ begin
     end
     else if h.TypeKind = TTypeKind.tkVariant then
     begin
-      FAssignItem := Self.AssignVariant;
+      FAssignItem := AssignVariant;
       if Assigned(OnFree) then
         FFreeItem := UDFree
       else
-        FFreeItem := Self.FreeVariant;
+        FFreeItem := FreeVariant;
     end
     else
     begin
-      FAssignItem := Self.AssignManaged;
+      FAssignItem := AssignManaged;
       if Assigned(OnFree) then
         FFreeItem := UDFree
       else
-        FFreeItem := Self.FreeManaged;
+        FFreeItem := FreeManaged;
     end;
   end
   else
@@ -634,18 +634,20 @@ begin
       0:
         raise ESglError.Create('impossible');
       1:
-        FAssignItem := Self.Assign1;
+        FAssignItem := Assign1;
       2:
-        FAssignItem := Self.Assign2;
+        FAssignItem := Assign2;
       4:
-        FAssignItem := Self.Assign4;
+        FAssignItem := Assign4;
       8:
-        FAssignItem := Self.Assign8;
+        FAssignItem := Assign8;
     else
-      FAssignItem := Self.AssignItemValue;
+      FAssignItem := AssignItemValue;
     end;
     if Assigned(OnFree) then
-      FFreeItem := UDFree;
+      FFreeItem := UDFree
+    else
+      FFreeItem := nil;
   end;
 end;
 
