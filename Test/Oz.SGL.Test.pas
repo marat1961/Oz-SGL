@@ -787,6 +787,9 @@ var
   offset: Cardinal;
   b1, b2: Byte;
   w1, w2: Word;
+  i1, i2: Integer;
+  s1, s2: string;
+  p1, p2: TPerson;
 begin
   // Byte
   te.Init<Byte>(0);
@@ -796,21 +799,26 @@ begin
   CheckTrue(offset = 1);
   offset := te.NextTupleOffset(True);
   CheckTrue(offset = 4);
-  b1 := 123;  b2 := 75;
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
+  b1 := 123; b2 := 75;
   te.Assign(@b1, @b2);
   CheckTrue(b1 = 75);
 
   // Word
   te.Init<Word>(0);
   CheckTrue(te.Meta.ItemSize = 2);
+  CheckTrue(te.Meta.h.TypeKind = TTypeKind.tkInteger);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 2);
-
-  te.Init<Word>(0);
   offset := te.NextTupleOffset(True);
   CheckTrue(offset = 4);
+  CheckTrue(not Assigned(te.Free));
+  CheckTrue(Assigned(te.Assign));
+  w1 := 12349; w2 := 705;
+  te.Assign(@w1, @w2);
+  CheckTrue(w1 = 705);
+
   // Integer
   te.Init<Integer>(0);
   CheckTrue(te.Meta.ItemSize = 4);
@@ -818,6 +826,46 @@ begin
   CheckTrue(offset = 4);
   offset := te.NextTupleOffset(True);
   CheckTrue(offset = 4);
+  CheckTrue(not Assigned(te.Free));
+  CheckTrue(Assigned(te.Assign));
+  i1 := 12279349; i2 := 70564;
+  te.Assign(@i1, @i2);
+  CheckTrue(i1 = 70564);
+
+  // string
+  te.Init<string>(0);
+  CheckTrue(te.Meta.ItemSize = 4);
+  offset := te.NextTupleOffset(False);
+  CheckTrue(offset = 4);
+  offset := te.NextTupleOffset(True);
+  CheckTrue(offset = 4);
+  CheckTrue(Assigned(te.Free));
+  CheckTrue(Assigned(te.Assign));
+  s1 := '12279349'; s2 := '70564';
+  te.Free(@s1);
+  CheckTrue(s1 = '');
+  te.Assign(@s1, @s2);
+  CheckTrue(s1 = '70564');
+
+  // TPerson
+  te.Init<TPerson>(0);
+  CheckTrue(te.Meta.ItemSize = 8);
+  offset := te.NextTupleOffset(False);
+  CheckTrue(offset = 8);
+  offset := te.NextTupleOffset(True);
+  CheckTrue(offset = 8);
+  CheckTrue(Assigned(te.Free));
+  CheckTrue(Assigned(te.Assign));
+  p1 := TPerson.From('sd12279349');
+  p1.id := 45;
+  p2 := TPerson.From('er70564');
+  p2.id := 545;
+  te.Free(@p1);
+  CheckTrue(p1.name = '');
+  CheckTrue(p1.id = 45);
+  te.Assign(@p1, @p2);
+  CheckTrue(p1.name = 'er70564');
+  CheckTrue(p1.id = 545);
 end;
 
 procedure TsgTupleTest._Assign;

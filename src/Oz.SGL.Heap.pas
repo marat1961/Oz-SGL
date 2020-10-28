@@ -631,18 +631,12 @@ begin
   else
   begin
     case ItemSize of
-      0:
-        raise ESglError.Create('impossible');
-      1:
-        FAssignItem := Assign1;
-      2:
-        FAssignItem := Assign2;
-      4:
-        FAssignItem := Assign4;
-      8:
-        FAssignItem := Assign8;
-    else
-      FAssignItem := AssignItemValue;
+      0: raise ESglError.Create('impossible');
+      1: FAssignItem := Assign1;
+      2: FAssignItem := Assign2;
+      4: FAssignItem := Assign4;
+      8: FAssignItem := Assign8;
+      else FAssignItem := AssignItemValue;
     end;
     if Assigned(OnFree) then
       FFreeItem := UDFree
@@ -710,7 +704,6 @@ end;
 procedure TsgItemMeta.FreeManaged(p: Pointer);
 begin
   FinalizeRecord(p, TypeInfo);
-  FillChar(p^, ItemSize, 0);
 end;
 
 procedure TsgItemMeta.FreeMRef(p: Pointer);
