@@ -174,8 +174,8 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure _InitTupleElement;
     procedure _NextTupleOffset;
+    procedure _InitTupleElement;
     procedure _Free;
     procedure _Assign;
     procedure _MakePair;
@@ -772,24 +772,19 @@ begin
 
 end;
 
-procedure TsgTupleTest._InitTupleElement;
-var
-  teInt: TsgTupleElementMeta;
-  tePair: TsgTupleElementMeta;
-begin
-  teInt.Init<Integer>(0);
-  tePair.Init<TsgPair<TVector, Integer>>(0);
-end;
-
 procedure TsgTupleTest._NextTupleOffset;
 var
   te: TsgTupleElementMeta;
   offset: Cardinal;
   b1, b2: Byte;
   w1, w2: Word;
+  d1, d2: Double;
   i1, i2: Integer;
   s1, s2: string;
   p1, p2: TPerson;
+  bytes: array [0 .. 63] of Byte;
+  ptr1, ptr2: Pointer;
+  i: Integer;
 begin
   // Byte
   te.Init<Byte>(0);
@@ -832,6 +827,49 @@ begin
   te.Assign(@i1, @i2);
   CheckTrue(i1 = 70564);
 
+  // Check the clearing and assignment of data not aligned to the word boundary.
+  for i := 0 to 8 do
+  begin
+    ptr1 := @bytes[i];
+    if Odd(NativeUInt(ptr1)) then
+    begin
+      ptr2 := @bytes[i + 11];
+      break;
+    end;
+  end;
+  te.Assign(ptr2, @i2);
+  CheckTrue(Integer(ptr2^) = 70564);
+  te.Assign(ptr1, ptr2);
+  CheckTrue(Integer(ptr1^) = 70564);
+
+  // Double
+  te.Init<Double>(0);
+  CheckTrue(te.Meta.ItemSize = 8);
+  offset := te.NextTupleOffset(False);
+  CheckTrue(offset = 8);
+  offset := te.NextTupleOffset(True);
+  CheckTrue(offset = 8);
+  CheckTrue(not Assigned(te.Free));
+  CheckTrue(Assigned(te.Assign));
+  d1 := 12279349.34; d2 := 70564.567;
+  te.Assign(@d1, @d2);
+  CheckTrue(SameValue(d1, 70564.567));
+
+  // Check the clearing and assignment of data not aligned to the word boundary.
+  for i := 0 to 8 do
+  begin
+    ptr1 := @bytes[i];
+    if Odd(NativeUInt(ptr1)) then
+    begin
+      ptr2 := @bytes[i + 11];
+      break;
+    end;
+  end;
+  te.Assign(ptr2, @d2);
+  CheckTrue(SameValue(Double(ptr2^), 70564.567));
+  te.Assign(ptr1, ptr2);
+  CheckTrue(SameValue(Double(ptr1^), 70564.567));
+
   // string
   te.Init<string>(0);
   CheckTrue(te.Meta.ItemSize = 4);
@@ -866,6 +904,15 @@ begin
   te.Assign(@p1, @p2);
   CheckTrue(p1.name = 'er70564');
   CheckTrue(p1.id = 545);
+end;
+
+procedure TsgTupleTest._InitTupleElement;
+var
+  teInt: TsgTupleElementMeta;
+  tePair: TsgTupleElementMeta;
+begin
+  teInt.Init<Integer>(0);
+  tePair.Init<TsgPair<TVector, Integer>>(0);
 end;
 
 procedure TsgTupleTest._Assign;
