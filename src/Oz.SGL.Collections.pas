@@ -974,10 +974,15 @@ end;
 procedure TsgTupleMeta.Cat<T>(OnFree: TFreeProc; Allign: Boolean);
 var
   src: PsgTupleElementMeta;
+  n, sz: Cardinal;
 begin
   src := FElements;
-  Init(OnFree, FCount + 1);
-  Move(src, FElements, FCount * sizeof(TsgTupleElementMeta));
+  n := FCount;
+  sz := FSize;
+  Init(OnFree, n + 1);
+  Move(src^, FElements^, n * sizeof(TsgTupleElementMeta));
+  FCount := n;
+  FSize := sz;
   AddTe<T>(Allign);
 end;
 

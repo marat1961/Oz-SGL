@@ -929,27 +929,73 @@ end;
 
 procedure TsgTupleTest._MakeTrio;
 var
-  Trio1, Trio4: TsgTupleMeta;
+  Trio: TsgTupleMeta;
   te0, te1, te2: PsgTupleElementMeta;
 begin
   // create a pair without alignment
-  Trio1.MakeTrio<Pointer, TVector, Integer>(nil, True);
+  Trio.MakeTrio<Pointer, TVector, Integer>(nil, True);
   // check total size, element addresses and offsets
-  te0 := Trio1.Get(0);
-  te1 := Trio1.Get(1);
-  te2 := Trio1.Get(2);
+  te0 := Trio.Get(0);
+  te1 := Trio.Get(1);
+  te2 := Trio.Get(2);
   CheckTrue(te0.Size = 4);
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = 24);
   CheckTrue(te1.Offset = 4);
   CheckTrue(te2.Size = 4);
   CheckTrue(te2.Offset = 28);
-  CheckTrue(Trio1.Size = 32);
+  CheckTrue(Trio.Size = 32);
 end;
 
 procedure TsgTupleTest._MakeQuad;
+var
+  Quad: TsgTupleMeta;
+  te0, te1, te2, te3: PsgTupleElementMeta;
 begin
+  // create a pair without alignment
+  Quad.MakeQuad<Pointer, TVector, TPerson, Integer>(nil, True);
+  // check total size, element addresses and offsets
+  te0 := Quad.Get(0);
+  te1 := Quad.Get(1);
+  te2 := Quad.Get(2);
+  te3 := Quad.Get(3);
+  CheckTrue(te0.Size = 4);
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = 24);
+  CheckTrue(te1.Offset = 4);
+  CheckTrue(te2.Size = 8);
+  CheckTrue(te2.Offset = 28);
+  CheckTrue(te3.Size = 4);
+  CheckTrue(te3.Offset = 36);
+  CheckTrue(Quad.Size = 40);
+end;
 
+procedure TsgTupleTest._Cat;
+var
+  Tuple: TsgTupleMeta;
+  te0, te1, te2: PsgTupleElementMeta;
+begin
+  // create a pair without alignment
+  Tuple.MakePair<TVector, string>(nil, True);
+  // check total size, element addresses and offsets
+  te0 := Tuple.Get(0);
+  te1 := Tuple.Get(1);
+  CheckTrue(te0.Size = 24);
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = 4);
+  CheckTrue(te1.Offset = 24);
+  CheckTrue(Tuple.Size = 28);
+  Tuple.Cat<Byte>(nil, True);
+  te0 := Tuple.Get(0);
+  te1 := Tuple.Get(1);
+  te2 := Tuple.Get(2);
+  CheckTrue(te0.Size = 24);
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = 4);
+  CheckTrue(te1.Offset = 24);
+  CheckTrue(te2.Size = 1);
+  CheckTrue(te2.Offset = 28);
+  CheckTrue(Tuple.Size = 32);
 end;
 
 procedure TsgTupleTest._Assign;
@@ -959,11 +1005,6 @@ var
 begin
   teInt.Init<Integer>(0);
   tePair.Init<TsgPair<TVector, Integer>>(0);
-end;
-
-procedure TsgTupleTest._Cat;
-begin
-
 end;
 
 procedure TsgTupleTest._Get;
