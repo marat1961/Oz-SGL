@@ -39,9 +39,9 @@ type
 
 {$EndRegion}
 
-{$Region 'ESglError'}
+{$Region 'EsgError'}
 
-  ESglError = class(Exception)
+  EsgError = class(Exception)
   const
     NotImplemented = 0;
     ListIndexError = 1;
@@ -334,21 +334,21 @@ begin
   if ok then
     exit;
   if Msg = '' then
-    raise ESglError.Create('Check error')
+    raise EsgError.Create('Check error')
   else
-    raise ESglError.Create(Msg);
+    raise EsgError.Create(Msg);
 end;
 
 procedure FatalError(const Msg: string);
 begin
-  raise ESglError.Create(Msg);
+  raise EsgError.Create(Msg);
 end;
 
 {$EndRegion}
 
-{$Region 'ESglError'}
+{$Region 'EsgError'}
 
-constructor ESglError.Create(ErrNo: Integer);
+constructor EsgError.Create(ErrNo: Integer);
 var
   Msg: string;
 begin
@@ -359,7 +359,7 @@ begin
   Create(Msg);
 end;
 
-constructor ESglError.Create(ErrNo, IntParam: Integer);
+constructor EsgError.Create(ErrNo, IntParam: Integer);
 var
   Msg: string;
 begin
@@ -559,7 +559,7 @@ begin
   else
   begin
     case ItemSize of
-      0: raise ESglError.Create('impossible');
+      0: raise EsgError.Create('impossible');
       1: Self.AssignItem := Assign1;
       2: Self.AssignItem := Assign2;
       4: Self.AssignItem := Assign4;
@@ -663,7 +663,7 @@ procedure TsgItem.Init<T>(const Region: TMemoryRegion; var Value: T);
 begin
   Self.Region := @Region;
   if System.TypeInfo(T) <> Region.FMeta.TypeInfo then
-    raise ESglError.Create(ESglError.IncompatibleDataType);
+    raise EsgError.Create(EsgError.IncompatibleDataType);
   Ptr := @Value;
 end;
 

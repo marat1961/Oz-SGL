@@ -841,13 +841,13 @@ end;
 procedure CheckIndex(Index, Count: Integer); inline;
 begin
   if Cardinal(Index) >= Cardinal(Count) then
-    raise ESglError.Create(ESglError.ListIndexError, Index);
+    raise EsgError.Create(EsgError.ListIndexError, Index);
 end;
 
 procedure CheckCount(Count: Integer); inline;
 begin
   if Count < 0 then
-    raise ESglError.Create(ESglError.ListCountError, Count);
+    raise EsgError.Create(EsgError.ListCountError, Count);
 end;
 
 procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
@@ -1737,7 +1737,7 @@ procedure TsgPointerList.SetCount(NewCount: Integer);
 begin
   CheckCount(NewCount);
   if NewCount > FCount then
-    raise ESglError.CreateFmt(
+    raise EsgError.CreateFmt(
       'Not allowed to increase the number of elements (%d)', [Count]);
   FCount := NewCount;
 end;
@@ -3017,7 +3017,7 @@ begin
       vtChar, vtWideChar:
         v := Char(Arg.VChar);
       else
-        raise ESglError.Create('print: unsupported parameter type');
+        raise EsgError.Create('print: unsupported parameter type');
     end;
     s := s + v;
   end;
