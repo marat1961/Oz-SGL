@@ -157,94 +157,9 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTupleElement: Tuple element'}
-
-  PsgTupleElementMeta = ^TsgTupleElementMeta;
-  TsgTupleElement = record
-  private
-    Ptr: Pointer;
-    TeMeta: PsgTupleElementMeta;
-  public
-    // Assign value
-    procedure Assign(pvalue: Pointer); inline;
-    // Return a reference to the element value of the tuple
-    function GetPvalue: Pointer; inline;
-  end;
-  TsgTupleElements = TArray<TsgTupleElement>;
-
-{$EndRegion}
-
-{$Region 'TsgTupleElementMeta: Meta for tuple element'}
-
-  TsgTupleElementMeta = record
-  const
-    // Align tuple element to the word boundary
-    AllignTuple = sizeof(Pointer);
-  var
-    Offset: Cardinal;  // The offset of an element in a tuple
-    Meta: TsgItemMeta;
-  public
-    procedure Init<T>(Offset: Cardinal);
-    // Determine the offset to the start of the next tuple element.
-    function NextTupleOffset(Allign: Boolean): Cardinal;
-    // Free tuple element
-    property Free: TFreeItem read Meta.FFreeItem;
-    // Dest^ := Value^; - Assign tuple element
-    property Assign: TAssignProc read Meta.FAssignItem;
-    property Size: Cardinal read Meta.ItemSize;
-  end;
-
-{$EndRegion}
-
-{$Region 'TsgTupleMeta: Tuple metadata'}
-
-  PsgTupleMeta = ^TsgTupleMeta;
-  TsgTupleMeta = record
-  private
-    FSize: Cardinal;
-    FCount: Cardinal;
-    FElements: PsgTupleElementMeta;
-    FOnFree: TFreeProc;
-    procedure AddTe(const meta: TsgTupleElementMeta);
-  public
-    procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
-    procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
-    procedure MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
-    // Creates a tuple by concatenating
-    procedure Cat<T>(OnFree: TFreeProc; Allign: Boolean);
-    // Return a reference to the meta element of the tuple
-    function Get(Index: Integer): PsgTupleElementMeta;
-    // Memory size
-    property Size: Cardinal read FSize;
-    property Count: Cardinal read FCount;
-  end;
-
-{$EndRegion}
-
-{$Region 'TsgTuple: tuple of the type defined by generic types'}
-
-  PsgTuple = ^TsgTuple;
-  TsgTuple = record
-  private
-    FPtr: Pointer;
-    FTupleMeta: TsgTupleMeta;
-  public
-    // creates a proxy for working with a tuple
-    procedure MakeTuple(Ptr: Pointer; const TupleMeta: TsgTupleMeta);
-    // swap the contents of two tuples
-    procedure Swap(Pvalue: Pointer);
-    // return a reference to the element of the tuple
-    function Get(Index: Integer): TsgTupleElement;
-    // return a reference to the element of the tuple
-    function Tie(Index: Integer): TsgTupleElements;
-  end;
-
-{$EndRegion}
-
 {$Region 'TMemSegment'}
 
   PMemSegment = ^TMemSegment;
-
   TMemSegment = record
   private
     Next: PMemSegment;
@@ -376,6 +291,93 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgTupleElement: Tuple element'}
+
+  PsgTupleElementMeta = ^TsgTupleElementMeta;
+  TsgTupleElement = record
+  private
+    Ptr: Pointer;
+    TeMeta: PsgTupleElementMeta;
+  public
+    // Assign value
+    procedure Assign(pvalue: Pointer); inline;
+    // Return a reference to the element value of the tuple
+    function GetPvalue: Pointer; inline;
+  end;
+  TsgTupleElements = TArray<TsgTupleElement>;
+
+{$EndRegion}
+
+{$Region 'TsgTupleElementMeta: Meta for tuple element'}
+
+  TsgTupleElementMeta = record
+  const
+    // Align tuple element to the word boundary
+    AllignTuple = sizeof(Pointer);
+  var
+    Offset: Cardinal;  // The offset of an element in a tuple
+    Meta: TsgItemMeta;
+  public
+    procedure Init<T>(Offset: Cardinal);
+    // Determine the offset to the start of the next tuple element.
+    function NextTupleOffset(Allign: Boolean): Cardinal;
+    // Free tuple element
+    property Free: TFreeItem read Meta.FFreeItem;
+    // Dest^ := Value^; - Assign tuple element
+    property Assign: TAssignProc read Meta.FAssignItem;
+    property Size: Cardinal read Meta.ItemSize;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTupleMeta: Tuple metadata'}
+
+  PsgTupleMeta = ^TsgTupleMeta;
+  TsgTupleMeta = record
+  class var
+    // region of TeMeta
+    FTeMetaRegion: PMemoryRegion;
+  private
+    FSize: Cardinal;
+    FCount: Cardinal;
+    FElements: PsgTupleElementMeta;
+    FOnFree: TFreeProc;
+    procedure AddTe<T>(Allign: Boolean);
+  public
+    procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
+    procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
+    procedure MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
+    // Creates a tuple by concatenating
+    procedure Cat<T>(OnFree: TFreeProc; Allign: Boolean);
+    // Return a reference to the meta element of the tuple
+    function Get(Index: Integer): PsgTupleElementMeta;
+    // Memory size
+    property Size: Cardinal read FSize;
+    property Count: Cardinal read FCount;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTuple: tuple of the type defined by generic types'}
+
+  PsgTuple = ^TsgTuple;
+  TsgTuple = record
+  private
+    FPtr: Pointer;
+    FTupleMeta: TsgTupleMeta;
+  public
+    // creates a proxy for working with a tuple
+    procedure MakeTuple(Ptr: Pointer; const TupleMeta: TsgTupleMeta);
+    // swap the contents of two tuples
+    procedure Swap(Pvalue: Pointer);
+    // return a reference to the element of the tuple
+    function Get(Index: Integer): TsgTupleElement;
+    // return a reference to the element of the tuple
+    function Tie(Index: Integer): TsgTupleElements;
+  end;
+
+{$EndRegion}
+
 {$Region 'Procedures and functions'}
 
 // Return main memory pool
@@ -399,8 +401,6 @@ implementation
 
 var
   FHeapPool: THeapPool = nil;
-  // region of TeMeta
-  FTeMetaRegion: PMemoryRegion;
 
 {$Region 'Procedures and functions'}
 
@@ -752,72 +752,54 @@ end;
 
 {$Region 'TsgTupleMeta'}
 
-procedure TsgTupleMeta.AddTe(const meta: TsgTupleElementMeta);
-var
-  p: PsgTupleElementMeta;
-begin
-  Inc(FCount);
-  p := PsgTupleElementMeta(FTeMetaRegion.Alloc(sizeof(TsgTupleElementMeta)));
-  p^ := meta;
-end;
-
-procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
+procedure TsgTupleMeta.AddTe<T>(Allign: Boolean);
 var
   meta: TsgTupleElementMeta;
+  ptr: Pointer;
+  p: PsgTupleElementMeta;
 begin
-  FOnFree := OnFree;
-  FSize := 0;
-  FCount := 0;
-  meta.Init<T1>(0);
-  AddTe(meta);
-  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
-  AddTe(meta);
+  meta.Init<T>(FSize);
+  ptr := FTeMetaRegion.Alloc(sizeof(TsgTupleElementMeta));
+  p := PsgTupleElementMeta(ptr);
+  p^ := meta;
+  Inc(FCount);
   FSize := meta.NextTupleOffset(Allign);
 end;
 
-procedure TsgTupleMeta.MakeTrio<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
-var
-  meta: TsgTupleElementMeta;
+procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
 begin
   FOnFree := OnFree;
   FSize := 0;
   FCount := 0;
-  meta.Init<T1>(0);
-  AddTe(meta);
-  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
-  AddTe(meta);
-  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
-  AddTe(meta);
-  meta.Init<T3>(FSize + meta.NextTupleOffset(Allign));
+  AddTe<T1>(Allign);
+  AddTe<T2>(Allign);
+end;
+
+procedure TsgTupleMeta.MakeTrio<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
+begin
+  FOnFree := OnFree;
+  FSize := 0;
+  FCount := 0;
+  AddTe<T1>(Allign);
+  AddTe<T2>(Allign);
+  AddTe<T3>(Allign);
 end;
 
 procedure TsgTupleMeta.MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc; Allign: Boolean);
-var
-  meta: TsgTupleElementMeta;
 begin
   FOnFree := OnFree;
   FSize := 0;
   FCount := 0;
-  meta.Init<T1>(0);
-  AddTe(meta);
-  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
-  AddTe(meta);
-  meta.Init<T2>(FSize + meta.NextTupleOffset(Allign));
-  AddTe(meta);
-  meta.Init<T3>(FSize + meta.NextTupleOffset(Allign));
-  AddTe(meta);
-  meta.Init<T4>(FSize + meta.NextTupleOffset(Allign));
+  AddTe<T1>(Allign);
+  AddTe<T2>(Allign);
+  AddTe<T3>(Allign);
+  AddTe<T4>(Allign);
 end;
 
 procedure TsgTupleMeta.Cat<T>(OnFree: TFreeProc; Allign: Boolean);
-var
-  Offset: Cardinal;
-  meta: TsgTupleElementMeta;
 begin
   FOnFree := OnFree;
-  Offset := FSize + Get(Count - 1).NextTupleOffset(Allign);
-  meta.Init<T>(Offset);
-  AddTe(meta);
+  AddTe<T>(Allign);
 end;
 
 function TsgTupleMeta.Get(Index: Integer): PsgTupleElementMeta;
@@ -856,7 +838,7 @@ end;
 
 function TsgTuple.Get(Index: Integer): TsgTupleElement;
 begin
-  Result.TeMeta := FTeMetaRegion.GetItemPtr(Index);
+  Result.TeMeta := TsgTupleMeta.FTeMetaRegion.GetItemPtr(Index);
   Result.Ptr := PByte(FPtr) + Result.TeMeta.Offset;
 end;
 
@@ -1246,7 +1228,7 @@ begin
   MemoryRegionMeta.Init<TMemoryRegion>([rfSegmented], TRemoveAction.HoldValue, FreeRegion);
   // FTeMetaRegion
   meta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
-  FTeMetaRegion := HeapPool.CreateUnbrokenRegion(meta);
+  TsgTupleMeta.FTeMetaRegion := HeapPool.CreateUnbrokenRegion(meta);
 end;
 
 initialization

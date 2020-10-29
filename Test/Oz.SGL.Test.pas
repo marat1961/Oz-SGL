@@ -928,8 +928,23 @@ begin
 end;
 
 procedure TsgTupleTest._MakeTrio;
+var
+  Trio1, Trio4: TsgTupleMeta;
+  te0, te1, te2: PsgTupleElementMeta;
 begin
-
+  // create a pair without alignment
+  Trio1.MakeTrio<Pointer, TVector, Integer>(nil, True);
+  // check total size, element addresses and offsets
+  te0 := Trio1.Get(0);
+  te1 := Trio1.Get(1);
+  te2 := Trio1.Get(2);
+  CheckTrue(te0.Size = 4);
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = 24);
+  CheckTrue(te1.Offset = 4);
+  CheckTrue(te2.Size = 4);
+  CheckTrue(te2.Offset = 28);
+  CheckTrue(Trio1.Size = 32);
 end;
 
 procedure TsgTupleTest._MakeQuad;
