@@ -1000,7 +1000,7 @@ end;
 
 procedure TsgTupleTest._Assign;
 type
-  TMyRecord = record
+  TMyRecord = packed record
     p: Pointer;
     v: TVector;
     i: Integer;
@@ -1032,6 +1032,11 @@ begin
   a.v.z := 3;
   a.i := 15;
   r.Meta.AssignItem(@b, @a);
+  CheckTrue(b.p = a.p);
+  CheckTrue(SameValue(b.v.x, a.v.x));
+  CheckTrue(SameValue(b.v.y, a.v.y));
+  CheckTrue(SameValue(b.v.z, a.v.z));
+  CheckTrue(b.i = a.i);
 end;
 
 procedure TsgTupleTest._AssignPart;
