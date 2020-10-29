@@ -179,8 +179,8 @@ type
     procedure _MakeTrio;
     procedure _MakeQuad;
     procedure _Cat;
-    procedure _Get;
     procedure _Assign;
+    procedure _AssignPart;
   end;
 
 {$EndRegion}
@@ -1000,14 +1000,28 @@ end;
 
 procedure TsgTupleTest._Assign;
 var
-  teInt: TsgTupleElementMeta;
-  tePair: TsgTupleElementMeta;
+  Trio: TsgTupleMeta;
+  r: PMemoryRegion;
+  te0, te1, te2: PsgTupleElementMeta;
 begin
-  teInt.Init<Integer>(0);
-  tePair.Init<TsgPair<TVector, Integer>>(0);
+  // create a pair without alignment
+  Trio.MakeTrio<Pointer, TVector, Integer>(nil, True);
+  // check total size, element addresses and offsets
+  te0 := Trio.Get(0);
+  te1 := Trio.Get(1);
+  te2 := Trio.Get(2);
+  CheckTrue(te0.Size = 4);
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = 24);
+  CheckTrue(te1.Offset = 4);
+  CheckTrue(te2.Size = 4);
+  CheckTrue(te2.Offset = 28);
+  CheckTrue(Trio.Size = 32);
+  // get meta
+  r := Trio.MakeTupleRegion([]);
 end;
 
-procedure TsgTupleTest._Get;
+procedure TsgTupleTest._AssignPart;
 begin
 
 end;

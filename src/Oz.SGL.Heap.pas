@@ -151,6 +151,7 @@ type
     procedure Init<T>(OnFree: TFreeProc = nil); overload;
     procedure Init<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
       OnFree: TFreeProc = nil); overload;
+    procedure InitTuple(ItemSize: Cardinal; Flags: TRegionFlagSet);
   end;
   PsgItemMeta = ^TsgItemMeta;
 
@@ -483,6 +484,20 @@ end;
 {$EndRegion}
 
 {$Region 'TsgItemMeta'}
+
+procedure TsgItemMeta.InitTuple(ItemSize: Cardinal; Flags: TRegionFlagSet);
+begin
+  FillChar(Self, sizeof(TsgItemMeta), 0);
+  if rfSegmented in Flags then
+    h.SetSegmented(True);
+  if rfRangeCheck in Flags then
+    h.SetRangeCheck(True);
+  if rfNotification in Flags then
+    h.SetNotification(True);
+  if rfOwnedObject in Flags then
+    h.SetOwnedObject(True);
+  Self.ItemSize := ItemSize;
+end;
 
 procedure TsgItemMeta.Init<T>(OnFree: TFreeProc);
 begin

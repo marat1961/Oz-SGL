@@ -82,6 +82,9 @@ type
     FOnFree: TFreeProc;
     procedure AddTe<T>(Allign: Boolean);
     procedure Init(OnFree: TFreeProc; Count: Cardinal);
+    // Handlers for assigning the tuple and freeing the tuple
+    procedure AssignTuple(Dest, Value: Pointer);
+    procedure FreeTuple(p: Pointer);
   public
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
@@ -90,6 +93,8 @@ type
     procedure Cat<T>(OnFree: TFreeProc; Allign: Boolean);
     // Return a reference to the meta element of the tuple
     function Get(Index: Cardinal): PsgTupleElementMeta;
+    // Make a tuple memory region.
+    function MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
     // Memory size
     property Size: Cardinal read FSize;
     property Count: Cardinal read FCount;
@@ -984,6 +989,26 @@ begin
   FCount := n;
   FSize := sz;
   AddTe<T>(Allign);
+end;
+
+procedure TsgTupleMeta.AssignTuple(Dest, Value: Pointer);
+begin
+
+end;
+
+procedure TsgTupleMeta.FreeTuple(p: Pointer);
+begin
+
+end;
+
+function TsgTupleMeta.MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
+var
+  meta: TsgItemMeta;
+begin
+  meta.InitTuple(FSize, Flags);
+  meta.FreeItem := FreeTuple;
+  meta.AssignItem := AssignTuple;
+  Result := HeapPool.CreateRegion(meta);
 end;
 
 {$EndRegion}
