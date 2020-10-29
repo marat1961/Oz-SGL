@@ -400,7 +400,7 @@ implementation
 var
   FHeapPool: THeapPool = nil;
   // region of TeMeta
-  FTeMetaRegion: TMemoryRegion;
+  FTeMetaRegion: PMemoryRegion;
 
 {$Region 'Procedures and functions'}
 
@@ -1244,8 +1244,9 @@ var
 begin
   PointerMeta.Init<Pointer>;
   MemoryRegionMeta.Init<TMemoryRegion>([rfSegmented], TRemoveAction.HoldValue, FreeRegion);
+  // FTeMetaRegion
   meta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
-  FTeMetaRegion.Init(meta, 8 * 1024);
+  FTeMetaRegion := HeapPool.CreateUnbrokenRegion(meta);
 end;
 
 initialization

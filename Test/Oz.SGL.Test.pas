@@ -914,14 +914,17 @@ begin
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = sizeof(string));
   CheckTrue(te1.Offset = 24);
+  CheckTrue(Pair1.Size = 28);
   // create a word-aligned pair
   Pair4.MakePair<TVector, string>(nil, True);
+  // check total size, element addresses and offsets
   te0 := Pair4.Get(0);
   te1 := Pair4.Get(1);
   CheckTrue(te0.Size = sizeof(TVector));
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = sizeof(string));
   CheckTrue(te1.Offset = 24);
+  CheckTrue(Pair1.Size = 28);
 end;
 
 procedure TsgTupleTest._MakeTrio;
