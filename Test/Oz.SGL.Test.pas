@@ -999,10 +999,17 @@ begin
 end;
 
 procedure TsgTupleTest._Assign;
+type
+  TMyRecord = record
+    p: Pointer;
+    v: TVector;
+    i: Integer;
+  end;
 var
   Trio: TsgTupleMeta;
   r: PMemoryRegion;
   te0, te1, te2: PsgTupleElementMeta;
+  a, b: TMyRecord;
 begin
   // create a pair without alignment
   Trio.MakeTrio<Pointer, TVector, Integer>(nil, True);
@@ -1019,6 +1026,12 @@ begin
   CheckTrue(Trio.Size = 32);
   // get meta
   r := Trio.MakeTupleRegion([]);
+  a.p := @Self;
+  a.v.x := 1.5;
+  a.v.y := 2;
+  a.v.z := 3;
+  a.i := 15;
+  r.Meta.AssignItem(@b, @a);
 end;
 
 procedure TsgTupleTest._AssignPart;

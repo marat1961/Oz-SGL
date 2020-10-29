@@ -992,13 +992,27 @@ begin
 end;
 
 procedure TsgTupleMeta.AssignTuple(Dest, Value: Pointer);
+var
+  i: Integer;
+  te: PsgTupleElementMeta;
 begin
-
+  for i := 0 to Count - 1 do
+  begin
+    te := self.Get(i);
+    te.Assign(PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
+  end;
 end;
 
 procedure TsgTupleMeta.FreeTuple(p: Pointer);
+var
+  i: Integer;
+  te: PsgTupleElementMeta;
 begin
-
+  for i := 0 to Count - 1 do
+  begin
+    te := self.Get(i);
+    te.Free(PByte(p) + te.Offset);
+  end;
 end;
 
 function TsgTupleMeta.MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
@@ -1017,7 +1031,7 @@ end;
 
 procedure TsgTupleElement.Assign(pvalue: Pointer);
 begin
-
+  TeMeta.Assign(Ptr, pvalue);
 end;
 
 function TsgTupleElement.GetPvalue: Pointer;
