@@ -46,8 +46,9 @@ type
     NotImplemented = 0;
     ListIndexError = 1;
     ListCountError = 2;
-    IncompatibleDataType = 3;
-    ErrorMax = 3;
+    CapacityError = 3;
+    IncompatibleDataType = 4;
+    ErrorMax = 4;
   private type
     TErrorMessages = array [0..ErrorMax] of string;
   private const
@@ -55,6 +56,7 @@ type
       'Not implemented',
       'List index error (%d)',
       'List count error (%d)',
+      'List capacity error (%d)',
       'Incompatible data type');
   public
     constructor Create(ErrNo: Integer); overload;
@@ -209,6 +211,8 @@ type
     function IncreaseAndAlloc(NewCount: Integer): Pointer;
     // Allocate memory of a specified size and return its pointer
     function Alloc(Size: Cardinal): Pointer;
+    // Dispose count items
+    procedure Dispose(Items: Pointer; Count: Cardinal);
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
     // Get index for pointer to an element
@@ -885,6 +889,11 @@ begin
   Result := Heap.Occupy(Size);
   if Result = nil then
     OutOfMemoryError;
+end;
+
+procedure TMemoryRegion.Dispose(Items: Pointer; Count: Cardinal);
+begin
+  // todo:
 end;
 
 function TMemoryRegion.GetItemPtr(Index: Cardinal): Pointer;

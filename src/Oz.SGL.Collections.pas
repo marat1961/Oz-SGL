@@ -27,9 +27,46 @@ uses
 
 {$T+}
 
-{$Region 'TsgTupleElement: Tuple element'}
+{$Region 'TsgArray<T>: Generic Array'}
 
 type
+
+  PsgArrayHelper = ^TsgArrayHelper;
+  TsgArrayHelper = record
+  private
+    FRegion: PMemoryRegion;
+    FCount: Cardinal;
+    FCapacity: Cardinal;
+    FItems: PByte;
+  public
+    procedure Init(const Region: TMemoryRegion; Capacity: Cardinal);
+    procedure Free;
+    procedure Grow;
+    procedure SetCapacity(NewCapacity: Cardinal);
+    procedure SetCount(NewCount: Cardinal);
+    function Insert(Index: Cardinal): PByte;
+    function Add: PByte;
+    function GetItem(Index: Cardinal): PByte;
+  end;
+
+  TsgArray<T> = record
+  type
+    PItem = ^T;
+  private
+    FList: TsgArrayHelper;
+    function GetItem(Index: Cardinal): PItem; inline;
+  public
+    procedure Init(const Region: TMemoryRegion; Count: Cardinal); inline;
+    procedure Free; inline;
+    procedure SetLength(NewCount: Cardinal); inline;
+    function Insert(Index: Cardinal): PItem; inline;
+    function Add: PItem; inline;
+    property Items[Index: Cardinal]: PItem read GetItem;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTupleElement: Tuple element'}
 
   PsgTupleElementMeta = ^TsgTupleElementMeta;
   TsgTupleElement = record
@@ -42,7 +79,7 @@ type
     // Return a reference to the element value of the tuple
     function GetPvalue: Pointer; inline;
   end;
-  TsgTupleElements = TArray<TsgTupleElement>;
+  TsgTupleElements = TsgArray<TsgTupleElement>;
 
 {$EndRegion}
 
@@ -56,7 +93,7 @@ type
     Offset: Cardinal;  // The offset of an element in a tuple
     Meta: TsgItemMeta;
   public
-    procedure Init<T>(Offset: Cardinal);
+    procedure Init<T>;
     // Determine the offset to the start of the next tuple element.
     function NextTupleOffset(Allign: Boolean): Cardinal;
     // Free tuple element
@@ -65,6 +102,7 @@ type
     property Assign: TAssignProc read Meta.AssignItem;
     property Size: Cardinal read Meta.ItemSize;
   end;
+  TsgTupleElementMetas = TsgArray<TsgTupleElementMeta>;
 
 {$EndRegion}
 
@@ -73,32 +111,45 @@ type
   PsgTupleMeta = ^TsgTupleMeta;
   TsgTupleMeta = record
   class var
-    // region of TeMeta
+    // region of TsgTupleElement
     FTeMetaRegion: PMemoryRegion;
+  type
+    TMetaContext = record
+      Count: Cardinal;
+      te: PsgTupleElementMeta;
+      Allign: Boolean;
+      procedure Init(Allign: Boolean);
+    end;
   private
     FSize: Cardinal;
-    FCount: Cardinal;
-    FElements: PsgTupleElementMeta;
+    FElements: TsgTupleElementMetas;
     FOnFree: TFreeProc;
-    procedure AddTe<T>(Allign: Boolean);
-    procedure Init(OnFree: TFreeProc; Count: Cardinal);
     // Handlers for assigning the tuple and freeing the tuple
     procedure AssignTuple(Dest, Value: Pointer);
     procedure FreeTuple(p: Pointer);
     procedure MoveTuple(Dest, Value: Pointer);
+    // Add tuple element
+    procedure AddElement(var ctx: TMetaContext);
+    procedure AddTe<T>(var ctx: TMetaContext);
+    procedure UpdateSizeAndOffsets;
+    procedure Init(OnFree: TFreeProc; Count: Cardinal);
   public
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     // Creates a tuple by concatenating
-    procedure Cat<T>(OnFree: TFreeProc; Allign: Boolean);
+    procedure Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc = nil; Allign: Boolean = True);
+    // Add metadata for a tuple element to the end of tuple.
+    procedure Add<T>(OnFree: TFreeProc = nil; Allign: Boolean = True);
+    // Insert metadata for the tuple element at the start of tuple.
+    procedure Insert<T>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     // Return a reference to the meta element of the tuple
-    function Get(Index: Cardinal): PsgTupleElementMeta;
+    function Get(Index: Cardinal): PsgTupleElementMeta; inline;
     // Make a tuple memory region.
     function MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
     // Memory size
     property Size: Cardinal read FSize;
-    property Count: Cardinal read FCount;
+    property Count: Cardinal read FElements.FList.FCount;
     // meta elements of the tuple
     property Elements[Index: Cardinal]: PsgTupleElementMeta read Get;
   end;
@@ -134,7 +185,7 @@ type
     PWords = array of Word;
     PCardinals = array of Cardinal;
     PUInt64s = array of UInt64;
-    function GetFItems: PPointer; inline;
+    function GetItems: PPointer; inline;
     function Compare(const Left, Right): Boolean;
   public type
     TEnumerator = record
@@ -907,11 +958,109 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgArrayHelper: Generic Array'}
+
+procedure TsgArrayHelper.Init(const Region: TMemoryRegion; Capacity: Cardinal);
+begin
+  FRegion := @Region;
+  FCount := 0;
+  FCapacity := Capacity;
+  FItems := Region.Alloc(Region.ItemSize * Capacity);
+end;
+
+procedure TsgArrayHelper.Free;
+begin
+  FRegion.Dispose(FItems, FCapacity);
+  FItems := nil;
+  FCount := 0;
+  FCapacity := 0;
+end;
+
+procedure TsgArrayHelper.Grow;
+begin
+  SetCapacity(GrowCollection(FCapacity, FCount + 1));
+end;
+
+procedure TsgArrayHelper.SetCapacity(NewCapacity: Cardinal);
+var
+  p: PByte;
+begin
+  if NewCapacity < FCapacity then
+    EsgError.Create(EsgError.CapacityError, NewCapacity);
+  if NewCapacity <> FCapacity then
+  begin
+    p := FItems;
+    FItems := FRegion.Alloc(FRegion.ItemSize * NewCapacity);
+    Move(p, FItems, FRegion.ItemSize * FCount);
+    FRegion.Dispose(p, FCount);
+    FCapacity := NewCapacity;
+  end;
+end;
+
+procedure TsgArrayHelper.SetCount(NewCount: Cardinal);
+begin
+  if NewCount <> FCount then
+  begin
+    if NewCount > FCapacity then
+      SetCapacity(NewCount);
+    FCount := NewCount;
+  end;
+end;
+
+function TsgArrayHelper.Insert(Index: Cardinal): PByte;
+begin
+  CheckIndex(Index, FCount);
+
+end;
+
+function TsgArrayHelper.Add: PByte;
+begin
+  if FCount = FCapacity then
+    Grow;
+  Result := GetItem(FCount);
+  Inc(FCount);
+end;
+
+function TsgArrayHelper.GetItem(Index: Cardinal): PByte;
+begin
+  Result := FItems + FRegion.ItemSize * FCount;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgArray<T>: Generic Array'}
+
+procedure TsgArray<T>.Init(const Region: TMemoryRegion; Count: Cardinal);
+begin
+end;
+
+procedure TsgArray<T>.Free;
+begin
+end;
+
+function TsgArray<T>.GetItem(Index: Cardinal): PItem;
+begin
+end;
+
+procedure TsgArray<T>.SetLength(NewCount: Cardinal);
+begin
+end;
+
+function TsgArray<T>.Insert(Index: Cardinal): PItem;
+begin
+end;
+
+function TsgArray<T>.Add: PItem;
+begin
+end;
+
+{$EndRegion}
+
 {$Region 'TsgTupleElementMeta'}
 
-procedure TsgTupleElementMeta.Init<T>(Offset: Cardinal);
+procedure TsgTupleElementMeta.Init<T>;
 begin
-  Self.Offset := Offset;
+  Self.Offset := 0;
   Meta.Init<T>;
 end;
 
@@ -927,69 +1076,123 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgTupleMeta.TMetaContext'}
+
+procedure TsgTupleMeta.TMetaContext.Init(Allign: Boolean);
+begin
+  Count := 0;
+  Self.Allign := Allign;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgTupleMeta'}
 
 procedure TsgTupleMeta.Init(OnFree: TFreeProc; Count: Cardinal);
 begin
   FSize := 0;
-  FCount := 0;
-  FElements := FTeMetaRegion.Alloc(Count * sizeof(TsgTupleElementMeta));
+  FElements.Init(FTeMetaRegion^, Count);
   FOnFree := OnFree;
 end;
 
 function TsgTupleMeta.Get(Index: Cardinal): PsgTupleElementMeta;
 begin
-  CheckIndex(Index, Count);
-  Result := PsgTupleElementMeta(PByte(FElements) + Index * sizeof(TsgTupleElementMeta));
+  Result := FElements.GetItem(Index);
 end;
 
-procedure TsgTupleMeta.AddTe<T>(Allign: Boolean);
+procedure TsgTupleMeta.UpdateSizeAndOffsets;
+var
+  ctx: TMetaContext;
+begin
+
+end;
+
+procedure TsgTupleMeta.AddElement(var ctx: TMetaContext);
 var
   meta: PsgTupleElementMeta;
 begin
-  Inc(FCount);
-  meta := Get(FCount - 1);
-  meta.Init<T>(FSize);
-  FSize := meta.NextTupleOffset(Allign);
+  meta := Get(ctx.Count);
+  Inc(ctx.Count);
+  meta^ := ctx.te^;
+  meta.Offset := FSize;
+  FSize := meta.NextTupleOffset(ctx.Allign);
+end;
+
+procedure TsgTupleMeta.AddTe<T>(var ctx: TMetaContext);
+var
+  te: TsgTupleElementMeta;
+begin
+  te.Init<T>;
+  ctx.te := @te;
+  AddElement(ctx);
 end;
 
 procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
+var
+  ctx: TMetaContext;
 begin
   Init(OnFree, 2);
-  AddTe<T1>(Allign);
-  AddTe<T2>(Allign);
+  ctx.Init(Allign);
+  AddTe<T1>(ctx);
+  AddTe<T2>(ctx);
 end;
 
 procedure TsgTupleMeta.MakeTrio<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
+var
+  ctx: TMetaContext;
 begin
   Init(OnFree, 3);
-  AddTe<T1>(Allign);
-  AddTe<T2>(Allign);
-  AddTe<T3>(Allign);
+  ctx.Init(Allign);
+  AddTe<T1>(ctx);
+  AddTe<T2>(ctx);
+  AddTe<T3>(ctx);
 end;
 
 procedure TsgTupleMeta.MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc; Allign: Boolean);
+var
+  ctx: TMetaContext;
 begin
   Init(OnFree, 4);
-  AddTe<T1>(Allign);
-  AddTe<T2>(Allign);
-  AddTe<T3>(Allign);
-  AddTe<T4>(Allign);
+  ctx.Init(Allign);
+  AddTe<T1>(ctx);
+  AddTe<T2>(ctx);
+  AddTe<T3>(ctx);
+  AddTe<T4>(ctx);
 end;
 
-procedure TsgTupleMeta.Cat<T>(OnFree: TFreeProc; Allign: Boolean);
+procedure TsgTupleMeta.Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc = nil; Allign: Boolean = True);
 var
-  src: PsgTupleElementMeta;
-  n, sz: Cardinal;
+  i: Cardinal;
+  ctx: TMetaContext;
+  meta: PsgTupleElementMeta;
 begin
-  src := FElements;
-  n := FCount;
-  sz := FSize;
-  Init(OnFree, n + 1);
-  Move(src^, FElements^, n * sizeof(TsgTupleElementMeta));
-  FCount := n;
-  FSize := sz;
-  AddTe<T>(Allign);
+  ctx.Init(Allign);
+  ctx.Count := Count;
+  FElements.SetLength(Count + Tuple.Count);
+  for i := 0 to Tuple.Count - 1 do
+  begin
+    ctx.te := Tuple.Get(i);
+    AddElement(ctx);
+  end;
+end;
+
+procedure TsgTupleMeta.Add<T>(OnFree: TFreeProc; Allign: Boolean);
+var
+  ctx: TMetaContext;
+begin
+  ctx.Init(Allign);
+  ctx.Count := Count;
+  AddTe<T>(ctx);
+end;
+
+procedure TsgTupleMeta.Insert<T>(OnFree: TFreeProc; Allign: Boolean);
+var
+  ctx: TMetaContext;
+begin
+  ctx.te := FElements.Insert(0);
+  ctx.te.Init<T>;
+  ctx.Init(Allign);
+  UpdateSizeAndOffsets;
 end;
 
 procedure TsgTupleMeta.MoveTuple(Dest, Value: Pointer);
@@ -1136,15 +1339,15 @@ end;
 function TsgListHelper.GetPtr(Index: Cardinal): Pointer;
 begin
   CheckIndex(Index, FCount);
-  Result := @PByte(GetFItems^)[Index * FRegion.Meta.ItemSize];
+  Result := @PByte(GetItems^)[Index * FRegion.Meta.ItemSize];
 end;
 
 function TsgListHelper.Add: Pointer;
 begin
   if FRegion.Capacity <= FCount then
-    GetFItems^ := FRegion.IncreaseCapacity(FCount + 1);
+    GetItems^ := FRegion.IncreaseCapacity(FCount + 1);
   FRegion.Alloc(FRegion.Meta.ItemSize);
-  Result := @PByte(GetFItems^)[Cardinal(FCount) * FRegion.Meta.ItemSize];
+  Result := @PByte(GetItems^)[Cardinal(FCount) * FRegion.Meta.ItemSize];
   Inc(FCount);
 end;
 
@@ -1160,7 +1363,7 @@ end;
 procedure TsgListHelper.CheckCapacity(NewCount: Integer);
 begin
   if FRegion.Capacity <= NewCount then
-    GetFItems^ := FRegion.IncreaseAndAlloc(NewCount);
+    GetItems^ := FRegion.IncreaseAndAlloc(NewCount);
 end;
 
 procedure TsgListHelper.Delete(Index: Integer);
@@ -1174,8 +1377,8 @@ begin
     ItemSize := FRegion.Meta.ItemSize;
     MemSize := (FCount - Index) * ItemSize;
     System.Move(
-      PByte(GetFItems^)[(Index + 1) * ItemSize],
-      PByte(GetFItems^)[(Index) * ItemSize],
+      PByte(GetItems^)[(Index + 1) * ItemSize],
+      PByte(GetItems^)[(Index) * ItemSize],
       MemSize);
   end;
 end;
@@ -1243,7 +1446,7 @@ begin
   ItemSize := FRegion.Meta.ItemSize;
   DTemp := nil;
   PTemp := @STemp[0];
-  Items := GetFItems;
+  Items := GetItems;
   try
     if ItemSize > sizeof(STemp) then
     begin
@@ -1265,9 +1468,9 @@ var
 begin
   CheckIndex(Index, FCount + 1);
   ItemSize := FRegion.Meta.ItemSize;
-  Items := GetFItems;
+  Items := GetItems;
   if FRegion.Capacity <= FCount then
-    GetFItems^ := FRegion.IncreaseCapacity(FCount + 1);
+    GetItems^ := FRegion.IncreaseCapacity(FCount + 1);
   FRegion.Alloc(ItemSize);
   if Index <> FCount then
   begin
@@ -1287,7 +1490,7 @@ var
 begin
   ItemSize := FRegion.Meta.ItemSize;
   for i := 0 to FCount - 1 do
-    if Compare(PByte(GetFItems^)[i * ItemSize], Byte(Value)) then
+    if Compare(PByte(GetItems^)[i * ItemSize], Byte(Value)) then
       exit(i);
   Result := -1;
 end;
@@ -1315,8 +1518,8 @@ begin
   Cnt := Source.FCount;
   SetCount(Cnt);
   if Cnt = 0 then exit;
-  Dest := Self.GetFItems^;
-  Src := Source.GetFItems^;
+  Dest := Self.GetItems^;
+  Src := Source.GetItems^;
   while Cnt > 0 do
   begin
     FRegion.AssignItem(Dest, Src);
@@ -1326,7 +1529,7 @@ begin
   end;
 end;
 
-function TsgListHelper.GetFItems: PPointer;
+function TsgListHelper.GetItems: PPointer;
 begin
   Result := PPointer(PByte(@Self) + SizeOf(Self));
 end;
