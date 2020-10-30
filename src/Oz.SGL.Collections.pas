@@ -85,6 +85,7 @@ type
     // Handlers for assigning the tuple and freeing the tuple
     procedure AssignTuple(Dest, Value: Pointer);
     procedure FreeTuple(p: Pointer);
+    procedure MoveTuple(Dest, Value: Pointer);
   public
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
@@ -991,6 +992,11 @@ begin
   AddTe<T>(Allign);
 end;
 
+procedure TsgTupleMeta.MoveTuple(Dest, Value: Pointer);
+begin
+  Move(Value^, Dest^, FSize);
+end;
+
 procedure TsgTupleMeta.AssignTuple(Dest, Value: Pointer);
 var
   i: Integer;
@@ -1011,17 +1017,36 @@ begin
   for i := 0 to Count - 1 do
   begin
     te := self.Get(i);
-    te.Free(PByte(p) + te.Offset);
+    if Assigned(te.Free) then
+      te.Free(PByte(p) + te.Offset);
   end;
 end;
 
 function TsgTupleMeta.MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
 var
+  i: Integer;
+  te: PsgTupleElementMeta;
+  managedType: Boolean;
   meta: TsgItemMeta;
 begin
   meta.InitTuple(FSize, Flags);
-  meta.FreeItem := FreeTuple;
-  meta.AssignItem := AssignTuple;
+  managedType := False;
+  for i := 0 to Count - 1 do
+  begin
+    te := self.Get(i);
+    if te.Meta.h.ManagedType then
+    begin
+      managedType := True;
+      break;
+    end;
+  end;
+  if not managedType then
+    meta.AssignItem := MoveTuple
+  else
+  begin
+    meta.FreeItem := FreeTuple;
+    meta.AssignItem := AssignTuple;
+  end;
   Result := HeapPool.CreateRegion(meta);
 end;
 
