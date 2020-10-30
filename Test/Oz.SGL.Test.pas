@@ -187,6 +187,27 @@ type
 
 {$EndRegion}
 
+{$Region 'TestTsgArray'}
+
+  TestTsgArray = class(TTestCase)
+  public
+    Meta: TsgItemMeta;
+    List: TsgArray<TTestRecord>;
+    Region: TMemoryRegion;
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestAdd;
+    procedure TestDelete;
+    procedure TestInsert;
+    procedure TestRemove;
+    procedure TestExchange;
+    procedure TestSort;
+    procedure TestReverse;
+  end;
+
+{$EndRegion}
+
 {$Region 'TestTsgList'}
 
   TestTsgList = class(TTestCase)
@@ -1077,6 +1098,75 @@ end;
 procedure TsgTupleTest._AssignPart;
 begin
 
+end;
+
+{$EndRegion}
+
+{$Region 'TestTsgArray'}
+
+procedure TestTsgArray.SetUp;
+begin
+  Meta.Init<TTestRecord>([rfRangeCheck], TRemoveAction.HoldValue);
+  Region.Init(Meta, 4096);
+  List.Init(Region, 4);
+end;
+
+procedure TestTsgArray.TearDown;
+begin
+  List.Free;
+  Region.Free;
+end;
+
+procedure TestTsgArray.TestAdd;
+var
+  i, j: Integer;
+  a, b: TTestRecord;
+  p: PTestRecord;
+begin
+  for i := 1 to ItemsCount do
+  begin
+    a.Init(i, i + 1);
+    a.e.tag := i;
+    List.Add^ := a;
+    CheckTrue(List.Count = Cardinal(i));
+    // считать и проверить содержимое
+    p := List.Items[i - 1];
+    CheckTrue(p.v = i);
+    CheckTrue(a.Equals(p^));
+    // проверить все ранее добавленные значения
+    for j := 1 to i do
+    begin
+      a.Init(j, j + 1);
+      a.e.tag := j;
+      p := List.Items[j - 1];
+      CheckTrue(p.v = j);
+      CheckTrue(a.Equals(p^));
+    end;
+  end;
+end;
+
+procedure TestTsgArray.TestDelete;
+begin
+end;
+
+procedure TestTsgArray.TestInsert;
+begin
+end;
+
+procedure TestTsgArray.TestRemove;
+begin
+end;
+
+procedure TestTsgArray.TestExchange;
+begin
+end;
+
+procedure TestTsgArray.TestSort;
+begin
+end;
+
+procedure TestTsgArray.TestReverse;
+begin
 end;
 
 {$EndRegion}
@@ -2285,6 +2375,8 @@ end;
 {$EndRegion}
 
 initialization
+
+  RegisterTest(TestTsgArray.Suite);
   RegisterTest(TsgTupleTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
 
