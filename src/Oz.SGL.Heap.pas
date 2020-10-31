@@ -1072,6 +1072,7 @@ begin
 end;
 
 function TsgMemoryManager.Alloc(Size: Cardinal): Pointer;
+label L3, L4;
 const
   MinSize = sizeof(Pointer) * 2;
 var
@@ -1084,20 +1085,19 @@ begin
   R4 := PsgFreeBlock(@Avail);
   repeat
     R5 := R4^.Next;
-    if R5 = nil then
-      exit(R5);
+    if R5 = nil then goto L4;
+    if R3 = R5.Size then goto L3;
     if R3 < R5.Size then break;
-    if R3 = R5.Size then
-    begin
-      R4^.Next := PsgFreeBlock(PByte(R4^.Next) + R3); // ADD R3,(R4)
-      R4 := R4^.Next;             // MOV (R4),R4
-      R4^.Next := R5^.Next;       // MOV (R5),(R4)+
-      R4^.Size := R5^.Size - R3;  // MOV 2(R5),(R4); SUB R3,(R4)
-      exit(R5);
-    end;
     R4 := R5;
   until False;
+  R4^.Next := PsgFreeBlock(PByte(R4^.Next) + R3); // ADD R3,(R4)
+  R4 := R4^.Next;             // MOV (R4),R4
+  R4^.Next := R5^.Next;       // MOV (R5),(R4)+
+  R4^.Size := R5^.Size - R3;  // MOV 2(R5),(R4); SUB R3,(R4)
+  goto L4;
+L3:
   R4^.Next := R5^.Next;       // MOV (R5),(R4)
+L4:
   Result := R5;               // MOV R5,12(SP)
 end;
 
