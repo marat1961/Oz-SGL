@@ -60,7 +60,8 @@
 В месте вызова метода будет непосредственный вызов метода агрегированной структуры.
 
 ### Generic списки и словари
- - `TsgPair<T1, T2>,  TsgTrio<T1, T2, T3>, TsgQuad<T1, T2, T3, T4> ...` Generic Tuples  
+ - `TsgTuple<T1, ...>` Generic Tuples  
+ - `TsgArray<T>` Generic Array with memory allocation from a shared memory region
  - `TsgList<T>` Generic List of Values
  - `TsgRecordList<T>` Generic List of Values accessed by pointer
  - `TsgLinkedList<T>` Generic Bidirectional Linked List

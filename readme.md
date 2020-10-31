@@ -64,7 +64,8 @@ The Delphi compiler will not generate code for overridden methods.
 At the place of the method call, there will be a direct call to the aggregate structure method.
 
 ### Generic lists and dictionaries
- - `TsgPair<T1, T2>, TsgTrio<T1, T2, T3>, TsgQuad<T1, T2, T3, T4> ...` Generic Tuples  
+ - `TsgTuple<T1, ...>` Generic Tuples  
+ - `TsgArray<T>` Generic Array with memory allocation from a shared memory region
  - `TsgList<T>` Generic List of Values
  - `TsgRecordList<T>` Generic List of Values accessed by pointer
  - `TsgLinkedList<T>` Generic Bidirectional Linked List
