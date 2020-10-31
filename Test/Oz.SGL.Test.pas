@@ -114,6 +114,25 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgMemoryManagerTest'}
+
+  TsgMemoryManagerTest = class(TTestCase)
+  const
+    N = 200;
+  public
+    mem: array [0 .. N - 1] of TsgFreeBlock;
+    mm: TsgMemoryManager;
+    TotalSize: Cardinal;
+    StartHeap: PsgFreeBlock;
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestAlloc;
+    procedure TestDealloc;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgItemTest'}
 
   TsgItemTest = class(TTestCase)
@@ -409,6 +428,42 @@ begin
     Dec(n);
   end;
   Result := 'P' + Result;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgMemoryManagerTest'}
+
+procedure TsgMemoryManagerTest.SetUp;
+begin
+  inherited;
+  TotalSize := sizeof(TsgFreeBlock) * N;
+  StartHeap := @mem[0];
+  mm.Init(StartHeap, TotalSize);
+end;
+
+procedure TsgMemoryManagerTest.TearDown;
+begin
+  mm.Free;
+  inherited;
+end;
+
+procedure TsgMemoryManagerTest.TestAlloc;
+var
+  p: Pointer;
+begin
+  p := mm.Alloc(8);
+  CheckTrue(p = Self.StartHeap);
+  CheckTrue(mm.Avail = PsgFreeBlock(PByte(StartHeap) + 8));
+  CheckTrue(mm.Avail.Next = nil);
+  CheckTrue(mm.Avail.Size = TotalSize - 8);
+  mm.Dealloc(p, 8);
+  CheckTrue(p = @Self.mem);
+end;
+
+procedure TsgMemoryManagerTest.TestDealloc;
+begin
+
 end;
 
 {$EndRegion}
@@ -2376,6 +2431,7 @@ end;
 
 initialization
 
+  RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(TestTsgArray.Suite);
   RegisterTest(TsgTupleTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
