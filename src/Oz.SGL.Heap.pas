@@ -316,6 +316,22 @@ var
 
 implementation
 
+type
+  PFreeBlock = ^TFreeBlock;
+  TFreeBlock = record
+    Next: PFreeBlock;
+    Size: Cardinal;
+  end;
+
+  TMemoryManager = record
+  private
+    Mem: TFreeBlock;
+  public
+    procedure Init(Heap: Pointer; HeapSize: Cardinal);
+    function Alloc(Size: Cardinal): Pointer;
+    procedure Dealloc(p: Pointer; Size: Cardinal);
+  end;
+
 var
   FHeapPool: THeapPool = nil;
 
@@ -1033,6 +1049,91 @@ end;
 function THeapPool.Valid: Boolean;
 begin
   Result := FSeed = Seed;
+end;
+
+{$EndRegion}
+
+{$Region 'TRegionItems'}
+
+procedure TMemoryManager.Init(Heap: Pointer; HeapSize: Cardinal);
+begin
+  Mem.Next := Heap;
+  Mem.Size := HeapSize;
+end;
+
+function TMemoryManager.Alloc(Size: Cardinal): Pointer;
+label
+  L1, L2, L3, L4;
+var
+  R3: Cardinal;
+  R4, R5: PFreeBlock;
+begin
+  Assert(Size > 0);
+  // Align block size to 4 bytes.
+  R3 := (Size + 3) and not 3;
+  R4 := @Mem;
+L1:
+  R5 := R4^.Next;
+  if R5.Next = nil then goto L4;
+  if R3 = R5.Size then goto L3;
+  if R3 > R5.Size then goto L2;
+  R4 := R5;
+  goto L1;
+L2:
+  R4^.Next := PFreeBlock(PByte(R4^.Next) + R3);  // ADD R3,(R4)
+  R4 := R4^.Next;             // MOV (R4),R4
+  R4^.Next := R5^.Next;       // MOV (R5),(R4)+
+  R4^.Size := R5^.Size - R3;  // MOV 2(R5),(R4); SUB R3,(R4)
+  goto L4;
+L3:
+  R4^.Next := R5^.Next;       // MOV (R5),(R4)
+L4:
+ Result := R5;                // MOV R5,12(SP)
+end;
+
+procedure TMemoryManager.Dealloc(p: Pointer; Size: Cardinal);
+label
+  L1, L2;
+var
+  R0: Integer;
+  R3: PFreeBlock;
+  R4: PFreeBlock;
+  R5: PFreeBlock;
+
+  procedure Proc;
+  var
+    t: NativeUInt;
+  begin
+    R5 := R4^.Next;            // MOV (R4),R5
+    t := NativeUInt(R4^.Next) + R4^.Size; // MOV 2(R4),-(SP)
+                               // ADD R4,(SP)
+    if t = NativeUInt(R5) then // CMP (SP)+,R5
+    begin                      // BNE 4$
+      R4^.Next := R5^.Next;    // MOV (R5)+,(R4)+
+      R4^.Next := R5^.Next;    // ADD (R5),(R4)
+    end;
+  end;
+
+begin
+  R4 := p;                     // MOV 10(SP),R4
+  Assert(R4 <> nil);
+  // Align block size to 4 bytes.
+  R0 := (Size + 3) and not 3;
+  R4^.Size := R0;              // MOV R0,2(R4)
+  R3 := @Mem;                  // MOV #$FREE,R3
+L1:
+  R4^.Next := R3^.Next;        // MOV (R3),(R4)
+  if R4^.Next = nil then
+    goto L2;                   // BEQ 2$
+  if NativeUInt(R4^.Next) > NativeUInt(R4) then // CMP (R4),R4
+    goto L2;                   // BHI 2$
+   R3 := R3^.Next;             // MOV (R3),R3
+  goto L1;                     // BR 1$
+L2:
+  R3^.Next := R4;              // MOV R4,(R3)
+  Proc;                        // JSR PC,3$
+  R4 := R3;                    // MOV R3,R4
+  Proc;                        // JSR PC,3$
 end;
 
 {$EndRegion}
