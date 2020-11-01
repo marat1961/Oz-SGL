@@ -259,6 +259,26 @@ type
 
 {$EndRegion}
 
+{$Region 'TShareRegion: Shared typed memory region'}
+
+  PShareRegion = ^TShareRegion;
+  TShareRegion = record
+  private
+    FRegion: TMemoryRegion;
+    FHeap: TsgMemoryManager;
+  public
+    // Initialize shared memory region for collections
+    procedure Init(const Meta: TsgItemMeta; Capacity: Cardinal);
+    // Allocate memory for collection items
+    function Alloc(Count: Cardinal): Pointer;
+    // Return memory to heap
+    procedure FreeMem(Ptr: Pointer; Count: Cardinal);
+    // Reallocate memory for collection items
+    function Realloc(Count: Cardinal): Pointer;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgItem: structure for a collection item of some type'}
 
   TsgItem = record
@@ -962,6 +982,35 @@ end;
 
 {$EndRegion}
 
+{$Region 'TShareRegion}
+
+procedure TShareRegion.Init(const Meta: TsgItemMeta; Capacity: Cardinal);
+var
+  Size: Cardinal;
+begin
+  FRegion.Init(Meta, 4096);
+  Size := Capacity * FRegion.ItemSize;
+  FRegion.GrowHeap(Size);
+  FHeap.Init(FRegion.Heap, Size);
+end;
+
+function TShareRegion.Alloc(Count: Cardinal): Pointer;
+begin
+  Result := FHeap.Alloc(Count * FRegion.ItemSize)
+end;
+
+procedure TShareRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
+begin
+  FHeap.FreeMem(Ptr, Count * FRegion.ItemSize);
+end;
+
+function TShareRegion.Realloc(Count: Cardinal): Pointer;
+begin
+
+end;
+
+{$EndRegion}
+
 {$Region 'TRegionItems'}
 
 procedure TRegionItems.Init;
@@ -1075,8 +1124,6 @@ begin
 end;
 
 function TsgMemoryManager.Alloc(Size: Cardinal): Pointer;
-label
-  L3, L4;
 const
   MinSize = sizeof(Pointer) * 2;
 var
@@ -1090,31 +1137,31 @@ begin
   p := PsgFreeBlock(@Avail);
   repeat
     q := p^.Next;
-    if q = nil then goto L4;
-    if sz = q.Size then goto L3;
-    if sz < q.Size then break;
+    if q = nil then exit(nil);
+    if sz = q.Size then
+    begin
+      p^.Next := q^.Next;
+      exit(q);
+    end;
+    if sz < q.Size then
+    begin
+      p^.Next := PsgFreeBlock(PByte(p^.Next) + sz);
+      p := p^.Next;
+      p^.Next := q^.Next;
+      p^.Size := q^.Size - sz;
+      exit(q);
+    end;
     p := q;
   until False;
-  p^.Next := PsgFreeBlock(PByte(p^.Next) + sz);
-  p := p^.Next;
-  p^.Next := q^.Next;
-  p^.Size := q^.Size - sz;
-  goto L4;
-L3:
-  p^.Next := q^.Next;
-L4:
-  Result := q;
 end;
 
 procedure TsgMemoryManager.FreeMem(Ptr: Pointer; Size: Cardinal);
 var
-  t: NativeUInt;
   q, p, x: PsgFreeBlock;
 begin
   p := Ptr;
   // Align block size to 4 bytes.
-  t := (Size + 3) and not 3;
-  p^.Size := t;
+  p^.Size := (Size + 3) and not 3;
   q := PsgFreeBlock(@Avail);
   repeat
     x := q^.Next;
@@ -1128,9 +1175,7 @@ begin
   q^.Next := p;
   // Proc;
   x := p^.Next;
-  t := p^.Size;
-  Inc(t, NativeUInt(p));
-  if t = NativeUInt(x) then
+  if p^.Size + NativeUInt(p) = NativeUInt(x) then
   begin
     p^.Next := x^.Next;
     Inc(p^.Size, x^.Size);
@@ -1138,9 +1183,7 @@ begin
   p := q;
   // Proc;
   x := p^.Next;
-  t := p^.Size;
-  Inc(t, NativeUInt(p));
-  if t = NativeUInt(x) then
+  if p^.Size + NativeUInt(p) = NativeUInt(x) then
   begin
     p^.Next := x^.Next;
     Inc(p^.Size, x^.Size);

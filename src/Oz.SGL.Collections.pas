@@ -30,7 +30,6 @@ uses
 {$Region 'TsgArray<T>: Generic Array with memory allocation from a shared memory region'}
 
 type
-
   PsgArrayHelper = ^TsgArrayHelper;
   TsgArrayHelper = record
   private
