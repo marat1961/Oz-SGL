@@ -76,6 +76,10 @@ type
   TsgMemoryManager = record
   var
     Avail: PsgFreeBlock;
+    Heap: Pointer;
+    TopMemory: Pointer;
+  private
+    procedure Check(p: Pointer); inline;
   public
     procedure Init(Heap: Pointer; HeapSize: Cardinal);
     procedure Free;
@@ -1063,7 +1067,10 @@ procedure TsgMemoryManager.Init(Heap: Pointer; HeapSize: Cardinal);
 begin
   Avail := Heap;
   Avail^.Next := nil;
+  HeapSize := (HeapSize + 3) and not 3;
   Avail^.Size := HeapSize;
+  Self.Heap := Heap;
+  TopMemory := Pointer(NativeUInt(Heap) + HeapSize);
 end;
 
 procedure TsgMemoryManager.Free;
@@ -1101,26 +1108,34 @@ L4:
   Result := R5;               // MOV R5,12(SP)
 end;
 
+procedure TsgMemoryManager.Check(p: Pointer);
+begin
+  if (p = nil) or (NativeUInt(p) < NativeUInt(Heap))
+               or (NativeUInt(p) > NativeUInt(TopMemory)) then
+    raise EsgError.Create('Dealloc: Invalid Pointer');
+end;
+
 procedure TsgMemoryManager.Dealloc(p: Pointer; Size: Cardinal);
 var
-  t: NativeUInt;
+  t, lo, hi: NativeUInt;
   R3: PsgFreeBlock;
   R4: PsgFreeBlock;
   R5: PsgFreeBlock;
 begin
+  Check(p);
   R4 := p;                    // MOV 10(SP),R4
-  Assert(R4 <> nil);
   // Align block size to 4 bytes.
   t := (Size + 3) and not 3;
   R4^.Size := t;              // MOV R0,2(R4)
   R3 := PsgFreeBlock(@Avail); // MOV #$FREE,R3
   repeat
-    R4^.Next := R3^.Next;     // MOV (R3),(R4)
-    if R4^.Next = nil then
-      break;                  // BEQ 2$
-    if NativeUInt(R4^.Next) > NativeUInt(R4) then // CMP (R4),R4
+    R5 := R3^.Next;
+    if (R5 = nil) or (NativeUInt(R4) <= NativeUInt(R5)) then
+    begin
+      R4^.Next := R5;         // MOV R5,(R4)
       break;                  // BHI 2$
-     R3 := R3^.Next;          // MOV (R3),R3
+    end;
+    R3 := R3^.Next;          // MOV (R3),R3
   until False;
   R3^.Next := R4;             // MOV R4,(R3)
   // Proc;

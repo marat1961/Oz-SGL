@@ -598,8 +598,26 @@ begin
 end;
 
 procedure TsgMemoryManagerTest.TestInvalidParameter;
+var
+  ok: Boolean;
 begin
-
+  TestAlloc;
+  ok := False;
+  try
+    mm.Dealloc(nil, 8);
+  except
+    ok := True;
+  end;
+  CheckTrue(ok);
+  ok := False;
+  try
+    mm.Dealloc(@ok, 8);
+  except
+    ok := True;
+  end;
+  CheckTrue(ok);
+  mm.Dealloc(p1, 8);
+//  mm.Dealloc(p1, 8);
 end;
 
 {$EndRegion}
