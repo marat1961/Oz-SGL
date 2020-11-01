@@ -1082,7 +1082,7 @@ begin
   Assert((Size > 0) and (Size mod MinSize = 0));
   // Align block size to 4 bytes.
   R3 := (Size + 3) and not 3;
-  R4 := PsgFreeBlock(@Avail);
+  R4 := PsgFreeBlock(@Avail); // MOV #$FREE,R4
   repeat
     R5 := R4^.Next;
     if R5 = nil then goto L4;
@@ -1102,47 +1102,46 @@ L4:
 end;
 
 procedure TsgMemoryManager.Dealloc(p: Pointer; Size: Cardinal);
-label
-  L1, L2;
 var
-  R0: Integer;
+  t: NativeUInt;
   R3: PsgFreeBlock;
   R4: PsgFreeBlock;
-
-  procedure Proc;
-  var
-    R5, bound: PsgFreeBlock;
-  begin
-    R5 := R4^.Next;                // MOV (R4),R5
-    bound := PsgFreeBlock(R4^.Size // MOV 2(R4),-(SP)
-       + NativeUInt(R4));          // ADD R4,(SP)
-    if bound = R5 then             // CMP (SP)+,R5
-    begin                          // BNE 4$
-      R4^.Next := R5^.Next;        // MOV (R5)+,(R4)+
-      R4^.Next := R5^.Next;        // ADD (R5),(R4)
-    end;
-  end;
-
+  R5: PsgFreeBlock;
 begin
-  R4 := p;                     // MOV 10(SP),R4
+  R4 := p;                    // MOV 10(SP),R4
   Assert(R4 <> nil);
   // Align block size to 4 bytes.
-  R0 := (Size + 3) and not 3;
-  R4^.Size := R0;              // MOV R0,2(R4)
-  R3 := PsgFreeBlock(@Avail);  // MOV #$FREE,R3
-L1:
-  R4^.Next := R3^.Next;        // MOV (R3),(R4)
-  if R4^.Next = nil then
-    goto L2;                   // BEQ 2$
-  if NativeUInt(R4^.Next) > NativeUInt(R4) then // CMP (R4),R4
-    goto L2;                   // BHI 2$
-   R3 := R3^.Next;             // MOV (R3),R3
-  goto L1;                     // BR 1$
-L2:
-  R3^.Next := R4;              // MOV R4,(R3)
-  Proc;                        // JSR PC,3$
-  R4 := R3;                    // MOV R3,R4
-  Proc;                        // JSR PC,3$
+  t := (Size + 3) and not 3;
+  R4^.Size := t;              // MOV R0,2(R4)
+  R3 := PsgFreeBlock(@Avail); // MOV #$FREE,R3
+  repeat
+    R4^.Next := R3^.Next;     // MOV (R3),(R4)
+    if R4^.Next = nil then
+      break;                  // BEQ 2$
+    if NativeUInt(R4^.Next) > NativeUInt(R4) then // CMP (R4),R4
+      break;                  // BHI 2$
+     R3 := R3^.Next;          // MOV (R3),R3
+  until False;
+  R3^.Next := R4;             // MOV R4,(R3)
+  // Proc;                    // JSR PC,3$
+  R5 := R4^.Next;             // MOV (R4),R5
+  t := R4^.Size;              // MOV 2(R4),-(SP)
+  Inc(t, NativeUInt(R4));     // ADD R4,(SP)
+  if t = NativeUInt(R5) then  // CMP (SP)+,R5
+  begin                       // BNE 4$
+    R4^.Next := R5^.Next;     // MOV (R5)+,(R4)+
+    Inc(R4^.Size, R5^.Size);  // ADD (R5),(R4)
+  end;
+  R4 := R3;                   // MOV R3,R4
+  // Proc;                    // JSR PC,3$
+  R5 := R4^.Next;             // MOV (R4),R5
+  t := R4^.Size;              // MOV 2(R4),-(SP)
+  Inc(t, NativeUInt(R4));     // ADD R4,(SP)
+  if t = NativeUInt(R5) then  // CMP (SP)+,R5
+  begin                       // BNE 4$
+    R4^.Next := R5^.Next;     // MOV (R5)+,(R4)+
+    Inc(R4^.Size, R5^.Size);  // ADD (R5),(R4)
+  end;
 end;
 
 {$EndRegion}
