@@ -78,13 +78,14 @@ type
     Avail: PsgFreeBlock;
     Heap: Pointer;
     TopMemory: Pointer;
-  private
-    procedure Check(p: Pointer); inline;
   public
     procedure Init(Heap: Pointer; HeapSize: Cardinal);
-    procedure Free;
+    // Allocate memory and return a pointer
     function Alloc(Size: Cardinal): Pointer;
-    procedure Dealloc(p: Pointer; Size: Cardinal);
+    // Return memory to heap
+    procedure FreeMem(Ptr: Pointer; Size: Cardinal);
+    // Return memory to the heap with parameter validation
+    procedure Dealloc(Ptr: Pointer; Size: Cardinal);
   end;
 
 {$EndRegion}
@@ -1073,90 +1074,85 @@ begin
   TopMemory := Pointer(NativeUInt(Heap) + HeapSize);
 end;
 
-procedure TsgMemoryManager.Free;
-begin
-  // ?
-end;
-
 function TsgMemoryManager.Alloc(Size: Cardinal): Pointer;
-label L3, L4;
+label
+  L3, L4;
 const
   MinSize = sizeof(Pointer) * 2;
 var
-  R3: Cardinal;
-  R4, R5: PsgFreeBlock;
+  sz: Cardinal;
+  p, q: PsgFreeBlock;
 begin
-  Assert((Size > 0) and (Size mod MinSize = 0));
+  if (Size = 0) or (Size mod MinSize <> 0) then
+    raise EsgError.Create('Alloc: Invalid size');
   // Align block size to 4 bytes.
-  R3 := (Size + 3) and not 3;
-  R4 := PsgFreeBlock(@Avail); // MOV #$FREE,R4
+  sz := (Size + 3) and not 3;
+  p := PsgFreeBlock(@Avail);
   repeat
-    R5 := R4^.Next;
-    if R5 = nil then goto L4;
-    if R3 = R5.Size then goto L3;
-    if R3 < R5.Size then break;
-    R4 := R5;
+    q := p^.Next;
+    if q = nil then goto L4;
+    if sz = q.Size then goto L3;
+    if sz < q.Size then break;
+    p := q;
   until False;
-  R4^.Next := PsgFreeBlock(PByte(R4^.Next) + R3); // ADD R3,(R4)
-  R4 := R4^.Next;             // MOV (R4),R4
-  R4^.Next := R5^.Next;       // MOV (R5),(R4)+
-  R4^.Size := R5^.Size - R3;  // MOV 2(R5),(R4); SUB R3,(R4)
+  p^.Next := PsgFreeBlock(PByte(p^.Next) + sz);
+  p := p^.Next;
+  p^.Next := q^.Next;
+  p^.Size := q^.Size - sz;
   goto L4;
 L3:
-  R4^.Next := R5^.Next;       // MOV (R5),(R4)
+  p^.Next := q^.Next;
 L4:
-  Result := R5;               // MOV R5,12(SP)
+  Result := q;
 end;
 
-procedure TsgMemoryManager.Check(p: Pointer);
-begin
-  if (p = nil) or (NativeUInt(p) < NativeUInt(Heap))
-               or (NativeUInt(p) > NativeUInt(TopMemory)) then
-    raise EsgError.Create('Dealloc: Invalid Pointer');
-end;
-
-procedure TsgMemoryManager.Dealloc(p: Pointer; Size: Cardinal);
+procedure TsgMemoryManager.FreeMem(Ptr: Pointer; Size: Cardinal);
 var
-  t, lo, hi: NativeUInt;
-  R3: PsgFreeBlock;
-  R4: PsgFreeBlock;
-  R5: PsgFreeBlock;
+  t: NativeUInt;
+  q, p, x: PsgFreeBlock;
 begin
-  Check(p);
-  R4 := p;                    // MOV 10(SP),R4
+  p := Ptr;
   // Align block size to 4 bytes.
   t := (Size + 3) and not 3;
-  R4^.Size := t;              // MOV R0,2(R4)
-  R3 := PsgFreeBlock(@Avail); // MOV #$FREE,R3
+  p^.Size := t;
+  q := PsgFreeBlock(@Avail);
   repeat
-    R5 := R3^.Next;
-    if (R5 = nil) or (NativeUInt(R4) <= NativeUInt(R5)) then
+    x := q^.Next;
+    if (x = nil) or (NativeUInt(p) <= NativeUInt(x)) then
     begin
-      R4^.Next := R5;         // MOV R5,(R4)
-      break;                  // BHI 2$
+      p^.Next := x;
+      break;
     end;
-    R3 := R3^.Next;          // MOV (R3),R3
+    q := q^.Next;
   until False;
-  R3^.Next := R4;             // MOV R4,(R3)
+  q^.Next := p;
   // Proc;
-  R5 := R4^.Next;             // MOV (R4),R5
-  t := R4^.Size;              // MOV 2(R4),-(SP)
-  Inc(t, NativeUInt(R4));     // ADD R4,(SP)
-  if t = NativeUInt(R5) then  // CMP (SP)+,R5
-  begin                       // BNE 4$
-    R4^.Next := R5^.Next;     // MOV (R5)+,(R4)+
-    Inc(R4^.Size, R5^.Size);  // ADD (R5),(R4)
+  x := p^.Next;
+  t := p^.Size;
+  Inc(t, NativeUInt(p));
+  if t = NativeUInt(x) then
+  begin
+    p^.Next := x^.Next;
+    Inc(p^.Size, x^.Size);
   end;
-  R4 := R3;                   // MOV R3,R4
+  p := q;
   // Proc;
-  R5 := R4^.Next;             // MOV (R4),R5
-  t := R4^.Size;              // MOV 2(R4),-(SP)
-  Inc(t, NativeUInt(R4));     // ADD R4,(SP)
-  if t = NativeUInt(R5) then  // CMP (SP)+,R5
-  begin                       // BNE 4$
-    R4^.Next := R5^.Next;     // MOV (R5)+,(R4)+
-    Inc(R4^.Size, R5^.Size);  // ADD (R5),(R4)
+  x := p^.Next;
+  t := p^.Size;
+  Inc(t, NativeUInt(p));
+  if t = NativeUInt(x) then
+  begin
+    p^.Next := x^.Next;
+    Inc(p^.Size, x^.Size);
   end;
+end;
+
+procedure TsgMemoryManager.Dealloc(Ptr: Pointer; Size: Cardinal);
+begin
+  if (Ptr = nil) or (NativeUInt(Ptr) < NativeUInt(Heap))
+               or (NativeUInt(Ptr) > NativeUInt(TopMemory)) then
+    raise EsgError.Create('Dealloc: Invalid Pointer');
+  FreeMem(Ptr, Size);
 end;
 
 {$EndRegion}

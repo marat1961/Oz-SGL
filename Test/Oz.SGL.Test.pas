@@ -450,7 +450,6 @@ end;
 
 procedure TsgMemoryManagerTest.TearDown;
 begin
-  mm.Free;
   inherited;
 end;
 
