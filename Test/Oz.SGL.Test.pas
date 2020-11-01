@@ -124,11 +124,17 @@ type
     mm: TsgMemoryManager;
     TotalSize: Cardinal;
     StartHeap: PsgFreeBlock;
+    p: PsgFreeBlock;
+    p1, p2, p3, p4, p5, p6: Pointer;
     procedure SetUp; override;
     procedure TearDown; override;
   published
     procedure TestAlloc;
-    procedure TestDealloc;
+    procedure TestDefragment;
+    procedure TestFreeWithTop;
+    procedure TestFreeWithBottom;
+    procedure TestFreeWithBoth;
+    procedure TestInvalidParameter;
   end;
 
 {$EndRegion}
@@ -449,9 +455,6 @@ begin
 end;
 
 procedure TsgMemoryManagerTest.TestAlloc;
-var
-  p: PsgFreeBlock;
-  p1, p2, p3, p4, p5, p6: Pointer;
 begin
   p1 := mm.Alloc(8);
   CheckTrue(p1 = StartHeap);
@@ -488,7 +491,79 @@ begin
   CheckTrue(mm.Avail = PsgFreeBlock(PByte(StartHeap) + 416));
   CheckTrue(mm.Avail.Next = nil);
   CheckTrue(mm.Avail.Size = TotalSize - 416);
+end;
 
+procedure TsgMemoryManagerTest.TestDefragment;
+begin
+  TestAlloc;
+  mm.Dealloc(p1, 8);
+  mm.Dealloc(p3, 40);
+  mm.Dealloc(p5, 256);
+  p := mm.Avail;
+  CheckTrue(p = p1);
+  CheckTrue(p.Size = 8);
+  p := p.Next;
+  CheckTrue(p = p3);
+  CheckTrue(p.Size = 40);
+  p := p.Next;
+  CheckTrue(p = p5);
+  CheckTrue(p.Size = 256);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 416));
+  CheckTrue(p.Size = 1184);
+  CheckTrue(p.Next = nil);
+end;
+
+procedure TsgMemoryManagerTest.TestFreeWithTop;
+begin
+  TestAlloc;
+  mm.Dealloc(p2, 32);
+  CheckTrue(p2 = PsgFreeBlock(PByte(StartHeap) + 8));
+  p := mm.Avail;
+  CheckTrue(p = p2);
+  CheckTrue(p.Size = 32);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 416));
+  CheckTrue(p.Size = 1184);
+  CheckTrue(p.Next = nil);
+
+  mm.Dealloc(p1, 8);
+  CheckTrue(p1 = @Self.mem);
+  p := mm.Avail;
+  CheckTrue(p = p1);
+  CheckTrue(p.Size = 40);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 416));
+  CheckTrue(p.Size = 1184);
+  CheckTrue(p.Next = nil);
+end;
+
+procedure TsgMemoryManagerTest.TestFreeWithBottom;
+begin
+  TestAlloc;
+  mm.Dealloc(p2, 32);
+  CheckTrue(p2 = PsgFreeBlock(PByte(StartHeap) + 8));
+  p := mm.Avail;
+  CheckTrue(p = p2);
+  CheckTrue(p.Size = 32);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 416));
+  CheckTrue(p.Size = 1184);
+  CheckTrue(p.Next = nil);
+
+  mm.Dealloc(p3, 40);
+  CheckTrue(p3 = PsgFreeBlock(PByte(StartHeap) + 40));
+  p := mm.Avail;
+  CheckTrue(p = p2);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 416));
+  CheckTrue(p.Size = 1184);
+  CheckTrue(p.Next = nil);
+end;
+
+procedure TsgMemoryManagerTest.TestFreeWithBoth;
+begin
+  TestAlloc;
   mm.Dealloc(p1, 8);
   CheckTrue(p1 = @Self.mem);
   p := mm.Avail;
@@ -522,7 +597,7 @@ begin
   CheckTrue(p.Next = nil);
 end;
 
-procedure TsgMemoryManagerTest.TestDealloc;
+procedure TsgMemoryManagerTest.TestInvalidParameter;
 begin
 
 end;

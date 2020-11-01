@@ -1123,7 +1123,7 @@ begin
      R3 := R3^.Next;          // MOV (R3),R3
   until False;
   R3^.Next := R4;             // MOV R4,(R3)
-  // Proc;                    // JSR PC,3$
+  // Proc;
   R5 := R4^.Next;             // MOV (R4),R5
   t := R4^.Size;              // MOV 2(R4),-(SP)
   Inc(t, NativeUInt(R4));     // ADD R4,(SP)
@@ -1133,7 +1133,7 @@ begin
     Inc(R4^.Size, R5^.Size);  // ADD (R5),(R4)
   end;
   R4 := R3;                   // MOV R3,R4
-  // Proc;                    // JSR PC,3$
+  // Proc;
   R5 := R4^.Next;             // MOV (R4),R5
   t := R4^.Size;              // MOV 2(R4),-(SP)
   Inc(t, NativeUInt(R4));     // ADD R4,(SP)
