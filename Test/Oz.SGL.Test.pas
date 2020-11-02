@@ -644,22 +644,41 @@ begin
   CheckTrue(p.Size = 1552);
   CheckTrue(p.Next = nil);
 
-  mm.Dealloc(p1, 8);
+  mm.Dealloc(p1, 40);
   CheckTrue(p1 = StartHeap);
   p := mm.Avail;
   CheckTrue(p = StartHeap);
-  CheckTrue(p.Size = 8);
+  CheckTrue(p.Size = 40);
   p := p.Next;
   CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
   CheckTrue(p.Size = 1552);
   CheckTrue(p.Next = nil);
 
-  p4 := mm.Realloc(p1, 8, 16);
-  CheckTrue(p1 = StartHeap);
+  p4 := mm.Alloc(8);
+  CheckTrue(p4 = StartHeap);
   p := mm.Avail;
-  CheckTrue(p = StartHeap);
-  CheckTrue(p.Size = 16);
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 8));
+  CheckTrue(p.Size = 32);
   p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
+  CheckTrue(p.Size = 1552);
+  CheckTrue(p.Next = nil);
+
+  p5 := mm.Realloc(p4, 8, 16);
+  CheckTrue(p5 = StartHeap);
+  p := mm.Avail;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 16));
+  CheckTrue(p.Size = 24);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
+  CheckTrue(p.Size = 1552);
+  CheckTrue(p.Next = nil);
+
+  // To avoid leaks, you must always return
+  // the same amount of memory that was reserved.
+  p6 := mm.Realloc(p5, 16, 40);
+  CheckTrue(p6 = StartHeap);
+  p := mm.Avail;
   CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
   CheckTrue(p.Size = 1552);
   CheckTrue(p.Next = nil);
