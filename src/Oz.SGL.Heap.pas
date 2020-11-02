@@ -216,8 +216,8 @@ type
     // procedural types
     FSwapItems: TSwapProc;
     FCompareItems: TCompareProc;
-    procedure GrowHeap(NewCount: Integer);
-    function Grow(NewCount: Integer): Integer;
+    procedure GrowHeap(NewCapacity: Integer);
+    function Grow(NewCapacity: Integer): Integer;
     function GetOccupiedCount(p: PMemSegment): Integer;
     procedure FreeHeap(var Heap: PMemSegment);
     procedure FreeItems(p: PMemSegment);
@@ -231,9 +231,9 @@ type
     // Erases all elements from the memory region.
     procedure Clear;
     // Increase capacity
-    function IncreaseCapacity(NewCount: Integer): Pointer;
+    function IncreaseCapacity(NewCapacity: Integer): Pointer;
     // Increase capacity and allocate
-    function IncreaseAndAlloc(NewCount: Integer): Pointer;
+    function IncreaseAndAlloc(NewCapacity: Integer): Pointer;
     // Allocate memory of a specified size and return its pointer
     function Alloc(Size: Cardinal): Pointer;
     // Dispose count items
@@ -269,6 +269,8 @@ type
   public
     // Initialize shared memory region for collections
     procedure Init(const Meta: TsgItemMeta; Capacity: Cardinal);
+    // Free the region
+    procedure Free;
     // Allocate memory for collection items
     function Alloc(Count: Cardinal): Pointer;
     // Return memory to heap
@@ -866,18 +868,18 @@ begin
   end;
 end;
 
-function TMemoryRegion.IncreaseCapacity(NewCount: Integer): Pointer;
+function TMemoryRegion.IncreaseCapacity(NewCapacity: Integer): Pointer;
 begin
-  GrowHeap(NewCount);
+  GrowHeap(NewCapacity);
   Result := Heap.GetHeapRef;
 end;
 
-function TMemoryRegion.IncreaseAndAlloc(NewCount: Integer): Pointer;
+function TMemoryRegion.IncreaseAndAlloc(NewCapacity: Integer): Pointer;
 var
   Old, Size: Integer;
 begin
   Old := Capacity;
-  Result := IncreaseCapacity(NewCount);
+  Result := IncreaseCapacity(NewCapacity);
   Size := (Capacity - Old) * Integer(FMeta.ItemSize);
   Alloc(Size);
 end;
@@ -887,12 +889,12 @@ begin
   Result := (p.HeapSize - sizeof(TMemSegment) - p.FreeSize) div FMeta.ItemSize;
 end;
 
-procedure TMemoryRegion.GrowHeap(NewCount: Integer);
+procedure TMemoryRegion.GrowHeap(NewCapacity: Integer);
 var
   BlockCount, Size, NewHeapSize: Cardinal;
   p: PMemSegment;
 begin
-  Size := Grow(NewCount) * Integer(FMeta.ItemSize);
+  Size := Grow(NewCapacity) * Integer(FMeta.ItemSize);
   BlockCount := (Size + sizeof(TMemoryRegion)) div BlockSize + 1;
   NewHeapSize := BlockCount * BlockSize;
   if Heap = nil then
@@ -911,7 +913,7 @@ begin
   FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div FMeta.ItemSize;
 end;
 
-function TMemoryRegion.Grow(NewCount: Integer): Integer;
+function TMemoryRegion.Grow(NewCapacity: Integer): Integer;
 begin
   Result := Capacity;
   repeat
@@ -921,7 +923,7 @@ begin
       Result := Result + 16;
     if Result < 0 then
       OutOfMemoryError;
-  until Result >= NewCount;
+  until Result >= NewCapacity;
 end;
 
 function TMemoryRegion.Alloc(Size: Cardinal): Pointer;
@@ -986,12 +988,17 @@ end;
 
 procedure TShareRegion.Init(const Meta: TsgItemMeta; Capacity: Cardinal);
 var
-  Size: Cardinal;
+  NewCapacity: Cardinal;
 begin
   FRegion.Init(Meta, 4096);
-  Size := Capacity * FRegion.ItemSize;
-  FRegion.GrowHeap(Size);
-  FHeap.Init(FRegion.Heap, Size);
+  NewCapacity := Capacity * FRegion.ItemSize;
+  FRegion.GrowHeap(NewCapacity);
+  FHeap.Init(FRegion.Heap, NewCapacity);
+end;
+
+procedure TShareRegion.Free;
+begin
+
 end;
 
 function TShareRegion.Alloc(Count: Cardinal): Pointer;

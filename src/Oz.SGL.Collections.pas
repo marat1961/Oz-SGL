@@ -202,7 +202,7 @@ type
     FRegion: PMemoryRegion;
     FCount: Integer;
     procedure SetCount(NewCount: Integer);
-    procedure CheckCapacity(NewCount: Integer); inline;
+    procedure CheckCapacity(NewCapacity: Integer); inline;
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
   public
     procedure Init(const Meta: TsgItemMeta);
@@ -328,7 +328,7 @@ type
     FItemsRegion: PMemoryRegion;
     function Get(Index: Integer): Pointer;
     procedure Put(Index: Integer; Item: Pointer);
-    procedure CheckCapacity(NewCount: Integer);
+    procedure CheckCapacity(NewCapacity: Integer);
     procedure SetCount(NewCount: Integer);
   public
     constructor From(const Meta: TsgItemMeta);
@@ -1372,10 +1372,10 @@ begin
   end;
 end;
 
-procedure TsgListHelper.CheckCapacity(NewCount: Integer);
+procedure TsgListHelper.CheckCapacity(NewCapacity: Integer);
 begin
-  if FRegion.Capacity <= NewCount then
-    GetItems^ := FRegion.IncreaseAndAlloc(NewCount);
+  if FRegion.Capacity <= NewCapacity then
+    GetItems^ := FRegion.IncreaseAndAlloc(NewCapacity);
 end;
 
 procedure TsgListHelper.Delete(Index: Integer);
@@ -1967,10 +1967,10 @@ begin
   Result := TEnumerator.From(Self);
 end;
 
-procedure TsgPointerList.CheckCapacity(NewCount: Integer);
+procedure TsgPointerList.CheckCapacity(NewCapacity: Integer);
 begin
-  if FListRegion.Capacity <= NewCount then
-    FList := FListRegion.IncreaseAndAlloc(NewCount);
+  if FListRegion.Capacity <= NewCapacity then
+    FList := FListRegion.IncreaseAndAlloc(NewCapacity);
 end;
 
 procedure TsgPointerList.SetCount(NewCount: Integer);
