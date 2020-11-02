@@ -74,6 +74,8 @@ type
   end;
 
   TsgMemoryManager = record
+  const
+    MinSize = sizeof(Pointer) * 2;
   var
     Avail: PsgFreeBlock;
     Heap: Pointer;
@@ -86,6 +88,8 @@ type
     procedure FreeMem(Ptr: Pointer; Size: Cardinal);
     // Return memory to the heap with parameter validation
     procedure Dealloc(Ptr: Pointer; Size: Cardinal);
+    // Reallocate memory
+    function Realloc(Ptr: Pointer; OldSize, Size: Cardinal): Pointer;
   end;
 
 {$EndRegion}
@@ -276,7 +280,7 @@ type
     // Return memory to heap
     procedure FreeMem(Ptr: Pointer; Count: Cardinal);
     // Reallocate memory for collection items
-    function Realloc(Count: Cardinal): Pointer;
+    function Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
   end;
 
 {$EndRegion}
@@ -1011,9 +1015,9 @@ begin
   FHeap.FreeMem(Ptr, Count * FRegion.ItemSize);
 end;
 
-function TShareRegion.Realloc(Count: Cardinal): Pointer;
+function TShareRegion.Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
 begin
-
+  Result := FHeap.Realloc(Ptr, OldCount * FRegion.ItemSize, Count * FRegion.ItemSize);
 end;
 
 {$EndRegion}
@@ -1131,32 +1135,67 @@ begin
 end;
 
 function TsgMemoryManager.Alloc(Size: Cardinal): Pointer;
-const
-  MinSize = sizeof(Pointer) * 2;
 var
-  sz: Cardinal;
   p, q: PsgFreeBlock;
 begin
+  // Align block size to 4 bytes.
+  Size := (Size + 3) and not 3;
   if (Size = 0) or (Size mod MinSize <> 0) then
     raise EsgError.Create('Alloc: Invalid size');
-  // Align block size to 4 bytes.
-  sz := (Size + 3) and not 3;
   p := PsgFreeBlock(@Avail);
   repeat
     q := p^.Next;
     if q = nil then exit(nil);
-    if sz = q.Size then
+    if Size = q.Size then
     begin
       p^.Next := q^.Next;
       exit(q);
     end;
-    if sz < q.Size then
+    if Size < q.Size then
     begin
-      p^.Next := PsgFreeBlock(PByte(p^.Next) + sz);
+      p^.Next := PsgFreeBlock(PByte(p^.Next) + Size);
       p := p^.Next;
       p^.Next := q^.Next;
-      p^.Size := q^.Size - sz;
+      p^.Size := q^.Size - Size;
       exit(q);
+    end;
+    p := q;
+  until False;
+end;
+
+function TsgMemoryManager.Realloc(Ptr: Pointer;
+  OldSize, Size: Cardinal): Pointer;
+var
+  delta: Cardinal;
+  p, q, r: PsgFreeBlock;
+begin
+  OldSize := (OldSize + 3) and not 3;
+  Size := (Size + 3) and not 3;
+  if (OldSize >= Size) or (Size mod MinSize <> 0) then
+    raise EsgError.Create('Alloc: Invalid size');
+  // look for a block with the address Ptr + OldSize in the free memory list
+  r := PsgFreeBlock(NativeUInt(Ptr) + OldSize);
+  p := PsgFreeBlock(@Avail);
+  repeat
+    q := p^.Next;
+    if q = nil then exit(nil);
+    if q = r then
+    begin
+      // is there the desired piece of memory
+      delta := Size - OldSize;
+      if delta = q.Size then
+      begin
+        p^.Next := q^.Next;
+        exit(q);
+      end;
+      if Size < q.Size then
+      begin
+        p^.Next := PsgFreeBlock(PByte(p^.Next) + Size);
+        p := p^.Next;
+        p^.Next := q^.Next;
+        p^.Size := q^.Size - Size;
+        exit(q);
+      end;
     end;
     p := q;
   until False;
@@ -1199,8 +1238,9 @@ end;
 
 procedure TsgMemoryManager.Dealloc(Ptr: Pointer; Size: Cardinal);
 begin
-  if (Ptr = nil) or (NativeUInt(Ptr) < NativeUInt(Heap))
-               or (NativeUInt(Ptr) > NativeUInt(TopMemory)) then
+  if (Ptr = nil) or
+     (NativeUInt(Ptr) < NativeUInt(Heap)) or
+     (NativeUInt(Ptr) > NativeUInt(TopMemory)) then
     raise EsgError.Create('Dealloc: Invalid Pointer');
   FreeMem(Ptr, Size);
 end;
