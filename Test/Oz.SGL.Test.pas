@@ -636,6 +636,33 @@ begin
   CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 40));
   CheckTrue(p.Size = 1560);
   CheckTrue(p.Next = nil);
+
+  p3 := mm.Alloc(8);
+  CheckTrue(p1 = StartHeap);
+  p := mm.Avail;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
+  CheckTrue(p.Size = 1552);
+  CheckTrue(p.Next = nil);
+
+  mm.Dealloc(p1, 8);
+  CheckTrue(p1 = StartHeap);
+  p := mm.Avail;
+  CheckTrue(p = StartHeap);
+  CheckTrue(p.Size = 8);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
+  CheckTrue(p.Size = 1552);
+  CheckTrue(p.Next = nil);
+
+  p4 := mm.Realloc(p1, 8, 16);
+  CheckTrue(p1 = StartHeap);
+  p := mm.Avail;
+  CheckTrue(p = StartHeap);
+  CheckTrue(p.Size = 16);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
+  CheckTrue(p.Size = 1552);
+  CheckTrue(p.Next = nil);
 end;
 
 {$EndRegion}
