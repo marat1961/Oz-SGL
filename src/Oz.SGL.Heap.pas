@@ -1185,16 +1185,18 @@ begin
       delta := Size - OldSize;
       if delta = q.Size then
       begin
+        Result := Ptr;
         p^.Next := q^.Next;
-        exit(q);
+        break;
       end;
-      if Size < q.Size then
+      if delta < q.Size then
       begin
-        p^.Next := PsgFreeBlock(PByte(p^.Next) + Size);
+        Result := Ptr;
+        p^.Next := PsgFreeBlock(PByte(p^.Next) + delta);
         p := p^.Next;
         p^.Next := q^.Next;
-        p^.Size := q^.Size - Size;
-        exit(q);
+        p^.Size := q^.Size - delta;
+        break;
       end;
     end;
     p := q;

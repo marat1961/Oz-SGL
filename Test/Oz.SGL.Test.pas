@@ -135,6 +135,7 @@ type
     procedure TestFreeWithBottom;
     procedure TestFreeWithBoth;
     procedure TestInvalidParameter;
+    procedure TestRealloc;
   end;
 
 {$EndRegion}
@@ -616,7 +617,25 @@ begin
   end;
   CheckTrue(ok);
   mm.Dealloc(p1, 8);
-//  mm.Dealloc(p1, 8);
+// If we try to return the same block of memory again, the program loops!
+// mm.Dealloc(p1, 8);
+end;
+
+procedure TsgMemoryManagerTest.TestRealloc;
+begin
+  p1 := mm.Alloc(8);
+  CheckTrue(p1 = StartHeap);
+  p := mm.Avail;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 8));
+  CheckTrue(p.Size = 1592);
+  CheckTrue(p.Next = nil);
+
+  p2 := mm.Realloc(p1, 8, 40);
+  CheckTrue(p1 = p2);
+  p := mm.Avail;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 40));
+  CheckTrue(p.Size = 1560);
+  CheckTrue(p.Next = nil);
 end;
 
 {$EndRegion}
