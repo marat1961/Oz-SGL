@@ -1016,8 +1016,11 @@ begin
 end;
 
 function TShareRegion.Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
+var
+  ItemSize: Cardinal;
 begin
-  Result := FHeap.Realloc(Ptr, OldCount * FRegion.ItemSize, Count * FRegion.ItemSize);
+  ItemSize := FRegion.ItemSize;
+  Result := FHeap.Realloc(Ptr, OldCount * ItemSize, Count * ItemSize);
 end;
 
 {$EndRegion}
@@ -1227,6 +1230,7 @@ begin
       n := p;
     p := q;
   until False;
+  FillChar(r^, delta, 0);
 end;
 
 procedure TsgMemoryManager.FreeMem(Ptr: Pointer; Size: Cardinal);

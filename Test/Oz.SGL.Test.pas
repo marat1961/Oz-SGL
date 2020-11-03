@@ -623,6 +623,9 @@ begin
 end;
 
 procedure TsgMemoryManagerTest.TestRealloc;
+var
+  pb: PByte;
+  i: Integer;
 begin
   p1 := mm.Alloc(8);
   CheckTrue(p1 = StartHeap);
@@ -631,7 +634,24 @@ begin
   CheckTrue(p.Size = 1592);
   CheckTrue(p.Next = nil);
 
+  pb := p1;
+  for i := 1 to 8 do
+  begin
+    pb^ := i;
+    Inc(pb);
+  end;
   p2 := mm.Realloc(p1, 8, 40);
+  pb := p2;
+  for i := 1 to 8 do
+  begin
+    CheckTrue(pb^ = i);
+    Inc(pb);
+  end;
+  for i := 9 to 40 do
+  begin
+    CheckTrue(pb^ = 0);
+    Inc(pb);
+  end;
   CheckTrue(p1 = p2);
   p := mm.Avail;
   CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 40));
@@ -665,7 +685,24 @@ begin
   CheckTrue(p.Size = 1552);
   CheckTrue(p.Next = nil);
 
+  pb := p4;
+  for i := 1 to 8 do
+  begin
+    pb^ := i;
+    Inc(pb);
+  end;
   p5 := mm.Realloc(p4, 8, 16);
+  pb := p5;
+  for i := 1 to 8 do
+  begin
+    CheckTrue(pb^ = i);
+    Inc(pb);
+  end;
+  for i := 9 to 16 do
+  begin
+    CheckTrue(pb^ = 0);
+    Inc(pb);
+  end;
   CheckTrue(p5 = StartHeap);
   p := mm.Avail;
   CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 16));
@@ -677,7 +714,24 @@ begin
 
   // To avoid leaks, you must always return
   // the same amount of memory that was reserved.
+  pb := p5;
+  for i := 1 to 16 do
+  begin
+    pb^ := i;
+    Inc(pb);
+  end;
   p6 := mm.Realloc(p5, 16, 40);
+  pb := p6;
+  for i := 1 to 16 do
+  begin
+    CheckTrue(pb^ = i);
+    Inc(pb);
+  end;
+  for i := 17 to 40 do
+  begin
+    CheckTrue(pb^ = 0);
+    Inc(pb);
+  end;
   CheckTrue(p6 = StartHeap);
   p := mm.Avail;
   CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
@@ -715,10 +769,23 @@ begin
   CheckTrue(p.Next = nil);
 
   pb := p4;
-  for i := 1 to 16 do begin pb^ := i; Inc(pb); end;
+  for i := 1 to 16 do
+  begin
+    pb^ := i;
+    Inc(pb);
+  end;
   p7 := mm.Realloc(p4, 16, 64);
   pb := p7;
-  for i := 1 to 16 do begin CheckTrue(pb^ = i); Inc(pb); end;
+  for i := 1 to 16 do
+  begin
+    CheckTrue(pb^ = i);
+    Inc(pb);
+  end;
+  for i := 17 to 64 do
+  begin
+    CheckTrue(pb^ = 0);
+    Inc(pb);
+  end;
   CheckTrue(p7 = PsgFreeBlock(PByte(StartHeap) + 416));
   p := mm.Avail;
   CheckTrue(p = p1);
@@ -732,10 +799,23 @@ begin
   CheckTrue(p.Next = nil);
 
   pb := p2;
-  for i := 1 to 32 do begin pb^ := i; Inc(pb); end;
+  for i := 1 to 32 do
+  begin
+    pb^ := i;
+    Inc(pb);
+  end;
   p8 := mm.Realloc(p2, 32, 128);
   pb := p8;
-  for i := 1 to 32 do begin CheckTrue(pb^ = i); Inc(pb); end;
+  for i := 1 to 32 do
+  begin
+    CheckTrue(pb^ = i);
+    Inc(pb);
+  end;
+  for i := 33 to 128 do
+  begin
+    CheckTrue(pb^ = 0);
+    Inc(pb);
+  end;
   CheckTrue(p8 = PsgFreeBlock(PByte(StartHeap) + 480));
   p := mm.Avail;
   CheckTrue(p = p1);
