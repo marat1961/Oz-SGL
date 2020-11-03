@@ -136,6 +136,7 @@ type
     procedure TestFreeWithBoth;
     procedure TestInvalidParameter;
     procedure TestRealloc;
+    procedure TestRealloc2;
   end;
 
 {$EndRegion}
@@ -644,8 +645,8 @@ begin
   CheckTrue(p.Size = 1552);
   CheckTrue(p.Next = nil);
 
-  mm.Dealloc(p1, 40);
-  CheckTrue(p1 = StartHeap);
+  mm.Dealloc(p2, 40);
+  CheckTrue(p2 = StartHeap);
   p := mm.Avail;
   CheckTrue(p = StartHeap);
   CheckTrue(p.Size = 40);
@@ -681,6 +682,67 @@ begin
   p := mm.Avail;
   CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 48));
   CheckTrue(p.Size = 1552);
+  CheckTrue(p.Next = nil);
+end;
+
+procedure TsgMemoryManagerTest.TestRealloc2;
+var
+  p7, p8: Pointer;
+  pb: PByte;
+  i: Integer;
+begin
+  TestAlloc;
+  mm.Dealloc(p1, 8);
+  CheckTrue(p1 = @Self.mem);
+  p := mm.Avail;
+  CheckTrue(p = p1);
+  CheckTrue(p.Size = 8);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 416));
+  CheckTrue(p.Size = 1184);
+  CheckTrue(p.Next = nil);
+
+  mm.Dealloc(p3, 40);
+  CheckTrue(p3 = PsgFreeBlock(PByte(StartHeap) + 40));
+  p := mm.Avail;
+  CheckTrue(p = p1);
+  p := p.Next;
+  CheckTrue(p = p3);
+  CheckTrue(p.Size = 40);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 416));
+  CheckTrue(p.Size = 1184);
+  CheckTrue(p.Next = nil);
+
+  pb := p4;
+  for i := 1 to 16 do begin pb^ := i; Inc(pb); end;
+  p7 := mm.Realloc(p4, 16, 64);
+  pb := p7;
+  for i := 1 to 16 do begin CheckTrue(pb^ = i); Inc(pb); end;
+  CheckTrue(p7 = PsgFreeBlock(PByte(StartHeap) + 416));
+  p := mm.Avail;
+  CheckTrue(p = p1);
+  CheckTrue(p.Size = 8);
+  p := p.Next;
+  CheckTrue(p = p3);
+  CheckTrue(p.Size = 56);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 480));
+  CheckTrue(p.Size = 1120);
+  CheckTrue(p.Next = nil);
+
+  pb := p2;
+  for i := 1 to 32 do begin pb^ := i; Inc(pb); end;
+  p8 := mm.Realloc(p2, 32, 128);
+  pb := p8;
+  for i := 1 to 32 do begin CheckTrue(pb^ = i); Inc(pb); end;
+  CheckTrue(p8 = PsgFreeBlock(PByte(StartHeap) + 480));
+  p := mm.Avail;
+  CheckTrue(p = p1);
+  CheckTrue(p.Size = 96);
+  p := p.Next;
+  CheckTrue(p = PsgFreeBlock(PByte(StartHeap) + 608));
+  CheckTrue(p.Size = 992);
   CheckTrue(p.Next = nil);
 end;
 

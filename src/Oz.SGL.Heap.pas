@@ -77,7 +77,7 @@ type
   const
     MinSize = sizeof(Pointer) * 2;
   var
-    Avail: PsgFreeBlock;
+    Avail, Rover: PsgFreeBlock;
     Heap: Pointer;
     TopMemory: Pointer;
   public
@@ -1167,18 +1167,41 @@ function TsgMemoryManager.Realloc(Ptr: Pointer;
   OldSize, Size: Cardinal): Pointer;
 var
   delta: Cardinal;
-  p, q, r: PsgFreeBlock;
+  p, q, r, n: PsgFreeBlock;
 begin
   OldSize := (OldSize + 3) and not 3;
   Size := (Size + 3) and not 3;
   if (OldSize >= Size) or (Size mod MinSize <> 0) then
     raise EsgError.Create('Alloc: Invalid size');
+  n := nil;
   // look for a block with the address Ptr + OldSize in the free memory list
   r := PsgFreeBlock(NativeUInt(Ptr) + OldSize);
   p := PsgFreeBlock(@Avail);
   repeat
     q := p^.Next;
-    if q = nil then exit(nil);
+    if q = nil then
+    begin
+      // If we were unable to increase the transferred block of memory,
+      // then we take a new block of memory
+      if n <> nil then
+      begin
+        q := n.Next;
+        if Size = q.Size then
+          n^.Next := q^.Next
+        else if Size < q.Size then
+        begin
+          n^.Next := PsgFreeBlock(PByte(n^.Next) + Size);
+          n := n^.Next;
+          n^.Next := q^.Next;
+          n^.Size := q^.Size - Size;
+        end;
+        // and copy the values into it and delete the old block
+        Move(Ptr^, q^, OldSize);
+        FreeMem(Ptr, OldSize);
+        Result := q;
+      end;
+      exit;
+    end;
     if q = r then
     begin
       // is there the desired piece of memory
@@ -1198,7 +1221,10 @@ begin
         p^.Size := q^.Size - delta;
         break;
       end;
-    end;
+    end
+    // If it is a suitable block, remember the pointer preceding it.
+    else if (n = nil) and (Size <= q.Size) then
+      n := p;
     p := q;
   until False;
 end;
@@ -1221,7 +1247,7 @@ begin
     q := q^.Next;
   until False;
   q^.Next := p;
-  // Proc;
+  // Combine two blocks into one.
   x := p^.Next;
   if p^.Size + NativeUInt(p) = NativeUInt(x) then
   begin
@@ -1229,7 +1255,7 @@ begin
     Inc(p^.Size, x^.Size);
   end;
   p := q;
-  // Proc;
+  // Combine two blocks into one.
   x := p^.Next;
   if p^.Size + NativeUInt(p) = NativeUInt(x) then
   begin
