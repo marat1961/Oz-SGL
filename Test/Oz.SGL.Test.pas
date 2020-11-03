@@ -220,7 +220,7 @@ type
   public
     Meta: TsgItemMeta;
     List: TsgArray<TTestRecord>;
-    Region: TMemoryRegion;
+    Region: TSharedRegion;
     procedure SetUp; override;
     procedure TearDown; override;
   published

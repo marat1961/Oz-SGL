@@ -263,13 +263,14 @@ type
 
 {$EndRegion}
 
-{$Region 'TShareRegion: Shared typed memory region'}
+{$Region 'TSharedRegion: Shared typed memory region'}
 
-  PShareRegion = ^TShareRegion;
-  TShareRegion = record
+  PSharedRegion = ^TSharedRegion;
+  TSharedRegion = record
   private
     FRegion: TMemoryRegion;
     FHeap: TsgMemoryManager;
+    function GetMeta: PsgItemMeta; inline;
   public
     // Initialize shared memory region for collections
     procedure Init(const Meta: TsgItemMeta; Capacity: Cardinal);
@@ -281,6 +282,10 @@ type
     procedure FreeMem(Ptr: Pointer; Count: Cardinal);
     // Reallocate memory for collection items
     function Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
+    // Get a pointer to an element of an array of the specified type
+    function GetItemPtr(Index: Cardinal): Pointer; inline;
+    property ItemSize: Cardinal read FRegion.FMeta.ItemSize;
+    property Meta: PsgItemMeta read GetMeta;
   end;
 
 {$EndRegion}
@@ -988,9 +993,9 @@ end;
 
 {$EndRegion}
 
-{$Region 'TShareRegion}
+{$Region 'TSharedRegion}
 
-procedure TShareRegion.Init(const Meta: TsgItemMeta; Capacity: Cardinal);
+procedure TSharedRegion.Init(const Meta: TsgItemMeta; Capacity: Cardinal);
 var
   NewCapacity: Cardinal;
 begin
@@ -1000,22 +1005,32 @@ begin
   FHeap.Init(FRegion.Heap, NewCapacity);
 end;
 
-procedure TShareRegion.Free;
+procedure TSharedRegion.Free;
 begin
 
 end;
 
-function TShareRegion.Alloc(Count: Cardinal): Pointer;
+function TSharedRegion.Alloc(Count: Cardinal): Pointer;
 begin
   Result := FHeap.Alloc(Count * FRegion.ItemSize)
 end;
 
-procedure TShareRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
+procedure TSharedRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
 begin
   FHeap.FreeMem(Ptr, Count * FRegion.ItemSize);
 end;
 
-function TShareRegion.Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
+function TSharedRegion.GetItemPtr(Index: Cardinal): Pointer;
+begin
+  Result := FRegion.GetItemPtr(Index);
+end;
+
+function TSharedRegion.GetMeta: PsgItemMeta;
+begin
+  Result := FRegion.GetMeta;
+end;
+
+function TSharedRegion.Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
 var
   ItemSize: Cardinal;
 begin

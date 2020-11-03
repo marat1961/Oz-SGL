@@ -33,12 +33,12 @@ type
   PsgArrayHelper = ^TsgArrayHelper;
   TsgArrayHelper = record
   private
-    FRegion: PMemoryRegion;
+    FRegion: PSharedRegion;
     FCount: Cardinal;
     FCapacity: Cardinal;
     FItems: PByte;
   public
-    procedure Init(const Region: TMemoryRegion; Capacity: Cardinal);
+    procedure Init(const Region: TSharedRegion; Capacity: Cardinal);
     procedure Free;
     procedure Grow;
     procedure SetCapacity(NewCapacity: Cardinal);
@@ -56,7 +56,7 @@ type
     function GetItem(Index: Cardinal): PItem; inline;
     procedure SetCount(NewCount: Cardinal); inline;
   public
-    procedure Init(const Region: TMemoryRegion; Capacity: Cardinal);
+    procedure Init(const Region: TSharedRegion; Capacity: Cardinal);
     procedure Free; inline;
     function Insert(Index: Cardinal): PItem; inline;
     function Add: PItem; inline;
@@ -112,7 +112,7 @@ type
   TsgTupleMeta = record
   class var
     // region of TsgTupleElement
-    FTeMetaRegion: PMemoryRegion;
+    FTeMetaRegion: PSharedRegion;
   type
     TMetaContext = record
       Count: Cardinal;
@@ -960,17 +960,17 @@ end;
 
 {$Region 'TsgArrayHelper: Generic Array'}
 
-procedure TsgArrayHelper.Init(const Region: TMemoryRegion; Capacity: Cardinal);
+procedure TsgArrayHelper.Init(const Region: TSharedRegion; Capacity: Cardinal);
 begin
   FRegion := @Region;
   FCount := 0;
   FCapacity := Capacity;
-  FItems := Region.Alloc(Region.ItemSize * Capacity);
+  FItems := Region.Alloc(Capacity);
 end;
 
 procedure TsgArrayHelper.Free;
 begin
-  FRegion.Dispose(FItems, FCapacity);
+  FRegion.FreeMem(FItems, FCapacity);
   FItems := nil;
   FCount := 0;
   FCapacity := 0;
@@ -989,10 +989,9 @@ begin
     EsgError.Create(EsgError.CapacityError, NewCapacity);
   if NewCapacity <> FCapacity then
   begin
-    p := FItems;
-    FItems := FRegion.Alloc(FRegion.ItemSize * NewCapacity);
-    System.Move(p^, FItems^, FRegion.ItemSize * FCount);
-    FRegion.Dispose(p, FCount);
+    p := FRegion.Realloc(FItems, FCapacity, NewCapacity);
+    Assert(p <> nil);
+    FItems := p;
     FCapacity := NewCapacity;
   end;
 end;
@@ -1035,7 +1034,7 @@ end;
 
 {$Region 'TsgArray<T>: Generic Array'}
 
-procedure TsgArray<T>.Init(const Region: TMemoryRegion; Capacity: Cardinal);
+procedure TsgArray<T>.Init(const Region: TSharedRegion; Capacity: Cardinal);
 begin
   Check(Region.Meta.TypeInfo = System.TypeInfo(T));
   FList.Init(Region, Capacity);
@@ -3281,7 +3280,7 @@ var
   meta: TsgItemMeta;
 begin
   meta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
-  TsgTupleMeta.FTeMetaRegion := HeapPool.CreateUnbrokenRegion(meta);
+  TsgTupleMeta.FTeMetaRegion.Init(meta, 1024 * 8);
 end;
 
 initialization
