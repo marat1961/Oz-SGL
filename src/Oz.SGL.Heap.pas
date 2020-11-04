@@ -223,8 +223,8 @@ type
     // procedural types
     FSwapItems: TSwapProc;
     FCompareItems: TCompareProc;
-    procedure GrowHeap(NewCapacity: Integer);
-    function Grow(NewCapacity: Integer): Integer;
+    procedure GrowHeap(NewCount: Integer);
+    function Grow(NewCount: Integer): Integer;
     function GetOccupiedCount(p: PMemSegment): Integer;
     procedure FreeHeap(var Heap: PMemSegment);
     procedure FreeItems(p: PMemSegment);
@@ -238,9 +238,9 @@ type
     // Erases all elements from the memory region.
     procedure Clear;
     // Increase capacity
-    function IncreaseCapacity(NewCapacity: Integer): Pointer;
+    function IncreaseCapacity(NewCount: Integer): Pointer;
     // Increase capacity and allocate
-    function IncreaseAndAlloc(NewCapacity: Integer): Pointer;
+    function IncreaseAndAlloc(NewCount: Integer): Pointer;
     // Allocate memory of a specified size and return its pointer
     function Alloc(Size: Cardinal): Pointer;
     // Dispose count items
@@ -272,7 +272,7 @@ type
   TSharedRegion = record
   private
     FRegion: TMemoryRegion;
-    FHeap: TsgMemoryManager;
+    FMemoryManager: TsgMemoryManager;
     function GetMeta: PsgItemMeta; inline;
   public
     // Initialize shared memory region for collections
@@ -878,18 +878,18 @@ begin
   end;
 end;
 
-function TMemoryRegion.IncreaseCapacity(NewCapacity: Integer): Pointer;
+function TMemoryRegion.IncreaseCapacity(NewCount: Integer): Pointer;
 begin
-  GrowHeap(NewCapacity);
+  GrowHeap(NewCount);
   Result := Heap.GetHeapRef;
 end;
 
-function TMemoryRegion.IncreaseAndAlloc(NewCapacity: Integer): Pointer;
+function TMemoryRegion.IncreaseAndAlloc(NewCount: Integer): Pointer;
 var
   Old, Size: Integer;
 begin
   Old := Capacity;
-  Result := IncreaseCapacity(NewCapacity);
+  Result := IncreaseCapacity(NewCount);
   Size := (Capacity - Old) * Integer(FMeta.ItemSize);
   Alloc(Size);
 end;
@@ -899,12 +899,12 @@ begin
   Result := (p.HeapSize - sizeof(TMemSegment) - p.FreeSize) div FMeta.ItemSize;
 end;
 
-procedure TMemoryRegion.GrowHeap(NewCapacity: Integer);
+procedure TMemoryRegion.GrowHeap(NewCount: Integer);
 var
   BlockCount, Size, NewHeapSize: Cardinal;
   p: PMemSegment;
 begin
-  Size := Grow(NewCapacity) * Integer(FMeta.ItemSize);
+  Size := Grow(NewCount) * Integer(FMeta.ItemSize);
   BlockCount := (Size + sizeof(TMemoryRegion)) div BlockSize + 1;
   NewHeapSize := BlockCount * BlockSize;
   if Heap = nil then
@@ -923,7 +923,7 @@ begin
   FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div FMeta.ItemSize;
 end;
 
-function TMemoryRegion.Grow(NewCapacity: Integer): Integer;
+function TMemoryRegion.Grow(NewCount: Integer): Integer;
 begin
   Result := Capacity;
   repeat
@@ -933,7 +933,7 @@ begin
       Result := Result + 16;
     if Result < 0 then
       OutOfMemoryError;
-  until Result >= NewCapacity;
+  until Result >= NewCount;
 end;
 
 function TMemoryRegion.Alloc(Size: Cardinal): Pointer;
@@ -997,28 +997,25 @@ end;
 {$Region 'TSharedRegion}
 
 procedure TSharedRegion.Init(const Meta: TsgItemMeta; Capacity: Cardinal);
-var
-  NewCapacity: Cardinal;
 begin
   FRegion.Init(Meta, 4096);
-  NewCapacity := Capacity * FRegion.ItemSize;
-  FRegion.GrowHeap(NewCapacity);
-  FHeap.Init(FRegion.Heap.GetHeapRef, NewCapacity);
+  FRegion.GrowHeap(Capacity);
+  FMemoryManager.Init(FRegion.Heap.GetHeapRef, Capacity * FRegion.ItemSize);
 end;
 
 procedure TSharedRegion.Free;
 begin
-
+  FRegion.Free;
 end;
 
 function TSharedRegion.Alloc(Count: Cardinal): Pointer;
 begin
-  Result := FHeap.Alloc(Count * FRegion.ItemSize)
+  Result := FMemoryManager.Alloc(Count * FRegion.ItemSize)
 end;
 
 procedure TSharedRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
 begin
-  FHeap.FreeMem(Ptr, Count * FRegion.ItemSize);
+  FMemoryManager.FreeMem(Ptr, Count * FRegion.ItemSize);
 end;
 
 function TSharedRegion.GetMeta: PsgItemMeta;
@@ -1031,7 +1028,7 @@ var
   ItemSize: Cardinal;
 begin
   ItemSize := FRegion.ItemSize;
-  Result := FHeap.Realloc(Ptr, OldCount * ItemSize, Count * ItemSize);
+  Result := FMemoryManager.Realloc(Ptr, OldCount * ItemSize, Count * ItemSize);
 end;
 
 {$EndRegion}

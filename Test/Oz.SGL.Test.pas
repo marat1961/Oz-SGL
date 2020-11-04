@@ -1521,7 +1521,7 @@ end;
 
 procedure TestTsgArray.SetUp;
 begin
-  Meta.Init<TTestRecord>([rfRangeCheck], TRemoveAction.HoldValue);
+  Meta.Init<TTestRecord>;
   Region.Init(Meta, 4000);
   List.Init(Region, 4);
 end;
