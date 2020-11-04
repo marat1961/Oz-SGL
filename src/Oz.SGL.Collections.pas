@@ -112,7 +112,7 @@ type
   TsgTupleMeta = record
   class var
     // region of TsgTupleElement
-    FTeMetaRegion: PSharedRegion;
+    FTeMetaRegion: TSharedRegion;
   type
     TMetaContext = record
       Count: Cardinal;
@@ -1102,7 +1102,7 @@ end;
 procedure TsgTupleMeta.Init(OnFree: TFreeProc; Count: Cardinal);
 begin
   FSize := 0;
-  FElements.Init(FTeMetaRegion^, Count);
+  FElements.Init(FTeMetaRegion, Count);
   FOnFree := OnFree;
 end;
 
@@ -1295,7 +1295,7 @@ end;
 
 function TsgTuple.Get(Index: Integer): TsgTupleElement;
 begin
-  Result.TeMeta := TsgTupleMeta.FTeMetaRegion.GetItemPtr(Index);
+  Result.TeMeta := FTupleMeta.FElements.GetItem(Index);
   Result.Ptr := PByte(FPtr) + Result.TeMeta.Offset;
 end;
 

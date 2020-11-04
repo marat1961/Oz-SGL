@@ -188,19 +188,22 @@ type
 
 {$EndRegion}
 
-{$Region 'TMemSegment'}
+{$Region 'TMemSegment: allocated memory segment'}
 
   PMemSegment = ^TMemSegment;
   TMemSegment = record
   private
-    Next: PMemSegment;
-    HeapSize: Cardinal;
-    FreePtr: Pointer;
-    FreeSize: Cardinal;
+    Next: PMemSegment;  // Next segment
+    HeapSize: Cardinal; // Size of the memory segment
+    FreePtr: Pointer;   // Free memory
+    FreeSize: Cardinal; // Size of free memory
   public
     function GetHeapRef: Pointer; inline;
+     // Whether the address is within the heap
     function GetHignRef: Pointer; inline;
+     // Allocate a piece of memory of the specified size
     procedure CheckPointer(Ptr: Pointer; Size: Cardinal);
+     // Return a reference to the beginning of the heap
     function Occupy(Size: Cardinal): Pointer;
   end;
 
@@ -282,8 +285,6 @@ type
     procedure FreeMem(Ptr: Pointer; Count: Cardinal);
     // Reallocate memory for collection items
     function Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
-    // Get a pointer to an element of an array of the specified type
-    function GetItemPtr(Index: Cardinal): Pointer; inline;
     property ItemSize: Cardinal read FRegion.FMeta.ItemSize;
     property Meta: PsgItemMeta read GetMeta;
   end;
@@ -1002,7 +1003,7 @@ begin
   FRegion.Init(Meta, 4096);
   NewCapacity := Capacity * FRegion.ItemSize;
   FRegion.GrowHeap(NewCapacity);
-  FHeap.Init(FRegion.Heap, NewCapacity);
+  FHeap.Init(FRegion.Heap.GetHeapRef, NewCapacity);
 end;
 
 procedure TSharedRegion.Free;
@@ -1018,11 +1019,6 @@ end;
 procedure TSharedRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
 begin
   FHeap.FreeMem(Ptr, Count * FRegion.ItemSize);
-end;
-
-function TSharedRegion.GetItemPtr(Index: Cardinal): Pointer;
-begin
-  Result := FRegion.GetItemPtr(Index);
 end;
 
 function TSharedRegion.GetMeta: PsgItemMeta;

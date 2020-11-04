@@ -1522,7 +1522,7 @@ end;
 procedure TestTsgArray.SetUp;
 begin
   Meta.Init<TTestRecord>([rfRangeCheck], TRemoveAction.HoldValue);
-  Region.Init(Meta, 4096);
+  Region.Init(Meta, 4000);
   List.Init(Region, 4);
 end;
 
@@ -1542,7 +1542,8 @@ begin
   begin
     a.Init(i, i + 1);
     a.e.tag := i;
-    List.Add^ := a;
+    p := List.Add;
+    p^ := a;
     CheckTrue(List.Count = Cardinal(i));
     // считать и проверить содержимое
     p := List.Items[i - 1];
