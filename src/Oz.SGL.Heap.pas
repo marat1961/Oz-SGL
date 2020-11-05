@@ -266,17 +266,18 @@ type
 
 {$EndRegion}
 
-
 {$Region 'TsgHandle: Handle uniquely identify some other part of data'}
 
   TsgHandle = record
+  private
     v: Cardinal;
+  public
     constructor From(index, counter, typ: Cardinal);
-    // 12 bits
+    // The index field. 16384 - 14 bits
     function Index: Cardinal; inline;
-    // 15 bits
+    // The counter field. 4096 - 12 bits
     function Counter: Cardinal; inline;
-    // 5 bits
+    // The type field. 64 - 6 bits
     function Typ: Cardinal; inline;
   end;
 
@@ -285,12 +286,32 @@ type
 {$Region 'HandleEntry: a pointer to the data and a other bookkeeping fields'}
 
   TsgHandleEntry = record
+  private
     nextFreeIndex: Cardinal;
     counter: Cardinal;
     active: Boolean;
     endOfList: Boolean;
     entry: Pointer;
   end;
+
+{$EndRegion}
+
+{$Region 'TsgHandleManager: Handle uniquely identify some other part of data'}
+
+   TsgHandleManager = class
+   const
+     MaxEntries = 4096; // 2^12
+   public
+     constructor Create;
+     procedure Reset;
+     function Add(p: Pointer; typ: Cardinal): TsgHandle;
+     procedure Update(handle: TsgHandle; p: Pointer);
+     procedure Remove(handle: TsgHandle);
+     function Get(handle: TsgHandle): Pointer; overload;
+     function Get(handle: TsgHandle; var obj): Boolean; overload;
+     function GetAs<T>(handle: TsgHandle; var obj: T): Boolean;
+     function GetCount: Integer;
+   end;
 
 {$EndRegion}
 
@@ -1026,22 +1047,71 @@ end;
 
 constructor TsgHandle.From(index, counter, typ: Cardinal);
 begin
-  v := (typ shl 27) or (counter shl 12) or index;
+  v := (typ shl 26) or (counter shl 14) or index;
 end;
 
 function TsgHandle.Index: Cardinal;
 begin
-  Result := v and $FFF;
+  Result := v and $3FFF;
 end;
 
 function TsgHandle.Counter: Cardinal;
 begin
-  Result := (v shr 12) and $7FFF;
+  Result := (v shr 14) and $FFF;
 end;
 
 function TsgHandle.Typ: Cardinal;
 begin
-  Result := (v shr 27) and $1F;
+  Result := (v shr 26) and $3F;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgHandleManager}
+
+constructor TsgHandleManager.Create;
+begin
+
+end;
+
+function TsgHandleManager.Add(p: Pointer; typ: Cardinal): TsgHandle;
+begin
+
+end;
+
+function TsgHandleManager.Get(handle: TsgHandle): Pointer;
+begin
+
+end;
+
+function TsgHandleManager.Get(handle: TsgHandle; var obj): Boolean;
+begin
+
+end;
+
+function TsgHandleManager.GetAs<T>(handle: TsgHandle; var obj: T): Boolean;
+begin
+
+end;
+
+function TsgHandleManager.GetCount: Integer;
+begin
+
+end;
+
+procedure TsgHandleManager.Remove(handle: TsgHandle);
+begin
+
+end;
+
+procedure TsgHandleManager.Reset;
+begin
+
+end;
+
+procedure TsgHandleManager.Update(handle: TsgHandle; p: Pointer);
+begin
+
 end;
 
 {$EndRegion}
