@@ -103,6 +103,7 @@ type
     property Size: Cardinal read Meta.ItemSize;
   end;
   TsgTupleElementMetas = TsgArray<TsgTupleElementMeta>;
+  PsgTupleElementMetas = ^TsgTupleElementMetas;
 
 {$EndRegion}
 
@@ -110,9 +111,6 @@ type
 
   PsgTupleMeta = ^TsgTupleMeta;
   TsgTupleMeta = record
-  class var
-    // region of TsgTupleElement
-    FTeMetaRegion: TSharedRegion;
   type
     TMetaContext = record
       Count: Cardinal;
@@ -132,7 +130,7 @@ type
     procedure AddElement(var ctx: TMetaContext);
     procedure AddTe<T>(var ctx: TMetaContext);
     procedure UpdateSizeAndOffsets(Allign: Boolean);
-    procedure Init(OnFree: TFreeProc; Count: Cardinal);
+    procedure Init(Count: Cardinal; OnFree: TFreeProc);
   public
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
@@ -870,7 +868,15 @@ var
 
 implementation
 
+var
+  TupleElementMeta: TSharedRegion;
+
 {$Region 'Procedures and functions'}
+
+function GetTeMetas(Count: Integer): PsgTupleElementMetas;
+begin
+  Result := PsgTupleElementMetas(TupleElementMeta.Alloc(Count));
+end;
 
 procedure Swap(var i, j: Double);
 var
@@ -977,21 +983,20 @@ begin
 end;
 
 procedure TsgArrayHelper.Grow;
+var
+  NewCapacity: Cardinal;
 begin
-  SetCapacity(GrowCollection(FCapacity, FCount + 1));
+  NewCapacity := GrowCollection(FCapacity, FCount + 1);
+  SetCapacity(NewCapacity);
 end;
 
 procedure TsgArrayHelper.SetCapacity(NewCapacity: Cardinal);
-var
-  p: PByte;
 begin
   if NewCapacity < FCapacity then
     EsgError.Create(EsgError.CapacityError, NewCapacity);
   if NewCapacity <> FCapacity then
   begin
-    p := FRegion.Realloc(FItems, FCapacity, NewCapacity);
-    Assert(p <> nil);
-    FItems := p;
+    FItems := FRegion.Realloc(FItems, FCapacity, NewCapacity);
     FCapacity := NewCapacity;
   end;
 end;
@@ -1016,7 +1021,6 @@ end;
 
 function TsgArrayHelper.Insert(Index: Cardinal): PByte;
 begin
-  CheckIndex(Index, FCount);
   if FCount = FCapacity then
     Grow;
   Result := GetItem(Index);
@@ -1099,10 +1103,10 @@ end;
 
 {$Region 'TsgTupleMeta'}
 
-procedure TsgTupleMeta.Init(OnFree: TFreeProc; Count: Cardinal);
+procedure TsgTupleMeta.Init(Count: Cardinal; OnFree: TFreeProc);
 begin
   FSize := 0;
-  FElements.Init(FTeMetaRegion, Count);
+  FElements.Init(TupleElementMeta, Count);
   FOnFree := OnFree;
 end;
 
@@ -1116,7 +1120,6 @@ var
   ctx: TMetaContext;
 begin
   ctx.Init(Allign);
-
 end;
 
 procedure TsgTupleMeta.AddElement(var ctx: TMetaContext);
@@ -1143,7 +1146,7 @@ procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
 var
   ctx: TMetaContext;
 begin
-  Init(OnFree, 2);
+  Init(2, OnFree);
   ctx.Init(Allign);
   AddTe<T1>(ctx);
   AddTe<T2>(ctx);
@@ -1153,7 +1156,7 @@ procedure TsgTupleMeta.MakeTrio<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
 var
   ctx: TMetaContext;
 begin
-  Init(OnFree, 3);
+  Init(3, OnFree);
   ctx.Init(Allign);
   AddTe<T1>(ctx);
   AddTe<T2>(ctx);
@@ -1164,7 +1167,7 @@ procedure TsgTupleMeta.MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc; Allign: Boole
 var
   ctx: TMetaContext;
 begin
-  Init(OnFree, 4);
+  Init(4, OnFree);
   ctx.Init(Allign);
   AddTe<T1>(ctx);
   AddTe<T2>(ctx);
@@ -3280,7 +3283,7 @@ var
   meta: TsgItemMeta;
 begin
   meta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
-  TsgTupleMeta.FTeMetaRegion.Init(meta, 1024 * 8);
+  TupleElementMeta.Init(meta, 1024);
 end;
 
 initialization

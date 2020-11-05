@@ -1522,7 +1522,7 @@ end;
 procedure TestTsgArray.SetUp;
 begin
   Meta.Init<TTestRecord>;
-  Region.Init(Meta, 4000);
+  Region.Init(Meta, 5000);
   List.Init(Region, 4);
 end;
 

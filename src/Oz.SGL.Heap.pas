@@ -1029,6 +1029,8 @@ var
 begin
   ItemSize := FRegion.ItemSize;
   Result := FMemoryManager.Realloc(Ptr, OldCount * ItemSize, Count * ItemSize);
+  if Result = nil then
+    EsgError.Create('TSharedRegion.Realloc: not enough memory');
 end;
 
 {$EndRegion}
@@ -1209,8 +1211,8 @@ begin
         // and copy the values into it and delete the old block
         Move(Ptr^, q^, OldSize);
         FreeMem(Ptr, OldSize);
-        Result := q;
       end;
+      Result := q;
       exit;
     end;
     if q = r then
