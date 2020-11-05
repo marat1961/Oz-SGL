@@ -266,6 +266,34 @@ type
 
 {$EndRegion}
 
+
+{$Region 'TsgHandle: Handle uniquely identify some other part of data'}
+
+  TsgHandle = record
+    v: Cardinal;
+    constructor From(index, counter, typ: Cardinal);
+    // 12 bits
+    function Index: Cardinal; inline;
+    // 15 bits
+    function Counter: Cardinal; inline;
+    // 5 bits
+    function Typ: Cardinal; inline;
+  end;
+
+{$EndRegion}
+
+{$Region 'HandleEntry: a pointer to the data and a other bookkeeping fields'}
+
+  TsgHandleEntry = record
+    nextFreeIndex: Cardinal;
+    counter: Cardinal;
+    active: Boolean;
+    endOfList: Boolean;
+    entry: Pointer;
+  end;
+
+{$EndRegion}
+
 {$Region 'TSharedRegion: Shared typed memory region'}
 
   PSharedRegion = ^TSharedRegion;
@@ -990,6 +1018,30 @@ end;
 function TMemoryRegion.GetMeta: PsgItemMeta;
 begin
   Result := @FMeta;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgHandle}
+
+constructor TsgHandle.From(index, counter, typ: Cardinal);
+begin
+  v := (typ shl 27) or (counter shl 12) or index;
+end;
+
+function TsgHandle.Index: Cardinal;
+begin
+  Result := v and $FFF;
+end;
+
+function TsgHandle.Counter: Cardinal;
+begin
+  Result := (v shr 12) and $7FFF;
+end;
+
+function TsgHandle.Typ: Cardinal;
+begin
+  Result := (v shr 27) and $1F;
 end;
 
 {$EndRegion}

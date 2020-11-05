@@ -219,11 +219,11 @@ type
   TestTsgArray = class(TTestCase)
   public
     Meta: TsgItemMeta;
-    List: TsgArray<TTestRecord>;
     Region: TSharedRegion;
     procedure SetUp; override;
     procedure TearDown; override;
   published
+    procedure TestSetCount;
     procedure TestAdd;
     procedure TestDelete;
     procedure TestInsert;
@@ -1523,21 +1523,38 @@ procedure TestTsgArray.SetUp;
 begin
   Meta.Init<TTestRecord>;
   Region.Init(Meta, 5000);
-  List.Init(Region, 4);
 end;
 
 procedure TestTsgArray.TearDown;
 begin
-  List.Free;
   Region.Free;
+end;
+
+procedure TestTsgArray.TestSetCount;
+var
+  List: TsgArray<TTestRecord>;
+  i: Integer;
+  p: PTestRecord;
+begin
+  List.Init(Region, 16);
+  for i := 0 to 15 do
+  begin
+    p := List.Items[i];
+    p.Init(i, i + 1);
+    p.e.tag := i;
+    p.s := IntToStr(i);
+  end;
+  List.Free;
 end;
 
 procedure TestTsgArray.TestAdd;
 var
+  List: TsgArray<TTestRecord>;
   i, j: Integer;
   a, b: TTestRecord;
   p: PTestRecord;
 begin
+  List.Init(Region, ItemsCount);
   for i := 1 to ItemsCount do
   begin
     a.Init(i, i + 1);
@@ -1559,6 +1576,7 @@ begin
       CheckTrue(a.Equals(p^));
     end;
   end;
+  List.Free;
 end;
 
 procedure TestTsgArray.TestDelete;
