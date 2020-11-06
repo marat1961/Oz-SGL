@@ -93,6 +93,7 @@
         </DelphiCompile>
         <DCCReference Include="..\src\Oz.SGL.Heap.pas"/>
         <DCCReference Include="..\src\Oz.SGL.Collections.pas"/>
+        <DCCReference Include="..\src\Oz.SGL.HandleManager.pas"/>
         <DCCReference Include="Oz.SGL.Test.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
@@ -162,7 +163,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win32\Debug\SglTests.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="..\bin\Debug\Win32\SglTests.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>SglTests.exe</RemoteName>
                         <Overwrite>true</Overwrite>
