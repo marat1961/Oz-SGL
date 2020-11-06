@@ -1536,7 +1536,7 @@ var
   i: Integer;
   p: PTestRecord;
 begin
-  List.Init(Region, 16);
+  List.Init(@Region, 16);
   for i := 0 to 15 do
   begin
     p := List.Items[i];
@@ -1554,7 +1554,7 @@ var
   a, b: TTestRecord;
   p: PTestRecord;
 begin
-  List.Init(Region, ItemsCount);
+  List.Init(@Region, ItemsCount);
   for i := 1 to ItemsCount do
   begin
     a.Init(i, i + 1);

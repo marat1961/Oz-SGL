@@ -27,9 +27,41 @@ uses
 
 {$T+}
 
+{$Region 'TSharedRegion: Shared typed memory region'}
+type
+  PSharedRegion = ^TSharedRegion;
+
+{$EndRegion}
+
+{$Region 'Handles'}
+
+  // Entity type
+  hType = packed record
+    v: Cardinal; // 6 bits 0..63
+  end;
+
+  // Shared memory region
+  hRegion = record
+    v: Cardinal;
+    function Index: Cardinal; inline;
+    function Typ: hType; inline;
+  end;
+
+  // Collection handle
+  hCollection = record
+    v: Cardinal;
+    // The index field.
+    function Index: Cardinal; inline;
+    // The region field.
+    function Region: hRegion; inline;
+    // The type field.
+    function Typ: hType; inline;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgArray<T>: Generic Array with memory allocation from a shared memory region'}
 
-type
   PsgArrayHelper = ^TsgArrayHelper;
   TsgArrayHelper = record
   private
@@ -38,7 +70,7 @@ type
     FCapacity: Cardinal;
     FItems: PByte;
   public
-    procedure Init(const Region: TSharedRegion; Capacity: Cardinal);
+    procedure Init(Region: PSharedRegion; Capacity: Cardinal);
     procedure Free;
     procedure Grow;
     procedure SetCapacity(NewCapacity: Cardinal);
@@ -56,7 +88,7 @@ type
     function GetItem(Index: Cardinal): PItem; inline;
     procedure SetCount(NewCount: Cardinal); inline;
   public
-    procedure Init(const Region: TSharedRegion; Capacity: Cardinal);
+    procedure Init(Region: PSharedRegion; Capacity: Cardinal);
     procedure Free; inline;
     function Insert(Index: Cardinal): PItem; inline;
     function Add: PItem; inline;
@@ -829,6 +861,32 @@ type
 
 {$EndRegion}
 
+{$Region 'TSharedRegion: Shared typed memory region'}
+
+  TSharedRegion = record
+  private
+    FRegion: TMemoryRegion;
+    FMemoryManager: TsgMemoryManager;
+    FCollections: TsgList<hCollection>;
+    function GetMeta: PsgItemMeta; inline;
+    function GetItemSize: Cardinal; inline;
+  public
+    // Initialize shared memory region for collections
+    procedure Init(const Meta: TsgItemMeta; Capacity: Cardinal);
+    // Free the region
+    procedure Free;
+    // Allocate memory for collection items
+    function Alloc(Count: Cardinal): Pointer;
+    // Return memory to heap
+    procedure FreeMem(Ptr: Pointer; Count: Cardinal);
+    // Reallocate memory for collection items
+    function Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
+    property ItemSize: Cardinal read GetItemSize;
+    property Meta: PsgItemMeta read GetMeta;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgLog'}
 
   TsgLog = record
@@ -964,11 +1022,47 @@ end;
 
 {$EndRegion}
 
+{$Region 'hRegion'}
+
+function hRegion.Index: Cardinal;
+begin
+  Result := v and $3FFF;
+end;
+
+function hRegion.Typ: hType;
+begin
+  Result.v := (v shr 12) and $3F;
+end;
+
+{$EndRegion}
+
+{$Region 'hCollection'}
+
+function hCollection.Index: Cardinal;
+begin
+  // 2^14 - 1 0..16383
+  Result := v and $3FFF;
+end;
+
+function hCollection.Region: hRegion;
+begin
+  // 2^6 + 2^12
+  Result.v := v shr 14 and $3FFFF;
+end;
+
+function hCollection.Typ: hType;
+begin
+  // 2^6 0..63
+  Result.v := (v shr 26) and $3F;
+end;
+
+{$EndRegion}
+
 {$Region 'TsgArrayHelper: Generic Array'}
 
-procedure TsgArrayHelper.Init(const Region: TSharedRegion; Capacity: Cardinal);
+procedure TsgArrayHelper.Init(Region: PSharedRegion; Capacity: Cardinal);
 begin
-  FRegion := @Region;
+  FRegion := Region;
   FCount := 0;
   FCapacity := Capacity;
   FItems := Region.Alloc(Capacity);
@@ -1038,7 +1132,7 @@ end;
 
 {$Region 'TsgArray<T>: Generic Array'}
 
-procedure TsgArray<T>.Init(const Region: TSharedRegion; Capacity: Cardinal);
+procedure TsgArray<T>.Init(Region: PSharedRegion; Capacity: Cardinal);
 begin
   Check(Region.Meta.TypeInfo = System.TypeInfo(T));
   FList.Init(Region, Capacity);
@@ -1106,7 +1200,7 @@ end;
 procedure TsgTupleMeta.Init(Count: Cardinal; OnFree: TFreeProc);
 begin
   FSize := 0;
-  FElements.Init(TupleElementMeta, Count);
+  FElements.Init(@TupleElementMeta, Count);
   FOnFree := OnFree;
 end;
 
@@ -3205,6 +3299,54 @@ type
   PK = ^Key;
 begin
   PNode(pnd).k := PK(pval)^;
+end;
+
+{$EndRegion}
+
+{$Region 'TSharedRegion'}
+
+procedure TSharedRegion.Init(const Meta: TsgItemMeta; Capacity: Cardinal);
+var
+  Heap: Pointer;
+begin
+  FRegion.Init(Meta, 4096);
+  Heap := FRegion.IncreaseCapacity(Capacity);
+  FMemoryManager.Init(Heap, Capacity * FRegion.ItemSize);
+end;
+
+procedure TSharedRegion.Free;
+begin
+  FRegion.Free;
+end;
+
+function TSharedRegion.Alloc(Count: Cardinal): Pointer;
+begin
+  Result := FMemoryManager.Alloc(Count * FRegion.ItemSize)
+end;
+
+procedure TSharedRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
+begin
+  FMemoryManager.FreeMem(Ptr, Count * FRegion.ItemSize);
+end;
+
+function TSharedRegion.GetItemSize: Cardinal;
+begin
+  Result := FRegion.Meta.ItemSize;
+end;
+
+function TSharedRegion.GetMeta: PsgItemMeta;
+begin
+  Result := FRegion.Meta;
+end;
+
+function TSharedRegion.Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
+var
+  ItemSize: Cardinal;
+begin
+  ItemSize := FRegion.ItemSize;
+  Result := FMemoryManager.Realloc(Ptr, OldCount * ItemSize, Count * ItemSize);
+  if Result = nil then
+    EsgError.Create('TSharedRegion.Realloc: not enough memory');
 end;
 
 {$EndRegion}

@@ -266,31 +266,6 @@ type
 
 {$EndRegion}
 
-{$Region 'TSharedRegion: Shared typed memory region'}
-
-  PSharedRegion = ^TSharedRegion;
-  TSharedRegion = record
-  private
-    FRegion: TMemoryRegion;
-    FMemoryManager: TsgMemoryManager;
-    function GetMeta: PsgItemMeta; inline;
-  public
-    // Initialize shared memory region for collections
-    procedure Init(const Meta: TsgItemMeta; Capacity: Cardinal);
-    // Free the region
-    procedure Free;
-    // Allocate memory for collection items
-    function Alloc(Count: Cardinal): Pointer;
-    // Return memory to heap
-    procedure FreeMem(Ptr: Pointer; Count: Cardinal);
-    // Reallocate memory for collection items
-    function Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
-    property ItemSize: Cardinal read FRegion.FMeta.ItemSize;
-    property Meta: PsgItemMeta read GetMeta;
-  end;
-
-{$EndRegion}
-
 {$Region 'TsgItem: structure for a collection item of some type'}
 
   TsgItem = record
@@ -990,47 +965,6 @@ end;
 function TMemoryRegion.GetMeta: PsgItemMeta;
 begin
   Result := @FMeta;
-end;
-
-{$EndRegion}
-
-{$Region 'TSharedRegion}
-
-procedure TSharedRegion.Init(const Meta: TsgItemMeta; Capacity: Cardinal);
-begin
-  FRegion.Init(Meta, 4096);
-  FRegion.GrowHeap(Capacity);
-  FMemoryManager.Init(FRegion.Heap.GetHeapRef, Capacity * FRegion.ItemSize);
-end;
-
-procedure TSharedRegion.Free;
-begin
-  FRegion.Free;
-end;
-
-function TSharedRegion.Alloc(Count: Cardinal): Pointer;
-begin
-  Result := FMemoryManager.Alloc(Count * FRegion.ItemSize)
-end;
-
-procedure TSharedRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
-begin
-  FMemoryManager.FreeMem(Ptr, Count * FRegion.ItemSize);
-end;
-
-function TSharedRegion.GetMeta: PsgItemMeta;
-begin
-  Result := FRegion.GetMeta;
-end;
-
-function TSharedRegion.Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
-var
-  ItemSize: Cardinal;
-begin
-  ItemSize := FRegion.ItemSize;
-  Result := FMemoryManager.Realloc(Ptr, OldCount * ItemSize, Count * ItemSize);
-  if Result = nil then
-    EsgError.Create('TSharedRegion.Realloc: not enough memory');
 end;
 
 {$EndRegion}
