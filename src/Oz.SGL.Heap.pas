@@ -65,7 +65,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgMemoryManager'}
+{$Region 'TsgMemoryManager: Memory manager'}
 
   PsgFreeBlock = ^TsgFreeBlock;
   TsgFreeBlock = record
@@ -94,7 +94,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgItemMeta: metadata for item of some type'}
+{$Region 'TsgItemMeta: Metadata for item of some type'}
 
 type
 
@@ -188,7 +188,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TMemSegment: allocated memory segment'}
+{$Region 'TMemSegment: Memory segment'}
 
   PMemSegment = ^TMemSegment;
   TMemSegment = record
@@ -209,7 +209,7 @@ type
 
 {$EndRegion}
 
-{$Region 'TMemoryRegion: typed memory region'}
+{$Region 'TMemoryRegion: Typed memory region'}
 
   PMemoryRegion = ^TMemoryRegion;
   TMemoryRegion = record

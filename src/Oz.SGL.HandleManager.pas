@@ -100,8 +100,8 @@ type
     function Add(p: Pointer): hCollection;
     procedure Update(handle: hCollection; p: Pointer);
     procedure Remove(handle: hCollection);
-    function Get(handle: hCollection): Pointer; overload;
-    function GetCount: Integer;
+    function Get(handle: hCollection): Pointer;
+    property Count: Integer read FCount;
   end;
 
 {$EndRegion}
@@ -205,11 +205,6 @@ begin
   n := @FNodes[handle.Index];
   if not n.active then exit(nil);
   Result := n.ptr;
-end;
-
-function TsgHandleManager.GetCount: Integer;
-begin
-  Result := FCount;
 end;
 
 {$EndRegion}

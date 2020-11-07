@@ -30,6 +30,7 @@ uses
   TestFramework,
 
   // Oz.SGL
+  Oz.SGL.HandleManager,
   Oz.SGL.Heap,
   Oz.SGL.Collections;
 
@@ -110,6 +111,25 @@ type
     procedure SetId(const id: Integer);
     function GetId: Integer;
     property Id: Integer read GetId write SetId;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgHandleManagerTest'}
+
+  TsgHandleManagerTest = class(TTestCase)
+  public
+    region: hRegion;
+    m: TsgHandleManager;
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestInvalidHandle;
+    procedure TestCorrectPointer;
+    procedure TestAdd;
+    procedure TestUpdate;
+    procedure TestRemove;
+    procedure TestGet;
   end;
 
 {$EndRegion}
@@ -436,6 +456,62 @@ begin
     Dec(n);
   end;
   Result := 'P' + Result;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgHandleManagerTest'}
+
+procedure TsgHandleManagerTest.SetUp;
+begin
+  inherited;
+  region.v := 5;
+  m.Init(region);
+end;
+
+procedure TsgHandleManagerTest.TearDown;
+begin
+  inherited;
+end;
+
+procedure TsgHandleManagerTest.TestInvalidHandle;
+var
+  h: hCollection;
+  p: Pointer;
+begin
+  h := hCollection.From(123, region);
+  p := m.Get(h);
+  CheckTrue(p = nil);
+end;
+
+procedure TsgHandleManagerTest.TestCorrectPointer;
+var
+  h: hCollection;
+  p, r: Pointer;
+begin
+  p := @m;
+  h := m.Add(p);
+  r := m.Get(h);
+  CheckTrue(p = r);
+end;
+
+procedure TsgHandleManagerTest.TestAdd;
+begin
+end;
+
+procedure TsgHandleManagerTest.TestGet;
+begin
+
+end;
+
+procedure TsgHandleManagerTest.TestRemove;
+begin
+
+end;
+
+procedure TsgHandleManagerTest.TestUpdate;
+begin
+
 end;
 
 {$EndRegion}
@@ -2810,6 +2886,7 @@ end;
 
 initialization
 
+  RegisterTest(TsgHandleManagerTest.Suite);
   RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(TestTsgArray.Suite);
   RegisterTest(TsgTupleTest.Suite);
