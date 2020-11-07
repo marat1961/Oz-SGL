@@ -80,12 +80,23 @@ type
     MaxNodes = 4095;
   type
     TIndex = 0 .. MaxNodes;
-    TNode = packed record
-      ptr: Pointer;
-      next: TIndex;
-      prev: TIndex;
-      active: Boolean;
-      eol: Boolean;
+    TNode = record
+      private
+        procedure SetActive(const Value: Boolean);
+        procedure SetEol(const Value: Boolean);
+        procedure SetNext(const Value: TIndex);
+        procedure SetPrev(const Value: TIndex);
+        function GetActive: Boolean;
+        function GetEol: Boolean;
+        function GetNext: TIndex;
+        function GetPrev: TIndex;
+      public
+        ptr: Pointer;
+        v: Cardinal;
+        property next: TIndex read GetNext write SetNext;
+        property prev: TIndex read GetPrev write SetPrev;
+        property active: Boolean read GetActive write SetActive;
+        property eol: Boolean read GetEol write SetEol;
     end;
     PNode = ^TNode;
     TNodes = array [TIndex] of TNode;
@@ -145,6 +156,60 @@ function hCollection.Typ: hType;
 begin
   // 2^8 0..255
   Result.v := (v shr 24) and $FF;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgHandleManager.TNode'}
+
+function TsgHandleManager.TNode.GetNext: TIndex;
+begin
+  Result := v and $FFF;
+end;
+
+procedure TsgHandleManager.TNode.SetNext(const Value: TIndex);
+begin
+  v := v or (Ord(Value) and $FFF);
+end;
+
+function TsgHandleManager.TNode.GetPrev: TIndex;
+begin
+  Result := (v shr 12) and $FFF;
+end;
+
+procedure TsgHandleManager.TNode.SetPrev(const Value: TIndex);
+begin
+  v := v or ((Ord(Value) and $FFF) shl 12);
+end;
+
+function TsgHandleManager.TNode.GetActive: Boolean;
+begin
+  Result := False;
+  if v and $80000000 <> 0 then
+    Result := True;
+end;
+
+procedure TsgHandleManager.TNode.SetActive(const Value: Boolean);
+begin
+  if Value then
+    v := v or $80000000
+  else
+    v := v and not $80000000;
+end;
+
+function TsgHandleManager.TNode.GetEol: Boolean;
+begin
+  Result := False;
+  if v and $40000000 <> 0 then
+    Result := True;
+end;
+
+procedure TsgHandleManager.TNode.SetEol(const Value: Boolean);
+begin
+  if Value then
+    v := v or $40000000
+  else
+    v := v and not $40000000;
 end;
 
 {$EndRegion}
