@@ -127,6 +127,7 @@ type
     procedure TestInvalidHandle;
     procedure TestCorrectPointer;
     procedure TestTwoPointers;
+    procedure TestPointerRemoved;
     procedure TestAdd;
     procedure TestUpdate;
     procedure TestRemove;
@@ -507,6 +508,22 @@ begin
   h1 := m.Add(p1);
   r := m.Get(h0);
   CheckTrue(p0 = r);
+  r := m.Get(h1);
+  CheckTrue(p1 = r);
+end;
+
+procedure TsgHandleManagerTest.TestPointerRemoved;
+var
+  h0, h1: hCollection;
+  p0, p1, r: Pointer;
+begin
+  p0 := Pointer(456);
+  p1 := Pointer(12783);
+  h0 := m.Add(p0);
+  h1 := m.Add(p1);
+  m.Remove(h0);
+  r := m.Get(h0);
+  CheckTrue(r = nil);
   r := m.Get(h1);
   CheckTrue(p1 = r);
 end;

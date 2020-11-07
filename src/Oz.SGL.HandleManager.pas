@@ -93,6 +93,7 @@ type
       public
         ptr: Pointer;
         v: Cardinal;
+        procedure Init(idx: Integer);
         property next: TIndex read GetNext write SetNext;
         property prev: TIndex read GetPrev write SetPrev;
         property active: Boolean read GetActive write SetActive;
@@ -162,6 +163,13 @@ end;
 
 {$Region 'TsgHandleManager.TNode'}
 
+procedure TsgHandleManager.TNode.Init(idx: Integer);
+begin
+  ptr := nil;
+  // next := idx; prev := idx - 2;
+  v := idx + ((idx - 2) and $FFF shr 12);
+end;
+
 function TsgHandleManager.TNode.GetNext: TIndex;
 begin
   Result := v and $FFF;
@@ -217,9 +225,19 @@ end;
 {$Region 'TsgHandleManager'}
 
 procedure TsgHandleManager.Init(region: hRegion);
+var
+  i: Integer;
+  n: PNode;
 begin
-  FillChar(Self, sizeof(TsgHandleManager), 0);
+  FUsed := 0;
+  FAvail := 0;
   FRegion := region;
+  for i := 0 to  MaxNodes - 1 do
+  begin
+    n := @FNodes[i];
+    n.Init(i + 1);
+  end;
+  n.v := $40000000; // n.Eol := True;
 end;
 
 function TsgHandleManager.Add(p: Pointer): hCollection;
