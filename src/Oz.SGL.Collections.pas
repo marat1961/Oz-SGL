@@ -21,7 +21,8 @@ interface
 {$Region 'Uses'}
 
 uses
-  System.Classes, System.SysUtils, System.Math, Oz.SGL.Heap;
+  System.Classes, System.SysUtils, System.Math,
+  Oz.SGL.Heap, Oz.SGL.HandleManager;
 
 {$EndRegion}
 
@@ -30,33 +31,6 @@ uses
 {$Region 'TSharedRegion: Shared typed memory region'}
 type
   PSharedRegion = ^TSharedRegion;
-
-{$EndRegion}
-
-{$Region 'Handles'}
-
-  // Entity type
-  hType = packed record
-    v: Cardinal; // 6 bits 0..63
-  end;
-
-  // Shared memory region
-  hRegion = record
-    v: Cardinal;
-    function Index: Cardinal; inline;
-    function Typ: hType; inline;
-  end;
-
-  // Collection handle
-  hCollection = record
-    v: Cardinal;
-    // The index field.
-    function Index: Cardinal; inline;
-    // The region field.
-    function Region: hRegion; inline;
-    // The type field.
-    function Typ: hType; inline;
-  end;
 
 {$EndRegion}
 
@@ -864,10 +838,12 @@ type
 {$Region 'TSharedRegion: Shared typed memory region'}
 
   TSharedRegion = record
+  const
+    RegionHandle: hRegion = (v: 1);
   private
     FRegion: TMemoryRegion;
     FMemoryManager: TsgMemoryManager;
-    FCollections: TsgList<hCollection>;
+    FHandleManager: TsgHandleManager;
     function GetMeta: PsgItemMeta; inline;
     function GetItemSize: Cardinal; inline;
   public
@@ -1018,42 +994,6 @@ begin
     ShortSort(L, R)
   else
     Sort(L, R);
-end;
-
-{$EndRegion}
-
-{$Region 'hRegion'}
-
-function hRegion.Index: Cardinal;
-begin
-  Result := v and $3FFF;
-end;
-
-function hRegion.Typ: hType;
-begin
-  Result.v := (v shr 12) and $3F;
-end;
-
-{$EndRegion}
-
-{$Region 'hCollection'}
-
-function hCollection.Index: Cardinal;
-begin
-  // 2^14 - 1 0..16383
-  Result := v and $3FFF;
-end;
-
-function hCollection.Region: hRegion;
-begin
-  // 2^6 + 2^12
-  Result.v := v shr 14 and $3FFFF;
-end;
-
-function hCollection.Typ: hType;
-begin
-  // 2^6 0..63
-  Result.v := (v shr 26) and $3F;
 end;
 
 {$EndRegion}
@@ -3312,6 +3252,7 @@ begin
   FRegion.Init(Meta, 4096);
   Heap := FRegion.IncreaseCapacity(Capacity);
   FMemoryManager.Init(Heap, Capacity * FRegion.ItemSize);
+  FHandleManager.Init(RegionHandle);
 end;
 
 procedure TSharedRegion.Free;

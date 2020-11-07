@@ -27,65 +27,80 @@ uses
 
 {$T+}
 
-{$Region 'TsgHandle: Handle uniquely identify some other part of data'}
+{$Region 'Handles'}
 
 type
+  // Type handle
+  hType = record
+  const
+    MaxIndex = 255;
+  type
+    TIndex = 0 .. MaxIndex; // 8 bits
+  var
+    v: TIndex;
+  end;
 
-  TsgHandle = record
-  private
+  // Shared memory region handle
+  hRegion = record
+  const
+    MaxIndex = 4095;
+  type
+    TIndex = 0 .. MaxIndex; // 12 bits
+  var
     v: Cardinal;
   public
-    constructor From(index, counter, typ: Cardinal);
-    // The index field.
-    function Index: Cardinal; inline;
-    // The counter field.
-    function Counter: Cardinal; inline;
-    // The type field.
-    function Typ: Cardinal; inline;
+    function Index: TIndex; inline;
+    // Type handle
+    function Typ: hType; inline;
+  end;
+
+  // Collection handle
+  hCollection = record
+  const
+    MaxIndex = 4095;
+  type
+    TIndex = 0 .. MaxIndex; // 12 bits
+  var
+    v: Cardinal;
+  public
+    constructor From(index: TIndex; region: hRegion);
+    function Index: TIndex; inline;
+    // Shared memory region handle
+    function Region: hRegion; inline;
+    // Type handle
+    function Typ: hType; inline;
   end;
 
 {$EndRegion}
 
-{$Region 'TsgHandleManager: Handle uniquely identify some other part of data'}
+{$Region 'TsgHandleManager: Handle manager'}
 
-  TsgHandleManager = class
+  TsgHandleManager = record
   const
-    MaxEntries = 4096; // 2^12
+    MaxNodes = 4095;
   type
-    // A pointer to the data and a other bookkeeping fields
-    TsgHandleEntry = record
-    private
-      v: Cardinal;
-      function GetActive: Boolean;
-      function GetCounter: Cardinal;
-      function GetEndOfList: Boolean;
-      function GetNextFreeIndex: Cardinal;
-      procedure Setactive(const Value: Boolean);
-      procedure Setcounter(const Value: Cardinal);
-      procedure SetendOfList(const Value: Boolean);
-      procedure SetnextFreeIndex(const Value: Cardinal);
-    public
-      entry: Pointer;
-      constructor From(nextFreeIndex: Cardinal);
-      procedure Init;
-      property nextFreeIndex: Cardinal read GetnextFreeIndex write SetNextFreeIndex;
-      property counter: Cardinal read GetCounter write SetCounter;
-      property active: Boolean read GetActive write SetActive;
-      property endOfList: Boolean read GetEndOfList write SetEndOfList;
-     end;
+    TIndex = 0 .. MaxNodes;
+    TNode = packed record
+      ptr: Pointer;
+      next: TIndex;
+      prev: TIndex;
+      active: Boolean;
+      eol: Boolean;
+    end;
+    PNode = ^TNode;
+    TNodes = array [TIndex] of TNode;
   private
-    FEntries: array [0 .. MaxEntries - 1] of TsgHandleEntry;
-    FActiveEntryCount: Integer;
-    FFirstFreeEntry: Cardinal;
+    FNodes: TNodes;
+    FCount: Integer;
+    FRegion: hRegion;
+    FUsed: TIndex;
+    FAvail: TIndex;
   public
-    constructor Create;
-    procedure Reset;
-    function Add(p: Pointer; typ: Cardinal): TsgHandle;
-    procedure Update(handle: TsgHandle; p: Pointer);
-    procedure Remove(handle: TsgHandle);
-    function Get(handle: TsgHandle): Pointer; overload;
-    function Get(handle: TsgHandle; var obj): Boolean; overload;
-    function GetAs<T>(handle: TsgHandle; var obj: T): Boolean;
+    procedure Init(region: hRegion);
+    function Add(p: Pointer): hCollection;
+    procedure Update(handle: hCollection; p: Pointer);
+    procedure Remove(handle: hCollection);
+    function Get(handle: hCollection): Pointer; overload;
     function GetCount: Integer;
   end;
 
@@ -93,136 +108,108 @@ type
 
 implementation
 
-{$Region 'TsgHandle'}
+{$Region 'hRegion'}
 
-constructor TsgHandle.From(index, counter, typ: Cardinal);
+function hRegion.Index: TIndex;
 begin
-  v := (typ shl 26) or (counter shl 14) or index;
+  Result := v and $FFF;
 end;
 
-function TsgHandle.Index: Cardinal;
+function hRegion.Typ: hType;
 begin
-  Result := v and $3FFF;
-end;
-
-function TsgHandle.Counter: Cardinal;
-begin
-  Result := (v shr 14) and $FFF;
-end;
-
-function TsgHandle.Typ: Cardinal;
-begin
-  Result := (v shr 26) and $3F;
+  Result.v := (v shr 12) and $FF;
 end;
 
 {$EndRegion}
 
-{$Region 'TsgHandleManager.TsgHandleEntry'}
+{$Region 'hCollection'}
 
-constructor TsgHandleManager.TsgHandleEntry.From(nextFreeIndex: Cardinal);
+constructor hCollection.From(index: TIndex; region: hRegion);
 begin
-
+  v := (region.v shl 14) or index;
 end;
 
-procedure TsgHandleManager.TsgHandleEntry.Init;
+function hCollection.Index: TIndex;
 begin
-  endOfList := True;
+  // 2^12 - 1
+  Result := v and $FFF;
 end;
 
-function TsgHandleManager.TsgHandleEntry.GetActive: Boolean;
+function hCollection.Region: hRegion;
 begin
-
+  // 2^8 + 2^12
+  Result.v := v shr 12 and $FFFFF;
 end;
 
-function TsgHandleManager.TsgHandleEntry.GetCounter: Cardinal;
+function hCollection.Typ: hType;
 begin
-
-end;
-
-function TsgHandleManager.TsgHandleEntry.GetEndOfList: Boolean;
-begin
-
-end;
-
-function TsgHandleManager.TsgHandleEntry.GetNextFreeIndex: Cardinal;
-begin
-
-end;
-
-procedure TsgHandleManager.TsgHandleEntry.Setactive(const Value: Boolean);
-begin
-
-end;
-
-procedure TsgHandleManager.TsgHandleEntry.Setcounter(const Value: Cardinal);
-begin
-
-end;
-
-procedure TsgHandleManager.TsgHandleEntry.SetendOfList(const Value: Boolean);
-begin
-
-end;
-
-procedure TsgHandleManager.TsgHandleEntry.SetnextFreeIndex(
-  const Value: Cardinal);
-begin
-
+  // 2^8 0..255
+  Result.v := (v shr 24) and $FF;
 end;
 
 {$EndRegion}
 
 {$Region 'TsgHandleManager'}
 
-constructor TsgHandleManager.Create;
+procedure TsgHandleManager.Init(region: hRegion);
 begin
-  Reset;
+  FillChar(Self, sizeof(TsgHandleManager), 0);
+  FRegion := region;
 end;
 
-procedure TsgHandleManager.Reset;
+function TsgHandleManager.Add(p: Pointer): hCollection;
 var
-  i: Integer;
+  idx: Integer;
+  n: PNode;
 begin
-  FActiveEntryCount := 0;
-  FFirstFreeEntry := 0;
-  for i := 0 to MaxEntries - 1 do
-    FEntries[i] := TsgHandleEntry.From(i + 1);
-  FEntries[MaxEntries - 1].Init;
+  Assert(FCount < MaxNodes - 1);
+  idx := FAvail;
+  Assert(idx < MaxNodes);
+  n := @FNodes[idx];
+  Assert(not n.active and not n.eol);
+  FAvail := n.next;
+  n.next := 0;
+  n.active := True;
+  n.ptr := p;
+  Inc(FCount);
+  Result := hCollection.From(idx, FRegion);
 end;
 
-function TsgHandleManager.Add(p: Pointer; typ: Cardinal): TsgHandle;
+procedure TsgHandleManager.Update(handle: hCollection; p: Pointer);
+var
+  n: PNode;
 begin
-
+  n := @FNodes[handle.Index];
+  Assert(n.active);
+  n.ptr := p;
 end;
 
-function TsgHandleManager.Get(handle: TsgHandle): Pointer;
+procedure TsgHandleManager.Remove(handle: hCollection);
+var
+  idx: Integer;
+  n: PNode;
 begin
-
+  idx := handle.Index;
+  n := @FNodes[idx];
+  Assert(n.active);
+  n.next := FAvail;
+  n.active := False;
+  FAvail := idx;
+  Dec(FCount);
 end;
 
-function TsgHandleManager.Get(handle: TsgHandle; var obj): Boolean;
+function TsgHandleManager.Get(handle: hCollection): Pointer;
+var
+  n: PNode;
 begin
-
-end;
-
-function TsgHandleManager.GetAs<T>(handle: TsgHandle; var obj: T): Boolean;
-begin
-
+  n := @FNodes[handle.Index];
+  if not n.active then exit(nil);
+  Result := n.ptr;
 end;
 
 function TsgHandleManager.GetCount: Integer;
 begin
-
-end;
-
-procedure TsgHandleManager.Remove(handle: TsgHandle);
-begin
-
-end;
-
-procedure TsgHandleManager.Update(handle: TsgHandle; p: Pointer);
-begin
-
+  Result := FCount;
 end;
 
 {$EndRegion}
