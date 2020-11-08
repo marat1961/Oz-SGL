@@ -128,10 +128,10 @@ type
     procedure TestCorrectPointer;
     procedure TestTwoPointers;
     procedure TestPointerRemoved;
-    procedure TestAdd;
-    procedure TestUpdate;
-    procedure TestRemove;
-    procedure TestGet;
+    procedure TestRemoveNonExist;
+    procedure TestTooManyItemsAdded;
+    procedure TestManyItemsAddedRemoveAdd;
+    procedure TestSameSpotIsDifferent;
   end;
 
 {$EndRegion}
@@ -528,23 +528,72 @@ begin
   CheckTrue(p1 = r);
 end;
 
-procedure TsgHandleManagerTest.TestAdd;
+
+procedure TsgHandleManagerTest.TestRemoveNonExist;
+var
+  h, hne: hCollection;
+  p: Pointer;
+  ok: Boolean;
 begin
+  p := Pointer(456);
+  h := m.Add(p);
+  hne := hCollection.From(747, region);
+  ok := False;
+  try
+    m.Remove(hne);
+  except
+    ok :=True;
+  end;
+  CheckTrue(ok);
 end;
 
-procedure TsgHandleManagerTest.TestGet;
+procedure TsgHandleManagerTest.TestTooManyItemsAdded;
+var
+  h: hCollection;
+  p: Pointer;
+  i: Integer;
+  ok: Boolean;
 begin
-
+  p := Pointer(4526);
+  for i := 0 to m.MaxNodes - 2 do
+    h := m.Add(p);
+  ok := False;
+  try
+    m.Add(p);
+  except
+    ok :=True;
+  end;
+  CheckTrue(ok);
 end;
 
-procedure TsgHandleManagerTest.TestRemove;
+procedure TsgHandleManagerTest.TestManyItemsAddedRemoveAdd;
+var
+  h: hCollection;
+  p: Pointer;
+  i: Integer;
+  ok: Boolean;
 begin
-
+  p := Pointer(4526);
+  for i := 0 to m.MaxNodes - 2 do
+    h := m.Add(p);
+  m.Remove(h);
+  h :=  m.Add(p);
+  CheckTrue(h.v <> 0);
 end;
 
-procedure TsgHandleManagerTest.TestUpdate;
+procedure TsgHandleManagerTest.TestSameSpotIsDifferent;
+var
+  h, nh: hCollection;
+  p: Pointer;
+  i: Integer;
+  ok: Boolean;
 begin
-
+  p := Pointer(4526);
+  for i := 0 to m.MaxNodes - 2 do
+    h := m.Add(p);
+  m.Remove(h);
+  nh := m.Add(p);
+  CheckTrue(h.Index = nh.Index);
 end;
 
 {$EndRegion}

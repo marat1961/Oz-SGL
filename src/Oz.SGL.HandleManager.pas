@@ -77,25 +77,22 @@ type
 
   TsgHandleManager = record
   const
-    MaxNodes = 4095;
+    MaxNodes = 4096;
   type
-    TIndex = 0 .. MaxNodes;
+    TIndex = 0 .. MaxNodes - 1;
     TNode = record
       private
         procedure SetActive(const Value: Boolean);
         procedure SetEol(const Value: Boolean);
         procedure SetNext(const Value: TIndex);
-        procedure SetPrev(const Value: TIndex);
         function GetActive: Boolean;
         function GetEol: Boolean;
         function GetNext: TIndex;
-        function GetPrev: TIndex;
       public
         ptr: Pointer;
         v: Cardinal;
         procedure Init(idx: Integer);
         property next: TIndex read GetNext write SetNext;
-        property prev: TIndex read GetPrev write SetPrev;
         property active: Boolean read GetActive write SetActive;
         property eol: Boolean read GetEol write SetEol;
     end;
@@ -178,16 +175,6 @@ end;
 procedure TsgHandleManager.TNode.SetNext(const Value: TIndex);
 begin
   v := v or (Ord(Value) and $FFF);
-end;
-
-function TsgHandleManager.TNode.GetPrev: TIndex;
-begin
-  Result := (v shr 12) and $FFF;
-end;
-
-procedure TsgHandleManager.TNode.SetPrev(const Value: TIndex);
-begin
-  v := v or ((Ord(Value) and $FFF) shl 12);
 end;
 
 function TsgHandleManager.TNode.GetActive: Boolean;
