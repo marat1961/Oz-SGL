@@ -3361,7 +3361,7 @@ end;
 
 {$EndRegion}
 
-procedure InitTupleMeta;
+procedure TupleMetaInit;
 var
   meta: TsgItemMeta;
 begin
@@ -3369,8 +3369,16 @@ begin
   TupleElementMeta.Init(meta, 1024);
 end;
 
+procedure TupleMetaFree;
+begin
+  TupleElementMeta.Free;
+end;
+
 initialization
-  InitTupleMeta;
+  TupleMetaInit;
+
+finalization
+  TupleMetaFree;
 
 end.
 
