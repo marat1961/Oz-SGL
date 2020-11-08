@@ -124,6 +124,7 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
+    procedure TestNode;
     procedure TestInvalidHandle;
     procedure TestCorrectPointer;
     procedure TestTwoPointers;
@@ -136,6 +137,7 @@ type
     procedure TestSameSlotIsDifferent;
     procedure TestDeleteSameSlot;
     procedure TestDeleteDeletingSameSlot;
+    procedure TestTraversal;
   end;
 
 {$EndRegion}
@@ -480,6 +482,11 @@ begin
   inherited;
 end;
 
+procedure TsgHandleManagerTest.TestNode;
+begin
+
+end;
+
 procedure TsgHandleManagerTest.TestInvalidHandle;
 var
   h: hCollection;
@@ -667,6 +674,11 @@ begin
     ok := True;
   end;
   CheckTrue(ok);
+end;
+
+procedure TsgHandleManagerTest.TestTraversal;
+begin
+
 end;
 
 {$EndRegion}

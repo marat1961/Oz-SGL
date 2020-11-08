@@ -514,7 +514,7 @@ end;
 
 procedure hMeta.SetRemoveAction(const Value: TRemoveAction);
 begin
-  v := v or ((Ord(Value) and $3) shl 11);
+  v := (v and not $1800) or ((Ord(Value) and $3) shl 11);
 end;
 
 {$EndRegion}

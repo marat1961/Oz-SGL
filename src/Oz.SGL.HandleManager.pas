@@ -82,25 +82,26 @@ type
     TIndex = 0 .. MaxNodes - 1;
     TNode = record
       private
-        procedure SetActive(const Value: Boolean);
-        procedure SetEol(const Value: Boolean);
-        procedure SetNext(const Value: TIndex);
         function GetActive: Boolean;
-        function GetEol: Boolean;
-        function GetNext: TIndex;
+        procedure SetActive(const Value: Boolean);
         function GetCounter: Byte;
         procedure SetCounter(const Value: Byte);
+        function GetNext: TIndex;
+        procedure SetNext(const Value: TIndex);
+        function GetPrev: TIndex;
+        procedure SetPrev(const Value: TIndex);
       public
         ptr: Pointer;
         v: Cardinal;
-        procedure Init(idx: Integer);
+        procedure Init(next, prev: TIndex);
+        property prev: TIndex read GetPrev write SetPrev;
         property next: TIndex read GetNext write SetNext;
         property counter: Byte read GetCounter write SetCounter;
         property active: Boolean read GetActive write SetActive;
-        property eol: Boolean read GetEol write SetEol;
     end;
     PNode = ^TNode;
     TNodes = array [TIndex] of TNode;
+    TNodeProc = procedure(p: PNode) of object;
   private
     FNodes: TNodes;
     FCount: Integer;
@@ -113,6 +114,7 @@ type
     procedure Update(handle: hCollection; p: Pointer);
     procedure Remove(handle: hCollection);
     function Get(handle: hCollection): Pointer;
+    procedure Traversal(proc: TNodeProc);
     property Count: Integer read FCount;
   end;
 
@@ -163,11 +165,11 @@ end;
 
 {$Region 'TsgHandleManager.TNode'}
 
-procedure TsgHandleManager.TNode.Init(idx: Integer);
+procedure TsgHandleManager.TNode.Init(next, prev: TIndex);
 begin
   ptr := nil;
-  // next := idx; counter := 1;
-  v := idx + (1 shr 12);
+  // Self.next := idx; Self.prev := prev; counter := 1;
+  v := next or (prev shl 12) or (1 shl 24);
 end;
 
 function TsgHandleManager.TNode.GetNext: TIndex;
@@ -177,7 +179,17 @@ end;
 
 procedure TsgHandleManager.TNode.SetNext(const Value: TIndex);
 begin
-  v := v or (Ord(Value) and $FFF);
+  v := (v and not $FFF) or (Value and $FFF);
+end;
+
+function TsgHandleManager.TNode.GetPrev: TIndex;
+begin
+  Result := (v shr 12) and $FFF;
+end;
+
+procedure TsgHandleManager.TNode.SetPrev(const Value: TIndex);
+begin
+  v := (v and not $FFF000) or ((Value and $FFF) shl 12);
 end;
 
 function TsgHandleManager.TNode.GetActive: Boolean;
@@ -197,27 +209,12 @@ end;
 
 function TsgHandleManager.TNode.GetCounter: Byte;
 begin
-  Result := (v shr 12) and $FF;
+  Result := (v shr 24) and $7F;
 end;
 
 procedure TsgHandleManager.TNode.SetCounter(const Value: Byte);
 begin
-  v := v or ((Ord(Value) and $FF) shl 12);
-end;
-
-function TsgHandleManager.TNode.GetEol: Boolean;
-begin
-  Result := False;
-  if v and $40000000 <> 0 then
-    Result := True;
-end;
-
-procedure TsgHandleManager.TNode.SetEol(const Value: Boolean);
-begin
-  if Value then
-    v := v or $40000000
-  else
-    v := v and not $40000000;
+  v := (v and not $7F000000) or ((Value and $7F) shl 24);
 end;
 
 {$EndRegion}
@@ -229,29 +226,35 @@ var
   i: Integer;
   n: PNode;
 begin
-  FUsed := 0;
-  FAvail := 0;
+  Fillchar(Self, sizeof(TsgHandleManager), 0);
   FRegion := region;
-  for i := 0 to  MaxNodes - 1 do
+  FCount := 0;
+  FUsed := MaxNodes - 1;
+  FAvail := 0;
+  for i := 0 to MaxNodes - 2 do
   begin
     n := @FNodes[i];
-    n.Init(i + 1);
+    n.Init((i + 1) mod (MaxNodes - 2), (i - 2) mod (MaxNodes - 2));
   end;
-  n.v := $40000000; // n.Eol := True;
+  n := @FNodes[MaxNodes - 1];
+  n.Init(MaxNodes - 1, MaxNodes - 1);
 end;
 
 function TsgHandleManager.Add(p: Pointer): hCollection;
 var
   idx: Integer;
-  n: PNode;
+  n, q: PNode;
 begin
   Assert(FCount < MaxNodes - 1);
   idx := FAvail;
   Assert(idx < MaxNodes);
   n := @FNodes[idx];
-  Assert(not n.active and not n.eol);
-  FAvail := n.next;
-  n.next := 0;
+  Assert(not n.active);
+  // Move item from the avail list to the used list
+  q := @FNodes[n.prev];
+  q.next := n.next;
+  n.next := FUsed;
+  FUsed := idx;
   n.counter := n.counter + 1;
   if n.counter = 0 then
     n.counter := 1;
@@ -274,15 +277,19 @@ end;
 procedure TsgHandleManager.Remove(handle: hCollection);
 var
   idx: Integer;
-  n: PNode;
+  n, q: PNode;
 begin
   idx := handle.Index;
   n := @FNodes[idx];
   Assert(n.active);
   Assert(n.counter = handle.counter);
   n.next := FAvail;
-  n.active := False;
+  // Move item from the used list to the avail list
+  q := @FNodes[n.prev];
+  q.next := n.next;
+  n.next := FAvail;
   FAvail := idx;
+  n.active := False;
   Dec(FCount);
 end;
 
@@ -293,6 +300,19 @@ begin
   n := @FNodes[handle.Index];
   if (n.counter <> handle.counter) or not n.active then exit(nil);
   Result := n.ptr;
+end;
+
+procedure TsgHandleManager.Traversal(proc: TNodeProc);
+var
+  n: PNode;
+begin
+  if FCount = 0 then exit;
+  n := @FNodes[FUsed];
+  while n.active do
+  begin
+    proc(n);
+    n := @FNodes[n.next];
+  end;
 end;
 
 {$EndRegion}
