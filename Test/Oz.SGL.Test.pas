@@ -131,7 +131,9 @@ type
     procedure TestRemoveNonExist;
     procedure TestTooManyItemsAdded;
     procedure TestManyItemsAddedRemoveAdd;
-    procedure TestSameSpotIsDifferent;
+    procedure TestSameSlotIsDifferent;
+    procedure TestDeleteSameSlot;
+    procedure TestDeleteDeletingSameSlot;
   end;
 
 {$EndRegion}
@@ -541,7 +543,7 @@ begin
   try
     m.Remove(hne);
   except
-    ok :=True;
+    ok := True;
   end;
   CheckTrue(ok);
 end;
@@ -560,7 +562,7 @@ begin
   try
     m.Add(p);
   except
-    ok :=True;
+    ok := True;
   end;
   CheckTrue(ok);
 end;
@@ -575,11 +577,11 @@ begin
   for i := 0 to m.MaxNodes - 2 do
     h := m.Add(p);
   m.Remove(h);
-  h :=  m.Add(p);
+  h := m.Add(p);
   CheckTrue(h.v <> 0);
 end;
 
-procedure TsgHandleManagerTest.TestSameSpotIsDifferent;
+procedure TsgHandleManagerTest.TestSameSlotIsDifferent;
 var
   h, nh: hCollection;
   p: Pointer;
@@ -592,6 +594,44 @@ begin
   nh := m.Add(p);
   CheckTrue(h.Index = nh.Index);
   CheckTrue(h.counter <> nh.counter);
+end;
+
+procedure TsgHandleManagerTest.TestDeleteSameSlot;
+var
+  h: hCollection;
+  p, r: Pointer;
+  i: Integer;
+begin
+  p := Pointer(4526);
+  h := m.Add(p);
+  for i := 0 to m.MaxNodes - 3 do
+    m.Add(p);
+  m.Remove(h);
+  m.Add(p);
+  r := m.Get(h);
+  CheckTrue(r = nil);
+end;
+
+procedure TsgHandleManagerTest.TestDeleteDeletingSameSlot;
+var
+  h: hCollection;
+  p: Pointer;
+  i: Integer;
+  ok: Boolean;
+begin
+  p := Pointer(4526);
+  h := m.Add(p);
+  for i := 0 to m.MaxNodes - 3 do
+    m.Add(p);
+  m.Remove(h);
+  m.Add(p);
+  ok := False;
+  try
+    m.Remove(h);
+  except
+    ok := True;
+  end;
+  CheckTrue(ok);
 end;
 
 {$EndRegion}
