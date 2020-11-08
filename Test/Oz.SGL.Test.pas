@@ -481,7 +481,7 @@ var
   h: hCollection;
   p: Pointer;
 begin
-  h := hCollection.From(123, region);
+  h := hCollection.From(123, 4, region);
   p := m.Get(h);
   CheckTrue(p = nil);
 end;
@@ -528,7 +528,6 @@ begin
   CheckTrue(p1 = r);
 end;
 
-
 procedure TsgHandleManagerTest.TestRemoveNonExist;
 var
   h, hne: hCollection;
@@ -537,7 +536,7 @@ var
 begin
   p := Pointer(456);
   h := m.Add(p);
-  hne := hCollection.From(747, region);
+  hne := hCollection.From(747, 6, region);
   ok := False;
   try
     m.Remove(hne);
@@ -571,7 +570,6 @@ var
   h: hCollection;
   p: Pointer;
   i: Integer;
-  ok: Boolean;
 begin
   p := Pointer(4526);
   for i := 0 to m.MaxNodes - 2 do
@@ -586,7 +584,6 @@ var
   h, nh: hCollection;
   p: Pointer;
   i: Integer;
-  ok: Boolean;
 begin
   p := Pointer(4526);
   for i := 0 to m.MaxNodes - 2 do
@@ -594,6 +591,7 @@ begin
   m.Remove(h);
   nh := m.Add(p);
   CheckTrue(h.Index = nh.Index);
+  CheckTrue(h.counter <> nh.counter);
 end;
 
 {$EndRegion}

@@ -63,12 +63,12 @@ type
   var
     v: Cardinal;
   public
-    constructor From(index: TIndex; region: hRegion);
+    constructor From(index: TIndex; counter: Byte; region: hRegion);
     function Index: TIndex; inline;
     // Shared memory region handle
     function Region: hRegion; inline;
-    // Type handle
-    function Typ: hType; inline;
+    // Reuse counter
+    function Counter: Byte; inline;
   end;
 
 {$EndRegion}
@@ -88,11 +88,14 @@ type
         function GetActive: Boolean;
         function GetEol: Boolean;
         function GetNext: TIndex;
+        function GetCounter: Byte;
+        procedure SetCounter(const Value: Byte);
       public
         ptr: Pointer;
         v: Cardinal;
         procedure Init(idx: Integer);
         property next: TIndex read GetNext write SetNext;
+        property counter: Byte read GetCounter write SetCounter;
         property active: Boolean read GetActive write SetActive;
         property eol: Boolean read GetEol write SetEol;
     end;
@@ -133,9 +136,9 @@ end;
 
 {$Region 'hCollection'}
 
-constructor hCollection.From(index: TIndex; region: hRegion);
+constructor hCollection.From(index: TIndex; counter: Byte; region: hRegion);
 begin
-  v := (region.v shl 14) or index;
+  v := (((counter shl 12) or region.v) shl 12) or index;
 end;
 
 function hCollection.Index: TIndex;
@@ -147,13 +150,13 @@ end;
 function hCollection.Region: hRegion;
 begin
   // 2^8 + 2^12
-  Result.v := v shr 12 and $FFFFF;
+  Result.v := v shr 12 and $FFF;
 end;
 
-function hCollection.Typ: hType;
+function hCollection.Counter: Byte;
 begin
   // 2^8 0..255
-  Result.v := (v shr 24) and $FF;
+  Result := (v shr 24) and $FF;
 end;
 
 {$EndRegion}
@@ -163,8 +166,8 @@ end;
 procedure TsgHandleManager.TNode.Init(idx: Integer);
 begin
   ptr := nil;
-  // next := idx; prev := idx - 2;
-  v := idx + ((idx - 2) and $FFF shr 12);
+  // next := idx; counter := 1;
+  v := idx + (1 shr 12);
 end;
 
 function TsgHandleManager.TNode.GetNext: TIndex;
@@ -190,6 +193,16 @@ begin
     v := v or $80000000
   else
     v := v and not $80000000;
+end;
+
+function TsgHandleManager.TNode.GetCounter: Byte;
+begin
+  Result := (v shr 12) and $FF;
+end;
+
+procedure TsgHandleManager.TNode.SetCounter(const Value: Byte);
+begin
+  v := v or ((Ord(Value) and $FF) shl 12);
 end;
 
 function TsgHandleManager.TNode.GetEol: Boolean;
@@ -239,10 +252,13 @@ begin
   Assert(not n.active and not n.eol);
   FAvail := n.next;
   n.next := 0;
+  n.counter := n.counter + 1;
+  if n.counter = 0 then
+    n.counter := 1;
   n.active := True;
   n.ptr := p;
   Inc(FCount);
-  Result := hCollection.From(idx, FRegion);
+  Result := hCollection.From(idx, n.counter, FRegion);
 end;
 
 procedure TsgHandleManager.Update(handle: hCollection; p: Pointer);
@@ -251,6 +267,7 @@ var
 begin
   n := @FNodes[handle.Index];
   Assert(n.active);
+  Assert(n.counter = handle.counter);
   n.ptr := p;
 end;
 
@@ -262,6 +279,7 @@ begin
   idx := handle.Index;
   n := @FNodes[idx];
   Assert(n.active);
+  Assert(n.counter = handle.counter);
   n.next := FAvail;
   n.active := False;
   FAvail := idx;
@@ -273,7 +291,7 @@ var
   n: PNode;
 begin
   n := @FNodes[handle.Index];
-  if not n.active then exit(nil);
+  if (n.counter <> handle.counter) or not n.active then exit(nil);
   Result := n.ptr;
 end;
 
