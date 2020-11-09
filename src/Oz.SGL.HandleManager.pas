@@ -108,10 +108,12 @@ type
     FRegion: hRegion;
     FUsed: TIndex;
     FAvail: TIndex;
+    // Move node from the src list to the dest list
+    function MoveNode(idx: TIndex; var src, dest: TIndex): PNode;
   public
     procedure Init(region: hRegion);
-    function Add(p: Pointer): hCollection;
-    procedure Update(handle: hCollection; p: Pointer);
+    function Add(ptr: Pointer): hCollection;
+    procedure Update(handle: hCollection; ptr: Pointer);
     procedure Remove(handle: hCollection);
     function Get(handle: hCollection): Pointer;
     procedure Traversal(proc: TNodeProc);
@@ -236,59 +238,65 @@ begin
     n := @FNodes[i];
     n.Init((i + 1) mod (MaxNodes - 2), (i - 2) mod (MaxNodes - 2));
   end;
+  // guard node
   n := @FNodes[MaxNodes - 1];
   n.Init(MaxNodes - 1, MaxNodes - 1);
 end;
 
-function TsgHandleManager.Add(p: Pointer): hCollection;
+function TsgHandleManager.MoveNode(idx: TIndex; var src, dest: TIndex): PNode;
+var
+  p: PNode;
+begin
+  Result := @FNodes[idx];
+  // remove node from src list
+  p := @FNodes[src];
+  src := p.next;
+  p.prev := MaxNodes - 1; // guard node
+  // add node to dest list
+  Result.next := dest;
+  p := @FNodes[dest];
+  p.prev := idx;
+  dest := idx;
+end;
+
+function TsgHandleManager.Add(ptr: Pointer): hCollection;
 var
   idx: Integer;
-  n, q: PNode;
+  n: PNode;
 begin
   Assert(FCount < MaxNodes - 1);
   idx := FAvail;
   Assert(idx < MaxNodes);
-  n := @FNodes[idx];
+  n := MoveNode(idx, FAvail, FUsed);
   Assert(not n.active);
-  // Move item from the avail list to the used list
-  q := @FNodes[n.prev];
-  q.next := n.next;
-  n.next := FUsed;
-  FUsed := idx;
   n.counter := n.counter + 1;
   if n.counter = 0 then
     n.counter := 1;
   n.active := True;
-  n.ptr := p;
+  n.ptr := ptr;
   Inc(FCount);
   Result := hCollection.From(idx, n.counter, FRegion);
 end;
 
-procedure TsgHandleManager.Update(handle: hCollection; p: Pointer);
+procedure TsgHandleManager.Update(handle: hCollection; ptr: Pointer);
 var
   n: PNode;
 begin
   n := @FNodes[handle.Index];
   Assert(n.active);
   Assert(n.counter = handle.counter);
-  n.ptr := p;
+  n.ptr := ptr;
 end;
 
 procedure TsgHandleManager.Remove(handle: hCollection);
 var
   idx: Integer;
-  n, q: PNode;
+  n: PNode;
 begin
   idx := handle.Index;
-  n := @FNodes[idx];
+  n := MoveNode(idx, FUsed, FAvail);
   Assert(n.active);
   Assert(n.counter = handle.counter);
-  n.next := FAvail;
-  // Move item from the used list to the avail list
-  q := @FNodes[n.prev];
-  q.next := n.next;
-  n.next := FAvail;
-  FAvail := idx;
   n.active := False;
   Dec(FCount);
 end;

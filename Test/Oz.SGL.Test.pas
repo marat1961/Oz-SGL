@@ -483,8 +483,47 @@ begin
 end;
 
 procedure TsgHandleManagerTest.TestNode;
+var
+  n: TsgHandleManager.TNode;
+  i: Integer;
 begin
-
+  n.Init(7, 5);
+  CheckTrue(n.next = 7);
+  CheckTrue(n.prev = 5);
+  CheckTrue(n.counter = 1);
+  CheckTrue(n.active = False);
+  n.active := True;
+  CheckTrue(n.active = True);
+  CheckTrue(n.next = 7);
+  CheckTrue(n.prev = 5);
+  CheckTrue(n.counter = 1);
+  n.active := False;
+  CheckTrue(n.active = False);
+  for i := 0 to 127 do
+  begin
+    n.counter := i;
+    CheckTrue(n.next = 7);
+    CheckTrue(n.prev = 5);
+    CheckTrue(n.counter = i);
+    CheckTrue(n.active = False);
+  end;
+  n.counter := 127;
+  for i := 0 to 4095 do
+  begin
+    n.next := i;
+    CheckTrue(n.next = i);
+    CheckTrue(n.prev = 5);
+    CheckTrue(n.counter = 127);
+    CheckTrue(n.active = False);
+  end;
+  for i := 0 to 4095 do
+  begin
+    n.prev := i;
+    CheckTrue(n.next = 4095);
+    CheckTrue(n.prev = i);
+    CheckTrue(n.counter = 127);
+    CheckTrue(n.active = False);
+  end;
 end;
 
 procedure TsgHandleManagerTest.TestInvalidHandle;
@@ -492,6 +531,7 @@ var
   h: hCollection;
   p: Pointer;
 begin
+  CheckTrue(m.Count = 0);
   h := hCollection.From(123, 4, region);
   p := m.Get(h);
   CheckTrue(p = nil);
