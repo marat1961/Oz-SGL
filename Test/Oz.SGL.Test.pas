@@ -638,7 +638,7 @@ var
   ok: Boolean;
 begin
   p := Pointer(4526);
-  for i := 0 to m.MaxNodes - 2 do
+  for i := 0 to m.MaxNodes - 3 do
     h := m.Add(p);
   ok := False;
   try
@@ -656,7 +656,7 @@ var
   i: Integer;
 begin
   p := Pointer(4526);
-  for i := 0 to m.MaxNodes - 2 do
+  for i := 0 to m.MaxNodes - 3 do
     h := m.Add(p);
   m.Remove(h);
   h := m.Add(p);
@@ -670,7 +670,7 @@ var
   i: Integer;
 begin
   p := Pointer(4526);
-  for i := 0 to m.MaxNodes - 2 do
+  for i := 0 to m.MaxNodes - 3 do
     h := m.Add(p);
   m.Remove(h);
   nh := m.Add(p);
@@ -686,7 +686,7 @@ var
 begin
   p := Pointer(4526);
   h := m.Add(p);
-  for i := 0 to m.MaxNodes - 3 do
+  for i := 0 to m.MaxNodes - 4 do
     m.Add(p);
   m.Remove(h);
   m.Add(p);
@@ -703,7 +703,7 @@ var
 begin
   p := Pointer(4526);
   h := m.Add(p);
-  for i := 0 to m.MaxNodes - 3 do
+  for i := 0 to m.MaxNodes - 4 do
     m.Add(p);
   m.Remove(h);
   m.Add(p);
