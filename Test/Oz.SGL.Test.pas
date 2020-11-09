@@ -118,6 +118,9 @@ type
 {$Region 'TsgHandleManagerTest'}
 
   TsgHandleManagerTest = class(TTestCase)
+  private
+    Visited, Count: Integer;
+    procedure Visit(p: TsgHandleManager.PNode);
   public
     region: hRegion;
     m: TsgHandleManager;
@@ -716,9 +719,33 @@ begin
   CheckTrue(ok);
 end;
 
-procedure TsgHandleManagerTest.TestTraversal;
+procedure TsgHandleManagerTest.Visit(p: TsgHandleManager.PNode);
+var
+  i: Integer;
 begin
+  Inc(Self.Visited);
+  i := Integer(p.ptr);
+  Assert(p.counter = 2);
+  Assert(p.active);
+  Inc(Self.Count, i);
+end;
 
+procedure TsgHandleManagerTest.TestTraversal;
+var
+  p: Pointer;
+  i: Integer;
+begin
+  Self.Visited := 0;
+  Self.Count := 0;
+  i := 0;
+  while m.Count < m.GuardNode - 1 do
+  begin
+    p := Pointer(m.Count);
+    m.Add(p);
+    Inc(i);
+    Assert(i = m.Count);
+  end;
+  m.Traversal(Visit);
 end;
 
 {$EndRegion}
@@ -1834,7 +1861,7 @@ procedure TestTsgArray.TestAdd;
 var
   List: TsgArray<TTestRecord>;
   i, j: Integer;
-  a, b: TTestRecord;
+  a: TTestRecord;
   p: PTestRecord;
 begin
   List.Init(@Region, ItemsCount);

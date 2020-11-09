@@ -83,13 +83,13 @@ type
     TIndex = 0 .. MaxNodes - 1;
     TNode = record
       private
-        function GetActive: Boolean; inline;
+        function GetActive: Boolean;
         procedure SetActive(const Value: Boolean); inline;
-        function GetCounter: Byte; inline;
+        function GetCounter: Byte;
         procedure SetCounter(const Value: Byte); inline;
-        function GetNext: TIndex; inline;
+        function GetNext: TIndex;
         procedure SetNext(const Value: TIndex); inline;
-        function GetPrev: TIndex; inline;
+        function GetPrev: TIndex;
         procedure SetPrev(const Value: TIndex); inline;
       public
         ptr: Pointer;
@@ -172,7 +172,7 @@ procedure TsgHandleManager.TNode.Init(next, prev: TIndex);
 begin
   ptr := nil;
   // Self.next := idx; Self.prev := prev; counter := 1;
-  v := next or (prev shl 12) or (1 shl 24);
+  v := (next and $FFF) or ((prev and $FFF) shl 12) or (1 shl 24);
 end;
 
 function TsgHandleManager.TNode.GetNext: TIndex;
@@ -235,7 +235,7 @@ begin
   for i := 0 to GuardNode - 1 do
   begin
     n := @FNodes[i];
-    n.Init((i + 1) mod MaxNodes, (i - 2) mod MaxNodes);
+    n.Init((i + 1) mod MaxNodes, (i - 1) mod MaxNodes);
   end;
   // guard node
   n := @FNodes[GuardNode];
@@ -263,7 +263,7 @@ var
   idx: Integer;
   n: PNode;
 begin
-  Assert(FCount < MaxNodes - 2);
+  Assert(FCount < GuardNode - 1);
   idx := FAvail;
   Assert(idx < GuardNode);
   n := MoveNode(idx, FAvail, FUsed);
