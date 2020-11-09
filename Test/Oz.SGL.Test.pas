@@ -225,26 +225,6 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTupleTest'}
-
-  TsgTupleTest = class(TTestCase)
-  public
-    procedure SetUp; override;
-    procedure TearDown; override;
-  published
-    procedure _TupleOffset;
-    procedure _MakePair;
-    procedure _MakeTrio;
-    procedure _MakeQuad;
-    procedure _Cat;
-    procedure _Add;
-    procedure _Insert;
-    procedure _Assign;
-    procedure _AssignPart;
-  end;
-
-{$EndRegion}
-
 {$Region 'TestTsgArray'}
 
   TestTsgArray = class(TTestCase)
@@ -262,6 +242,26 @@ type
     procedure TestExchange;
     procedure TestSort;
     procedure TestReverse;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTupleTest'}
+
+  TsgTupleTest = class(TTestCase)
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure _TupleOffset;
+    procedure _MakePair;
+    procedure _MakeTrio;
+    procedure _MakeQuad;
+    procedure _Cat;
+    procedure _Add;
+    procedure _Insert;
+    procedure _Assign;
+    procedure _AssignPart;
   end;
 
 {$EndRegion}
@@ -3120,13 +3120,13 @@ end;
 
 initialization
 
-  RegisterTest(TsgHandleManagerTest.Suite);
-  RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(TestTsgArray.Suite);
   RegisterTest(TsgTupleTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
 
   // Oz.SGL.Heap
+  RegisterTest(TsgHandleManagerTest.Suite);
+  RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(THeapPoolTest.Suite);
   RegisterTest(TsgItemTest.Suite);
 
