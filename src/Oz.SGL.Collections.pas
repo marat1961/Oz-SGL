@@ -858,14 +858,11 @@ type
     // Free the region
     procedure Free;
     // Allocate memory for collection items
-    function Alloc(Count: Cardinal): Pointer; overload;
-    procedure Alloc(var d: TMemoryDescriptor); overload;
+    procedure Alloc(var d: TMemoryDescriptor);
     // Return memory to heap
-    procedure FreeMem(Ptr: Pointer; Count: Cardinal); overload;
-    procedure FreeMem(var d: TMemoryDescriptor); overload;
+    procedure FreeMem(var d: TMemoryDescriptor);
     // Reallocate memory for collection items
-    function Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer; overload;
-    procedure Realloc(var d: TMemoryDescriptor; Count: Cardinal); overload;
+    procedure Realloc(var d: TMemoryDescriptor; Count: Cardinal);
     property ItemSize: Cardinal read GetItemSize;
     property Meta: PsgItemMeta read GetMeta;
   end;
@@ -915,11 +912,6 @@ var
   TupleElementMeta: TSharedRegion;
 
 {$Region 'Procedures and functions'}
-
-function GetTeMetas(Count: Integer): PsgTupleElementMetas;
-begin
-  Result := PsgTupleElementMetas(TupleElementMeta.Alloc(Count));
-end;
 
 procedure Swap(var i, j: Double);
 var
@@ -3274,20 +3266,10 @@ begin
   FRegion.Free;
 end;
 
-function TSharedRegion.Alloc(Count: Cardinal): Pointer;
-begin
-  Result := FMemoryManager.Alloc(Count * ItemSize)
-end;
-
 procedure TSharedRegion.Alloc(var d: TMemoryDescriptor);
 begin
   d.Items := FMemoryManager.Alloc(d.Count * ItemSize);
   d.h := FHandleManager.Add(d.Items);
-end;
-
-procedure TSharedRegion.FreeMem(Ptr: Pointer; Count: Cardinal);
-begin
-  FMemoryManager.FreeMem(Ptr, Count * ItemSize);
 end;
 
 procedure TSharedRegion.FreeMem(var d: TMemoryDescriptor);
@@ -3297,26 +3279,15 @@ begin
   d.Clear;
 end;
 
-function TSharedRegion.Realloc(Ptr: Pointer; OldCount, Count: Cardinal): Pointer;
-var
-  sz: Cardinal;
-begin
-  sz := Self.ItemSize;
-  Result := FMemoryManager.Realloc(Ptr, OldCount * sz, Count * sz);
-  if Result = nil then
-    EsgError.Create('TSharedRegion.Realloc: not enough memory');
-end;
-
 procedure TSharedRegion.Realloc(var d: TMemoryDescriptor; Count: Cardinal);
 var
   p: Pointer;
-  sz: Cardinal;
 begin
   p := FHandleManager.Get(d.h);
   Assert(p = d.Items);
-  sz := Self.ItemSize;
-  p := FMemoryManager.Realloc(d.Items, d.Count * sz, Count * sz);
-  Assert(p <> nil);
+  p := FMemoryManager.Realloc(d.Items, d.Count * ItemSize, Count * ItemSize);
+  if p = nil then
+    EsgError.Create('TSharedRegion.Realloc: not enough memory');
   d.Items := p;
   d.Count := Count;
 end;

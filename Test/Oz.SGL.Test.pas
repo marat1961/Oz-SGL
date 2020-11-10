@@ -229,9 +229,8 @@ type
 
   TestTSharedRegion = class(TTestCase)
   private
-    Items: Pointer;
+    Descr: TMemoryDescriptor;
     a, b, c, d, e: PTestRecord;
-    Capacity: Cardinal;
   public
     Meta: TsgItemMeta;
     Region: TSharedRegion;
@@ -1862,9 +1861,9 @@ end;
 
 procedure TestTSharedRegion.TestAlloc;
 begin
-  Capacity := 5;
-  Items := Region.Alloc(Capacity);
-  a := PTestRecord(Items);
+  Descr.Count := 5;
+  Region.Alloc(Descr);
+  a := PTestRecord(Descr.Items);
   a.Init(45, 1);
   a.s := 'a';
   b := PTestRecord(PByte(a) + sizeof(TTestRecord));
@@ -1884,7 +1883,7 @@ end;
 procedure TestTSharedRegion.TestFreeMem;
 begin
   TestAlloc;
-  Region.FreeMem(Items, Capacity);
+  Region.FreeMem(Descr);
 end;
 
 procedure TestTSharedRegion.TestRealloc;
