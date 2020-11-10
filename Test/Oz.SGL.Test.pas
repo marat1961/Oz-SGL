@@ -225,6 +225,26 @@ type
 
 {$EndRegion}
 
+{$Region 'TestTSharedRegion'}
+
+  TestTSharedRegion = class(TTestCase)
+  private
+    Items: Pointer;
+    a, b, c, d, e: PTestRecord;
+    Capacity: Cardinal;
+  public
+    Meta: TsgItemMeta;
+    Region: TSharedRegion;
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestAlloc;
+    procedure TestFreeMem;
+    procedure TestRealloc;
+  end;
+
+{$EndRegion}
+
 {$Region 'TestTsgArray'}
 
   TestTsgArray = class(TTestCase)
@@ -1827,6 +1847,53 @@ end;
 
 {$EndRegion}
 
+{$Region 'TestTSharedRegion'}
+
+procedure TestTSharedRegion.SetUp;
+begin
+  Meta.Init<TTestRecord>;
+  Region.Init(Meta, 5000);
+end;
+
+procedure TestTSharedRegion.TearDown;
+begin
+  Region.Free;
+end;
+
+procedure TestTSharedRegion.TestAlloc;
+begin
+  Capacity := 5;
+  Items := Region.Alloc(Capacity);
+  a := PTestRecord(Items);
+  a.Init(45, 1);
+  a.s := 'a';
+  b := PTestRecord(PByte(a) + sizeof(TTestRecord));
+  b.Init(46, 2);
+  b.s := 'b';
+  c := PTestRecord(PByte(b) + sizeof(TTestRecord));
+  c.Init(47, 3);
+  c.s := 'c';
+  d := PTestRecord(PByte(c) + sizeof(TTestRecord));
+  d.Init(48, 4);
+  d.s := 'd';
+  e := PTestRecord(PByte(d) + sizeof(TTestRecord));
+  e.Init(49, 5);
+  e.s := 'e';
+end;
+
+procedure TestTSharedRegion.TestFreeMem;
+begin
+  TestAlloc;
+  Region.FreeMem(Items, Capacity);
+end;
+
+procedure TestTSharedRegion.TestRealloc;
+begin
+
+end;
+
+{$EndRegion}
+
 {$Region 'TestTsgArray'}
 
 procedure TestTsgArray.SetUp;
@@ -3120,6 +3187,7 @@ end;
 
 initialization
 
+  RegisterTest(TestTSharedRegion.Suite);
   RegisterTest(TestTsgArray.Suite);
   RegisterTest(TsgTupleTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
