@@ -852,6 +852,7 @@ type
     FHandleManager: TsgHandleManager;
     function GetMeta: PsgItemMeta; inline;
     function GetItemSize: Cardinal; inline;
+    procedure ClearManagedTypes(const d: TMemoryDescriptor);
   public
     // Initialize shared memory region for collections
     procedure Init(const Meta: TsgItemMeta; Capacity: Cardinal);
@@ -3275,8 +3276,27 @@ end;
 procedure TSharedRegion.FreeMem(var d: TMemoryDescriptor);
 begin
   FHandleManager.Remove(d.h);
+  ClearManagedTypes(d);
   FMemoryManager.FreeMem(d.Items, d.Count * ItemSize);
   d.Clear;
+end;
+
+procedure TSharedRegion.ClearManagedTypes(const d: TMemoryDescriptor);
+var
+  p: PByte;
+  n: Cardinal;
+begin
+  if FRegion.Meta.h.ManagedType then
+  begin
+    n := d.Count;
+    p := d.Items;
+    while n > 0 do
+    begin
+       FRegion.Meta.FreeItem(p);
+       p := p + ItemSize;
+       Dec(n);
+    end;
+  end;
 end;
 
 procedure TSharedRegion.Realloc(var d: TMemoryDescriptor; Count: Cardinal);
