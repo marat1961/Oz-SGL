@@ -1863,6 +1863,8 @@ procedure TestTSharedRegion.TestAlloc;
 begin
   Descr.Count := 5;
   Region.Alloc(Descr);
+  CheckTrue(Descr.Items <> nil);
+  CheckTrue(Descr.Count = 5);
   a := PTestRecord(Descr.Items);
   a.Init(45, 1);
   a.s := 'a';
@@ -1888,7 +1890,10 @@ end;
 
 procedure TestTSharedRegion.TestRealloc;
 begin
-
+  TestAlloc;
+  Region.Realloc(Descr, 20);
+  CheckTrue(Descr.Items <> nil);
+  CheckTrue(Descr.Count = 20);
 end;
 
 {$EndRegion}
