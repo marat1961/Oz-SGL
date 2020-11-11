@@ -135,7 +135,6 @@ type
     // Add tuple element
     procedure AddElement(te: PsgTupleElementMeta; Allign: Boolean);
     procedure AddTe<T>(Allign: Boolean);
-    procedure UpdateSizeAndOffsets(Allign: Boolean);
     procedure Init(Count: Cardinal; OnFree: TFreeProc);
   public
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
@@ -1202,16 +1201,18 @@ end;
 
 procedure TsgTupleMeta.Insert<T>(OnFree: TFreeProc; Allign: Boolean);
 var
+  i: Integer;
   te: PsgTupleElementMeta;
 begin
+  FSize := 0;
   te := FElements.Insert(0);
   te.Init<T>;
-  UpdateSizeAndOffsets(Allign);
-end;
-
-procedure TsgTupleMeta.UpdateSizeAndOffsets(Allign: Boolean);
-begin
-
+  for i := 0 to FElements.Count - 1 do
+  begin
+    te := FElements.GetItem(i);
+    te.Offset := FSize;
+    FSize := te.NextTupleOffset(Allign);
+  end;
 end;
 
 procedure TsgTupleMeta.MoveTuple(Dest, Value: Pointer);

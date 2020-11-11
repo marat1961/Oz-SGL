@@ -1793,7 +1793,7 @@ begin
   CheckTrue(te0.Size = 1);
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = 24);
-  CheckTrue(te1.Offset = 28);
+  CheckTrue(te1.Offset = 4);
   CheckTrue(te2.Size = 4);
   CheckTrue(te2.Offset = 28);
   CheckTrue(Tuple.Size = 32);
