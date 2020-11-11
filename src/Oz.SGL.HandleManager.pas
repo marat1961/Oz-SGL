@@ -102,7 +102,7 @@ type
     end;
     PNode = ^TNode;
     TNodes = array [TIndex] of TNode;
-    TNodeProc = procedure(p: PNode) of object;
+    TNodeProc = procedure(h: hCollection) of object;
   private
     FNodes: TNodes;
     FCount: Integer;
@@ -309,14 +309,18 @@ end;
 
 procedure TsgHandleManager.Traversal(proc: TNodeProc);
 var
+  idx: Integer;
   n: PNode;
+  h: hCollection;
 begin
   if FCount = 0 then exit;
-  n := @FNodes[FUsed];
-  while n.active do
+  idx := FUsed;
+  while idx < GuardNode do
   begin
-    proc(n);
-    n := @FNodes[n.next];
+    n := @FNodes[idx];
+    h := hCollection.From(idx, n.counter, FRegion);
+    proc(h);
+    idx := n.next;
   end;
 end;
 

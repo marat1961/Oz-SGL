@@ -850,9 +850,11 @@ type
     FRegion: TMemoryRegion;
     FMemoryManager: TsgMemoryManager;
     FHandleManager: TsgHandleManager;
+    FSizes: array [TsgHandleManager.TIndex] of Cardinal;
     function GetMeta: PsgItemMeta; inline;
     function GetItemSize: Cardinal; inline;
     procedure ClearManagedTypes(const d: TMemoryDescriptor);
+    procedure FreeUsed(h: hCollection);
   public
     // Initialize shared memory region for collections
     procedure Init(const Meta: TsgItemMeta; Capacity: Cardinal);
@@ -3264,19 +3266,32 @@ end;
 
 procedure TSharedRegion.Free;
 begin
+  if FRegion.Meta.h.ManagedType then
+    FHandleManager.Traversal(FreeUsed);
   FRegion.Free;
+end;
+
+procedure TSharedRegion.FreeUsed(h: hCollection);
+var
+  d: TMemoryDescriptor;
+begin
+  d.Items := FHandleManager.Get(h);
+  d.Count := FSizes[h.Index];
+  ClearManagedTypes(d);
 end;
 
 procedure TSharedRegion.Alloc(var d: TMemoryDescriptor);
 begin
   d.Items := FMemoryManager.Alloc(d.Count * ItemSize);
   d.h := FHandleManager.Add(d.Items);
+  FSizes[d.h.Index] := d.Count;
 end;
 
 procedure TSharedRegion.FreeMem(var d: TMemoryDescriptor);
 begin
   FHandleManager.Remove(d.h);
-  ClearManagedTypes(d);
+  if FRegion.Meta.h.ManagedType then
+    ClearManagedTypes(d);
   FMemoryManager.FreeMem(d.Items, d.Count * ItemSize);
   d.Clear;
 end;
@@ -3286,16 +3301,13 @@ var
   p: PByte;
   n: Cardinal;
 begin
-  if FRegion.Meta.h.ManagedType then
+  n := d.Count;
+  p := d.Items;
+  while n > 0 do
   begin
-    n := d.Count;
-    p := d.Items;
-    while n > 0 do
-    begin
-       FRegion.Meta.FreeItem(p);
-       p := p + ItemSize;
-       Dec(n);
-    end;
+     FRegion.Meta.FreeItem(p);
+     p := p + ItemSize;
+     Dec(n);
   end;
 end;
 

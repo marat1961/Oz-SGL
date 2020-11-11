@@ -120,7 +120,7 @@ type
   TsgHandleManagerTest = class(TTestCase)
   private
     Visited, Count: Integer;
-    procedure Visit(p: TsgHandleManager.PNode);
+    procedure Visit(h: hCollection);
   public
     region: hRegion;
     m: TsgHandleManager;
@@ -738,14 +738,14 @@ begin
   CheckTrue(ok);
 end;
 
-procedure TsgHandleManagerTest.Visit(p: TsgHandleManager.PNode);
+procedure TsgHandleManagerTest.Visit(h: hCollection);
 var
   i: Integer;
+  p: Pointer;
 begin
   Inc(Self.Visited);
-  i := Integer(p.ptr);
-  Assert(p.counter = 2);
-  Assert(p.active);
+  p := m.Get(h);
+  i := Integer(p);
   Inc(Self.Count, i);
 end;
 
