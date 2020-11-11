@@ -114,8 +114,6 @@ type
     property Assign: TAssignProc read Meta.AssignItem;
     property Size: Cardinal read Meta.ItemSize;
   end;
-  TsgTupleElementMetas = TsgArray<TsgTupleElementMeta>;
-  PsgTupleElementMetas = ^TsgTupleElementMetas;
 
 {$EndRegion}
 
@@ -124,12 +122,8 @@ type
   PsgTupleMeta = ^TsgTupleMeta;
   TsgTupleMeta = record
   type
-    TMetaContext = record
-      Count: Cardinal;
-      te: PsgTupleElementMeta;
-      Allign: Boolean;
-      procedure Init(Allign: Boolean);
-    end;
+    TsgTupleElementMetas = TsgArray<TsgTupleElementMeta>;
+    PsgTupleElementMetas = ^TsgTupleElementMetas;
   private
     FSize: Cardinal;
     FElements: TsgTupleElementMetas;
@@ -139,8 +133,8 @@ type
     procedure FreeTuple(p: Pointer);
     procedure MoveTuple(Dest, Value: Pointer);
     // Add tuple element
-    procedure AddElement(var ctx: TMetaContext);
-    procedure AddTe<T>(var ctx: TMetaContext);
+    procedure AddElement(te: PsgTupleElementMeta; Allign: Boolean);
+    procedure AddTe<T>(Allign: Boolean);
     procedure UpdateSizeAndOffsets(Allign: Boolean);
     procedure Init(Count: Cardinal; OnFree: TFreeProc);
   public
@@ -159,6 +153,7 @@ type
     function MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
     // Memory size
     property Size: Cardinal read FSize;
+    // Number of elements
     property Count: Cardinal read FElements.FList.FCount;
     // meta elements of the tuple
     property Elements[Index: Cardinal]: PsgTupleElementMeta read Get;
@@ -1134,16 +1129,6 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgTupleMeta.TMetaContext'}
-
-procedure TsgTupleMeta.TMetaContext.Init(Allign: Boolean);
-begin
-  Count := 0;
-  Self.Allign := Allign;
-end;
-
-{$EndRegion}
-
 {$Region 'TsgTupleMeta'}
 
 procedure TsgTupleMeta.Init(Count: Cardinal; OnFree: TFreeProc);
@@ -1158,98 +1143,75 @@ begin
   Result := FElements.GetItem(Index);
 end;
 
-procedure TsgTupleMeta.UpdateSizeAndOffsets(Allign: Boolean);
-var
-  ctx: TMetaContext;
-begin
-  ctx.Init(Allign);
-end;
-
-procedure TsgTupleMeta.AddElement(var ctx: TMetaContext);
+procedure TsgTupleMeta.AddElement(te: PsgTupleElementMeta; Allign: Boolean);
 var
   meta: PsgTupleElementMeta;
 begin
-  meta := Get(ctx.Count);
-  Inc(ctx.Count);
-  meta^ := ctx.te^;
+  meta := FElements.Add;
+  meta^ := te^;
   meta.Offset := FSize;
-  FSize := meta.NextTupleOffset(ctx.Allign);
+  FSize := meta.NextTupleOffset(Allign);
 end;
 
-procedure TsgTupleMeta.AddTe<T>(var ctx: TMetaContext);
+procedure TsgTupleMeta.AddTe<T>(Allign: Boolean);
 var
   te: TsgTupleElementMeta;
 begin
   te.Init<T>;
-  ctx.te := @te;
-  AddElement(ctx);
+  AddElement(@te, Allign);
 end;
 
 procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
-var
-  ctx: TMetaContext;
 begin
   Init(2, OnFree);
-  ctx.Init(Allign);
-  AddTe<T1>(ctx);
-  AddTe<T2>(ctx);
+  AddTe<T1>(Allign);
+  AddTe<T2>(Allign);
 end;
 
 procedure TsgTupleMeta.MakeTrio<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
-var
-  ctx: TMetaContext;
 begin
   Init(3, OnFree);
-  ctx.Init(Allign);
-  AddTe<T1>(ctx);
-  AddTe<T2>(ctx);
-  AddTe<T3>(ctx);
+  AddTe<T1>(Allign);
+  AddTe<T2>(Allign);
+  AddTe<T3>(Allign);
 end;
 
 procedure TsgTupleMeta.MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc; Allign: Boolean);
-var
-  ctx: TMetaContext;
 begin
   Init(4, OnFree);
-  ctx.Init(Allign);
-  AddTe<T1>(ctx);
-  AddTe<T2>(ctx);
-  AddTe<T3>(ctx);
-  AddTe<T4>(ctx);
+  AddTe<T1>(Allign);
+  AddTe<T2>(Allign);
+  AddTe<T3>(Allign);
+  AddTe<T4>(Allign);
 end;
 
-procedure TsgTupleMeta.Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc = nil; Allign: Boolean = True);
+procedure TsgTupleMeta.Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc;
+  Allign: Boolean);
 var
   i: Cardinal;
-  ctx: TMetaContext;
 begin
-  ctx.Init(Allign);
-  ctx.Count := Count;
   FElements.SetCount(Count + Tuple.Count);
   for i := 0 to Tuple.Count - 1 do
-  begin
-    ctx.te := Tuple.Get(i);
-    AddElement(ctx);
-  end;
+    AddElement(Tuple.Get(i), Allign);
 end;
 
 procedure TsgTupleMeta.Add<T>(OnFree: TFreeProc; Allign: Boolean);
-var
-  ctx: TMetaContext;
 begin
-  ctx.Init(Allign);
-  ctx.Count := Count;
-  AddTe<T>(ctx);
+  AddTe<T>(Allign);
 end;
 
 procedure TsgTupleMeta.Insert<T>(OnFree: TFreeProc; Allign: Boolean);
 var
-  ctx: TMetaContext;
+  te: PsgTupleElementMeta;
 begin
-  ctx.Init(Allign);
-  ctx.te := FElements.Insert(0);
-  ctx.te.Init<T>;
+  te := FElements.Insert(0);
+  te.Init<T>;
   UpdateSizeAndOffsets(Allign);
+end;
+
+procedure TsgTupleMeta.UpdateSizeAndOffsets(Allign: Boolean);
+begin
+
 end;
 
 procedure TsgTupleMeta.MoveTuple(Dest, Value: Pointer);

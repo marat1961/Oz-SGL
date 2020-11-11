@@ -1749,6 +1749,7 @@ var
 begin
   // create a pair without alignment
   Tuple.MakePair<TVector, string>(nil, True);
+  CheckTrue(Tuple.Count = 2);
   // check total size, element addresses and offsets
   te0 := Tuple.Get(0);
   te1 := Tuple.Get(1);
