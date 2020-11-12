@@ -1669,63 +1669,63 @@ end;
 
 procedure TsgTupleTest._MakePair;
 var
-  Pair1, Pair4: TsgTupleMeta;
+  PairMeta, PairMetaAligned: TsgTupleMeta;
   te0, te1: PsgTupleElementMeta;
 begin
   // create a pair without alignment
-  Pair1.MakePair<TVector, string>(nil, False);
+  PairMeta.MakePair<TVector, string>(nil, False);
   // check total size, element addresses and offsets
-  te0 := Pair1.Get(0);
-  te1 := Pair1.Get(1);
+  te0 := PairMeta.Get(0);
+  te1 := PairMeta.Get(1);
   CheckTrue(te0.Size = sizeof(TVector));
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = sizeof(string));
   CheckTrue(te1.Offset = 24);
-  CheckTrue(Pair1.Size = 28);
+  CheckTrue(PairMeta.Size = 28);
   // create a word-aligned pair
-  Pair4.MakePair<TVector, string>(nil, True);
+  PairMetaAligned.MakePair<TVector, string>(nil, True);
   // check total size, element addresses and offsets
-  te0 := Pair4.Get(0);
-  te1 := Pair4.Get(1);
+  te0 := PairMetaAligned.Get(0);
+  te1 := PairMetaAligned.Get(1);
   CheckTrue(te0.Size = sizeof(TVector));
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = sizeof(string));
   CheckTrue(te1.Offset = 24);
-  CheckTrue(Pair1.Size = 28);
+  CheckTrue(PairMeta.Size = 28);
 end;
 
 procedure TsgTupleTest._MakeTrio;
 var
-  Trio: TsgTupleMeta;
+  TrioMeta: TsgTupleMeta;
   te0, te1, te2: PsgTupleElementMeta;
 begin
   // create a pair without alignment
-  Trio.MakeTrio<Pointer, TVector, Integer>(nil, True);
+  TrioMeta.MakeTrio<Pointer, TVector, Integer>(nil, True);
   // check total size, element addresses and offsets
-  te0 := Trio.Get(0);
-  te1 := Trio.Get(1);
-  te2 := Trio.Get(2);
+  te0 := TrioMeta.Get(0);
+  te1 := TrioMeta.Get(1);
+  te2 := TrioMeta.Get(2);
   CheckTrue(te0.Size = 4);
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = 24);
   CheckTrue(te1.Offset = 4);
   CheckTrue(te2.Size = 4);
   CheckTrue(te2.Offset = 28);
-  CheckTrue(Trio.Size = 32);
+  CheckTrue(TrioMeta.Size = 32);
 end;
 
 procedure TsgTupleTest._MakeQuad;
 var
-  Quad: TsgTupleMeta;
+  QuadMeta: TsgTupleMeta;
   te0, te1, te2, te3: PsgTupleElementMeta;
 begin
   // create a pair without alignment
-  Quad.MakeQuad<Pointer, TVector, TPerson, Integer>(nil, True);
+  QuadMeta.MakeQuad<Pointer, TVector, TPerson, Integer>(nil, True);
   // check total size, element addresses and offsets
-  te0 := Quad.Get(0);
-  te1 := Quad.Get(1);
-  te2 := Quad.Get(2);
-  te3 := Quad.Get(3);
+  te0 := QuadMeta.Get(0);
+  te1 := QuadMeta.Get(1);
+  te2 := QuadMeta.Get(2);
+  te3 := QuadMeta.Get(3);
   CheckTrue(te0.Size = 4);
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = 24);
@@ -1734,24 +1734,24 @@ begin
   CheckTrue(te2.Offset = 28);
   CheckTrue(te3.Size = 4);
   CheckTrue(te3.Offset = 36);
-  CheckTrue(Quad.Size = 40);
+  CheckTrue(QuadMeta.Size = 40);
 end;
 
 procedure TsgTupleTest._Cat;
 var
-  Tuple: TsgTupleMeta;
+  tupleMeta: TsgTupleMeta;
   Trio: TsgTupleMeta;
   te0, te1, te2, te3, te4: PsgTupleElementMeta;
 begin
-  Tuple.MakePair<TVector, string>(nil, True);
+  tupleMeta.MakePair<TVector, string>(nil, True);
   Trio.MakeTrio<Pointer, TPerson, Integer>(nil, True);
-  Tuple.Cat(Trio, nil, True);
+  tupleMeta.Cat(Trio, nil, True);
   // check total size, element addresses and offsets
-  te0 := Tuple.Get(0);
-  te1 := Tuple.Get(1);
-  te2 := Tuple.Get(2);
-  te3 := Tuple.Get(3);
-  te4 := Tuple.Get(4);
+  te0 := tupleMeta.Get(0);
+  te1 := tupleMeta.Get(1);
+  te2 := tupleMeta.Get(2);
+  te3 := tupleMeta.Get(3);
+  te4 := tupleMeta.Get(4);
   CheckTrue(te0.Size = sizeof(TVector));
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = sizeof(string));
@@ -1762,36 +1762,36 @@ begin
   CheckTrue(te3.Offset = 32);
   CheckTrue(te4.Size = sizeof(Integer));
   CheckTrue(te4.Offset = 40);
-  CheckTrue(Tuple.Size = 44);
+  CheckTrue(tupleMeta.Size = 44);
 end;
 
 procedure TsgTupleTest._Add;
 var
-  Tuple: TsgTupleMeta;
+  tupleMeta: TsgTupleMeta;
   te0, te1, te2: PsgTupleElementMeta;
 begin
   // create a pair without alignment
-  Tuple.MakePair<TVector, string>(nil, True);
-  CheckTrue(Tuple.Count = 2);
+  tupleMeta.MakePair<TVector, string>(nil, True);
+  CheckTrue(tupleMeta.Count = 2);
   // check total size, element addresses and offsets
-  te0 := Tuple.Get(0);
-  te1 := Tuple.Get(1);
+  te0 := tupleMeta.Get(0);
+  te1 := tupleMeta.Get(1);
   CheckTrue(te0.Size = 24);
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = 4);
   CheckTrue(te1.Offset = 24);
-  CheckTrue(Tuple.Size = 28);
-  Tuple.Add<Byte>(nil, True);
-  te0 := Tuple.Get(0);
-  te1 := Tuple.Get(1);
-  te2 := Tuple.Get(2);
+  CheckTrue(tupleMeta.Size = 28);
+  tupleMeta.Add<Byte>(nil, True);
+  te0 := tupleMeta.Get(0);
+  te1 := tupleMeta.Get(1);
+  te2 := tupleMeta.Get(2);
   CheckTrue(te0.Size = 24);
   CheckTrue(te0.Offset = 0);
   CheckTrue(te1.Size = 4);
   CheckTrue(te1.Offset = 24);
   CheckTrue(te2.Size = 1);
   CheckTrue(te2.Offset = 28);
-  CheckTrue(Tuple.Size = 32);
+  CheckTrue(tupleMeta.Size = 32);
 end;
 
 procedure TsgTupleTest._Insert;
@@ -1836,7 +1836,7 @@ var
   a, b: TMyRecord;
 begin
   // create a pair without alignment
-  Trio.MakeTrio<Pointer, TVector, Integer>(nil, True);
+  Trio.MakeTrio<Pointer, TVector, Integer>(nil, False);
   // check total size, element addresses and offsets
   te0 := Trio.Get(0);
   te1 := Trio.Get(1);
@@ -1864,9 +1864,70 @@ begin
 end;
 
 procedure TsgTupleTest._AssignPart;
+type
+  TMyRecord2 = packed record
+    v: TVector;
+    s: string;
+    i: Integer;
+  end;
+var
+  meta: TsgTupleMeta;
+  rgn: PMemoryRegion;
+  te0, te1, te2: PsgTupleElementMeta;
+  a, b: TMyRecord2;
 begin
+  // create a pair without alignment
+  meta.MakeTrio<TVector, string, Integer>(nil, False);
 
+  // check total size, element addresses and offsets
+  te0 := meta.Get(0);
+  te1 := meta.Get(1);
+  te2 := meta.Get(2);
+  CheckTrue(te0.Size = 24);
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = 4);
+  CheckTrue(te1.Offset = 24);
+  CheckTrue(te2.Size = 4);
+  CheckTrue(te2.Offset = 28);
+  CheckTrue(meta.Size = 32);
+
+  // get meta
+  rgn := meta.MakeTupleRegion([]);
+  a.s := 'qwerty';
+  a.v.x := 1.5;
+  a.v.y := 2;
+  a.v.z := 3;
+  a.i := 15;
+  rgn.Meta.AssignItem(@b, @a);
+  CheckTrue(b.s = a.s);
+  CheckTrue(SameValue(b.v.x, a.v.x));
+  CheckTrue(SameValue(b.v.y, a.v.y));
+  CheckTrue(SameValue(b.v.z, a.v.z));
+  CheckTrue(b.i = a.i);
 end;
+
+(*
+procedure TsgTupleTest._GoodAssignPart;
+var
+  meta: TsgTupleMeta;
+  rgn: PMemoryRegion;
+  tuple1, tuple2: TsgTuple;
+  ptr: Pointer;
+  pv: PVector;
+  ps: PChar;
+  pi: PInteger;
+begin
+  meta.MakeTrio<TVector, string, Integer>(nil, True);
+  rgn := meta.MakeTupleRegion;
+  tuple1 := rgn[5];
+  tuple2 := rgn[7];
+  tuple1.Assign(rgn[7]);
+  ptr := tuple.tie(0);
+  pi := tuple.tie<TVector>(0);
+  ps := tuple.tie<string>(1);
+  pv := tuple.tie<Integer>(2);
+end;
+*)
 
 {$EndRegion}
 
