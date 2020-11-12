@@ -1738,8 +1738,31 @@ begin
 end;
 
 procedure TsgTupleTest._Cat;
+var
+  Tuple: TsgTupleMeta;
+  Trio: TsgTupleMeta;
+  te0, te1, te2, te3, te4: PsgTupleElementMeta;
 begin
-
+  Tuple.MakePair<TVector, string>(nil, True);
+  Trio.MakeTrio<Pointer, TPerson, Integer>(nil, True);
+  Tuple.Cat(Trio, nil, True);
+  // check total size, element addresses and offsets
+  te0 := Tuple.Get(0);
+  te1 := Tuple.Get(1);
+  te2 := Tuple.Get(2);
+  te3 := Tuple.Get(3);
+  te4 := Tuple.Get(4);
+  CheckTrue(te0.Size = sizeof(TVector));
+  CheckTrue(te0.Offset = 0);
+  CheckTrue(te1.Size = sizeof(string));
+  CheckTrue(te1.Offset = 24);
+  CheckTrue(te2.Size = sizeof(Pointer));
+  CheckTrue(te2.Offset = 28);
+  CheckTrue(te3.Size = sizeof(TPerson));
+  CheckTrue(te3.Offset = 32);
+  CheckTrue(te4.Size = sizeof(Integer));
+  CheckTrue(te4.Offset = 40);
+  CheckTrue(Tuple.Size = 44);
 end;
 
 procedure TsgTupleTest._Add;

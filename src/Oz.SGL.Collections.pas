@@ -1189,7 +1189,7 @@ procedure TsgTupleMeta.Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc;
 var
   i: Cardinal;
 begin
-  FElements.SetCount(Count + Tuple.Count);
+  FOnFree := OnFree;
   for i := 0 to Tuple.Count - 1 do
     AddElement(Tuple.Get(i), Allign);
 end;
