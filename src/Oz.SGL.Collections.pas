@@ -128,10 +128,6 @@ type
     FSize: Cardinal;
     FElements: TsgTupleElementMetas;
     FOnFree: TFreeProc;
-    // Handlers for assigning the tuple and freeing the tuple
-    procedure AssignTuple(Dest, Value: Pointer);
-    procedure FreeTuple(p: Pointer);
-    procedure MoveTuple(Dest, Value: Pointer);
     // Add tuple element
     procedure AddElement(te: PsgTupleElementMeta; Allign: Boolean);
     procedure AddTe<T>(Allign: Boolean);
@@ -148,8 +144,6 @@ type
     procedure Insert<T>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     // Return a reference to the meta element of the tuple
     function Get(Index: Cardinal): PsgTupleElementMeta; inline;
-    // Make a tuple memory region.
-    function MakeTupleRegion(Flags: TRegionFlagSet = []): PMemoryRegion;
     // Memory size
     property Size: Cardinal read FSize;
     // Number of elements
@@ -184,15 +178,20 @@ type
 
   TsgTuples = record
   private
-    FRegion: TMemoryRegion;
+    FRegion: PMemoryRegion;
+    FTupleMeta: PsgTupleMeta;
     function GetItem(Index: Cardinal): PsgTuple;
     procedure SetCount(NewCount: Cardinal);
     function GetCount: Cardinal;
+    // Handlers for assigning the tuple and freeing the tuple
+    procedure AssignTuple(Dest, Value: Pointer);
+    procedure MoveTuple(Dest, Value: Pointer);
+    procedure FreeTuple(p: Pointer);
   public
-    procedure Init(meta: TsgTupleMeta; Capacity: Cardinal);
+    procedure Init(const tupleMeta: TsgTupleMeta; Capacity: Cardinal;
+      Flags: TRegionFlagSet = []);
     procedure Free;
     function Add: PsgTuple;
-    function Insert(Index: Cardinal): PsgTuple;
     property Count: Cardinal read GetCount write SetCount;
     property Items[Index: Cardinal]: PsgTuple read GetItem; default;
   end;
@@ -1234,64 +1233,6 @@ begin
   end;
 end;
 
-procedure TsgTupleMeta.MoveTuple(Dest, Value: Pointer);
-begin
-  Move(Value^, Dest^, FSize);
-end;
-
-procedure TsgTupleMeta.AssignTuple(Dest, Value: Pointer);
-var
-  i: Integer;
-  te: PsgTupleElementMeta;
-begin
-  for i := 0 to Count - 1 do
-  begin
-    te := FElements.Items[i];
-    te.Assign(PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
-  end;
-end;
-
-procedure TsgTupleMeta.FreeTuple(p: Pointer);
-var
-  i: Integer;
-  te: PsgTupleElementMeta;
-begin
-  for i := 0 to Count - 1 do
-  begin
-    te := FElements.Items[i];
-    if Assigned(te.Free) then
-      te.Free(PByte(p) + te.Offset);
-  end;
-end;
-
-function TsgTupleMeta.MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
-var
-  i: Integer;
-  te: PsgTupleElementMeta;
-  managedType: Boolean;
-  meta: TsgItemMeta;
-begin
-  meta.InitTuple(FSize, Flags);
-  managedType := False;
-  for i := 0 to Count - 1 do
-  begin
-    te := FElements.Items[i];
-    if te.Meta.h.ManagedType then
-    begin
-      managedType := True;
-      break;
-    end;
-  end;
-  if not managedType then
-    meta.AssignItem := MoveTuple
-  else
-  begin
-    meta.FreeItem := FreeTuple;
-    meta.AssignItem := AssignTuple;
-  end;
-  Result := HeapPool.CreateRegion(meta);
-end;
-
 {$EndRegion}
 
 {$Region 'TsgTupleElement'}
@@ -1336,14 +1277,38 @@ end;
 
 {$Region 'TsgTuples'}
 
-procedure TsgTuples.Init(meta: TsgTupleMeta; Capacity: Cardinal);
+procedure TsgTuples.Init(const tupleMeta: TsgTupleMeta; Capacity: Cardinal;
+  Flags: TRegionFlagSet);
+var
+  i: Integer;
+  te: PsgTupleElementMeta;
+  managedType: Boolean;
+  meta: TsgItemMeta;
 begin
-
+  meta.InitTuple(tupleMeta.FSize, Flags);
+  managedType := False;
+  for i := 0 to Count - 1 do
+  begin
+    te := FTupleMeta.Elements[i];
+    if te.Meta.h.ManagedType then
+    begin
+      managedType := True;
+      break;
+    end;
+  end;
+  if not managedType then
+    meta.AssignItem := MoveTuple
+  else
+  begin
+    meta.FreeItem := FreeTuple;
+    meta.AssignItem := AssignTuple;
+  end;
+  FRegion := HeapPool.CreateRegion(meta);
 end;
 
 procedure TsgTuples.Free;
 begin
-
+  FRegion.Free;
 end;
 
 function TsgTuples.Add: PsgTuple;
@@ -1361,14 +1326,39 @@ begin
 
 end;
 
-function TsgTuples.Insert(Index: Cardinal): PsgTuple;
+procedure TsgTuples.SetCount(NewCount: Cardinal);
 begin
 
 end;
 
-procedure TsgTuples.SetCount(NewCount: Cardinal);
+procedure TsgTuples.MoveTuple(Dest, Value: Pointer);
 begin
+  Move(Value^, Dest^, FTupleMeta.Size);
+end;
 
+procedure TsgTuples.AssignTuple(Dest, Value: Pointer);
+var
+  i: Integer;
+  te: PsgTupleElementMeta;
+begin
+  for i := 0 to Count - 1 do
+  begin
+    te := FTupleMeta.Elements[i];
+    te.Assign(PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
+  end;
+end;
+
+procedure TsgTuples.FreeTuple(p: Pointer);
+var
+  i: Integer;
+  te: PsgTupleElementMeta;
+begin
+  for i := 0 to Count - 1 do
+  begin
+    te := FTupleMeta.Elements[i];
+    if Assigned(te.Free) then
+      te.Free(PByte(p) + te.Offset);
+  end;
 end;
 
 {$EndRegion}

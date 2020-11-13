@@ -1849,18 +1849,18 @@ begin
   CheckTrue(te2.Offset = 28);
   CheckTrue(Trio.Size = 32);
   // get meta
-  r := Trio.MakeTupleRegion([]);
-  a.p := @Self;
-  a.v.x := 1.5;
-  a.v.y := 2;
-  a.v.z := 3;
-  a.i := 15;
-  r.Meta.AssignItem(@b, @a);
-  CheckTrue(b.p = a.p);
-  CheckTrue(SameValue(b.v.x, a.v.x));
-  CheckTrue(SameValue(b.v.y, a.v.y));
-  CheckTrue(SameValue(b.v.z, a.v.z));
-  CheckTrue(b.i = a.i);
+//  r := Trio.MakeTupleRegion([]);
+//  a.p := @Self;
+//  a.v.x := 1.5;
+//  a.v.y := 2;
+//  a.v.z := 3;
+//  a.i := 15;
+//  r.Meta.AssignItem(@b, @a);
+//  CheckTrue(b.p = a.p);
+//  CheckTrue(SameValue(b.v.x, a.v.x));
+//  CheckTrue(SameValue(b.v.y, a.v.y));
+//  CheckTrue(SameValue(b.v.z, a.v.z));
+//  CheckTrue(b.i = a.i);
 end;
 
 procedure TsgTupleTest._AssignPart;
@@ -1893,19 +1893,19 @@ begin
   CheckTrue(meta.Size = 32);
 
   // get meta
-  rgn := meta.MakeTupleRegion;
-  a.s := 'qwerty';
-  a.v.x := 1.5;
-  a.v.y := 2;
-  a.v.z := 3;
-  a.i := 15;
-  item := rgn.Meta;
-  item.AssignItem(@b, @a);
-  CheckTrue(b.s = a.s);
-  CheckTrue(SameValue(b.v.x, a.v.x));
-  CheckTrue(SameValue(b.v.y, a.v.y));
-  CheckTrue(SameValue(b.v.z, a.v.z));
-  CheckTrue(b.i = a.i);
+//  rgn := meta.MakeTupleRegion;
+//  a.s := 'qwerty';
+//  a.v.x := 1.5;
+//  a.v.y := 2;
+//  a.v.z := 3;
+//  a.i := 15;
+//  item := rgn.Meta;
+//  item.AssignItem(@b, @a);
+//  CheckTrue(b.s = a.s);
+//  CheckTrue(SameValue(b.v.x, a.v.x));
+//  CheckTrue(SameValue(b.v.y, a.v.y));
+//  CheckTrue(SameValue(b.v.z, a.v.z));
+//  CheckTrue(b.i = a.i);
 end;
 
 (*
