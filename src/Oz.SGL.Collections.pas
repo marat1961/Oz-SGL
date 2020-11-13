@@ -149,7 +149,7 @@ type
     // Return a reference to the meta element of the tuple
     function Get(Index: Cardinal): PsgTupleElementMeta; inline;
     // Make a tuple memory region.
-    function MakeTupleRegion(Flags: TRegionFlagSet): PMemoryRegion;
+    function MakeTupleRegion(Flags: TRegionFlagSet = []): PMemoryRegion;
     // Memory size
     property Size: Cardinal read FSize;
     // Number of elements
@@ -176,6 +176,25 @@ type
     function Get(Index: Integer): TsgTupleElement;
     // return a reference to the element of the tuple
     function Tie(Index: Integer): TsgTupleElements;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTuples: Tuple memory region'}
+
+  TsgTuples = record
+  private
+    FRegion: TMemoryRegion;
+    function GetItem(Index: Cardinal): PsgTuple;
+    procedure SetCount(NewCount: Cardinal);
+    function GetCount: Cardinal;
+  public
+    procedure Init(meta: TsgTupleMeta; Capacity: Cardinal);
+    procedure Free;
+    function Add: PsgTuple;
+    function Insert(Index: Cardinal): PsgTuple;
+    property Count: Cardinal read GetCount write SetCount;
+    property Items[Index: Cardinal]: PsgTuple read GetItem; default;
   end;
 
 {$EndRegion}
@@ -1209,7 +1228,7 @@ begin
   te.Init<T>;
   for i := 0 to FElements.Count - 1 do
   begin
-    te := FElements.GetItem(i);
+    te := FElements.Items[i];
     te.Offset := FSize;
     FSize := te.NextTupleOffset(Allign);
   end;
@@ -1227,7 +1246,7 @@ var
 begin
   for i := 0 to Count - 1 do
   begin
-    te := self.Get(i);
+    te := FElements.Items[i];
     te.Assign(PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
   end;
 end;
@@ -1239,7 +1258,7 @@ var
 begin
   for i := 0 to Count - 1 do
   begin
-    te := self.Get(i);
+    te := FElements.Items[i];
     if Assigned(te.Free) then
       te.Free(PByte(p) + te.Offset);
   end;
@@ -1256,7 +1275,7 @@ begin
   managedType := False;
   for i := 0 to Count - 1 do
   begin
-    te := self.Get(i);
+    te := FElements.Items[i];
     if te.Meta.h.ManagedType then
     begin
       managedType := True;
@@ -1309,6 +1328,45 @@ begin
 end;
 
 function TsgTuple.Tie(Index: Integer): TsgTupleElements;
+begin
+
+end;
+
+{$EndRegion}
+
+{$Region 'TsgTuples'}
+
+procedure TsgTuples.Init(meta: TsgTupleMeta; Capacity: Cardinal);
+begin
+
+end;
+
+procedure TsgTuples.Free;
+begin
+
+end;
+
+function TsgTuples.Add: PsgTuple;
+begin
+
+end;
+
+function TsgTuples.GetCount: Cardinal;
+begin
+
+end;
+
+function TsgTuples.GetItem(Index: Cardinal): PsgTuple;
+begin
+
+end;
+
+function TsgTuples.Insert(Index: Cardinal): PsgTuple;
+begin
+
+end;
+
+procedure TsgTuples.SetCount(NewCount: Cardinal);
 begin
 
 end;

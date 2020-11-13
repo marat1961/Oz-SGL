@@ -1875,6 +1875,7 @@ var
   rgn: PMemoryRegion;
   te0, te1, te2: PsgTupleElementMeta;
   a, b: TMyRecord2;
+  item: PsgItemMeta;
 begin
   // create a pair without alignment
   meta.MakeTrio<TVector, string, Integer>(nil, False);
@@ -1892,13 +1893,14 @@ begin
   CheckTrue(meta.Size = 32);
 
   // get meta
-  rgn := meta.MakeTupleRegion([]);
+  rgn := meta.MakeTupleRegion;
   a.s := 'qwerty';
   a.v.x := 1.5;
   a.v.y := 2;
   a.v.z := 3;
   a.i := 15;
-  rgn.Meta.AssignItem(@b, @a);
+  item := rgn.Meta;
+  item.AssignItem(@b, @a);
   CheckTrue(b.s = a.s);
   CheckTrue(SameValue(b.v.x, a.v.x));
   CheckTrue(SameValue(b.v.y, a.v.y));
