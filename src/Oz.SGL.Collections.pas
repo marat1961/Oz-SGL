@@ -179,10 +179,11 @@ type
   TsgTuples = record
   private
     FRegion: PMemoryRegion;
+    FCount: Cardinal;
     FTupleMeta: PsgTupleMeta;
     function GetItem(Index: Cardinal): PsgTuple;
+    procedure CheckCapacity(NewCapacity: Integer); inline;
     procedure SetCount(NewCount: Cardinal);
-    function GetCount: Cardinal;
     // Handlers for assigning the tuple and freeing the tuple
     procedure AssignTuple(Dest, Value: Pointer);
     procedure MoveTuple(Dest, Value: Pointer);
@@ -192,7 +193,7 @@ type
       Flags: TRegionFlagSet = []);
     procedure Free;
     function Add: PsgTuple;
-    property Count: Cardinal read GetCount write SetCount;
+    property Count: Cardinal read FCount write SetCount;
     property Items[Index: Cardinal]: PsgTuple read GetItem; default;
   end;
 
@@ -1311,24 +1312,28 @@ begin
   FRegion.Free;
 end;
 
-function TsgTuples.Add: PsgTuple;
+procedure TsgTuples.SetCount(NewCount: Cardinal);
 begin
-
+  if NewCount <> FCount then
+  begin
+    CheckCapacity(NewCount);
+    FCount := NewCount;
+  end;
 end;
 
-function TsgTuples.GetCount: Cardinal;
+procedure TsgTuples.CheckCapacity(NewCapacity: Integer);
 begin
 
 end;
 
 function TsgTuples.GetItem(Index: Cardinal): PsgTuple;
 begin
-
+  Result := FRegion.GetItemPtr(Index);
 end;
 
-procedure TsgTuples.SetCount(NewCount: Cardinal);
+function TsgTuples.Add: PsgTuple;
 begin
-
+  Result := nil;
 end;
 
 procedure TsgTuples.MoveTuple(Dest, Value: Pointer);
