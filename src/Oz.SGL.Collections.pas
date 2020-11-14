@@ -78,25 +78,9 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTupleElement: Tuple element'}
-
-  PsgTupleElementMeta = ^TsgTupleElementMeta;
-  TsgTupleElement = record
-  private
-    Ptr: Pointer;
-    TeMeta: PsgTupleElementMeta;
-  public
-    // Assign value
-    procedure Assign(pvalue: Pointer); inline;
-    // Return a reference to the element value of the tuple
-    function GetPvalue: Pointer; inline;
-  end;
-  TsgTupleElements = TsgArray<TsgTupleElement>;
-
-{$EndRegion}
-
 {$Region 'TsgTupleElementMeta: Meta for tuple element'}
 
+  PsgTupleElementMeta = ^TsgTupleElementMeta;
   TsgTupleElementMeta = record
   const
     // Align tuple element to the word boundary
@@ -154,7 +138,23 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTuple: tuple of the type defined by generic types'}
+{$Region 'TsgTupleElement: Tuple element'}
+
+  TsgTupleElement = record
+  private
+    Ptr: Pointer;
+    TeMeta: PsgTupleElementMeta;
+  public
+    // Assign value
+    procedure Assign(pvalue: Pointer); inline;
+    // Return a reference to the element value of the tuple
+    function GetPvalue: Pointer; inline;
+  end;
+  TsgTupleElements = TsgArray<TsgTupleElement>;
+
+{$EndRegion}
+
+{$Region 'TsgTuple: Tuple of the type defined by generic types'}
 
   PsgTuple = ^TsgTuple;
   TsgTuple = record
@@ -923,9 +923,6 @@ var
   log: TsgLog;
 
 implementation
-
-uses
-  Oz.SGL.Test;
 
 var
   TupleElementMeta: TSharedRegion;
@@ -1904,14 +1901,11 @@ end;
 function TsgPointerList.Add(Item: Pointer): Integer;
 var
   p: Pointer;
-  b: TTestRecord;
 begin
   Check(Item <> nil);
   Result := FCount;
   CheckCapacity(Result);
   Inc(FCount);
-  p := @b;
-  FItemsRegion.Region.AssignItem(p, Item);
   p := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
   FItemsRegion.Region.AssignItem(p, Item);
   FList[Result] := p;

@@ -980,7 +980,7 @@ end;
 
 procedure TUnbrokenRegion.Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
 begin
-  Init(Meta, BlockSize);
+  FRegion.Init(Meta, BlockSize);
 end;
 
 procedure TUnbrokenRegion.Free;
@@ -1032,7 +1032,7 @@ end;
 
 procedure TSegmentedRegion.Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
 begin
-  Init(Meta, BlockSize);
+  FRegion.Init(Meta, BlockSize);
 end;
 
 procedure TSegmentedRegion.Free;

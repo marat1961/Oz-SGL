@@ -172,6 +172,42 @@ type
 
 {$EndRegion}
 
+{$Region 'TUnbrokenRegionTest'}
+
+  TUnbrokenRegionTest = class(TTestCase)
+  public
+    meta: TsgItemMeta;
+    region: TUnbrokenRegion;
+    item: TsgItem;
+    Count: Integer;
+    procedure SetUp; override;
+    procedure TearDown; override;
+    procedure Init<T>(var value: T);
+  published
+    procedure _IntegerCRUD;
+    procedure _Clear;
+    procedure _AssignItems;
+    procedure _FreeItems;
+    procedure _Checks;
+  end;
+
+{$EndRegion}
+
+{$Region 'TSegmentedRegionTest'}
+
+  TSegmentedRegionTest = class(TTestCase)
+  public
+    region: TSegmentedRegion;
+    meta: TsgItemMeta;
+    item: TsgItem;
+    procedure SetUp; override;
+    procedure TearDown; override;
+    procedure Init<T>(var value: T);
+  published
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgItemTest'}
 
   TsgItemTest = class(TTestCase)
@@ -279,6 +315,18 @@ type
     procedure _Cat;
     procedure _Add;
     procedure _Insert;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgTupleTest'}
+
+  TsgTupleTest = class(TTestCase)
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure _TupleOffset;
     procedure _Assign;
     procedure _AssignPart;
   end;
@@ -1157,6 +1205,98 @@ end;
 
 {$EndRegion}
 
+{$Region 'TUnbrokenRegionTest'}
+
+procedure TUnbrokenRegionTest.SetUp;
+begin
+end;
+
+procedure TUnbrokenRegionTest.TearDown;
+begin
+  region.Free;
+end;
+
+procedure TUnbrokenRegionTest.Init<T>(var value: T);
+begin
+  meta.Init<T>;
+  region.Init(meta, 1024);
+  item.Init(region.Region^, value);
+end;
+
+procedure TUnbrokenRegionTest._IntegerCRUD;
+type
+  TMyArray = array [0..100000] of Integer;
+  PMyArray = ^TMyArray;
+var
+  a, b: Integer;
+  idx: Integer;
+  p, r: Pointer;
+  list: PMyArray;
+begin
+  a := 5;
+  b := 43;
+  Init<Integer>(a);
+  item.Assign(b);
+  CheckTrue(a = b);
+  p := @a;
+  // create
+  Check(p <> nil);
+  idx := Count;
+  if region.Capacity <= idx then
+    list := region.Region.IncreaseAndAlloc(idx);
+  Inc(Count);
+  r := region.GetItemPtr(idx);
+  PInteger(r)^ := a;
+  b := List[0];
+  CheckTrue(a = b);
+  // read
+  // update
+  // delete
+end;
+
+procedure TUnbrokenRegionTest._AssignItems;
+begin
+
+end;
+
+procedure TUnbrokenRegionTest._Checks;
+begin
+
+end;
+
+procedure TUnbrokenRegionTest._Clear;
+begin
+
+end;
+
+procedure TUnbrokenRegionTest._FreeItems;
+begin
+
+end;
+
+{$EndRegion}
+
+{$Region 'TSegmentedRegionTest'}
+
+procedure TSegmentedRegionTest.SetUp;
+begin
+
+end;
+
+procedure TSegmentedRegionTest.TearDown;
+begin
+
+end;
+
+procedure TSegmentedRegionTest.Init<T>(var value: T);
+begin
+  meta.Init<T>;
+  region.Init(meta, 1024);
+  item.Init(region.Region^, value);
+end;
+
+{$EndRegion}
+
 {$Region 'TsgItemTest'}
 
 procedure TsgItemTest.SetUp;
@@ -1819,7 +1959,26 @@ begin
   CheckTrue(Tuple.Size = 32);
 end;
 
-procedure TsgTupleMetaTest._Assign;
+{$EndRegion}
+
+{$Region 'TsgTupleTest'}
+
+procedure TsgTupleTest.SetUp;
+begin
+  inherited;
+end;
+
+procedure TsgTupleTest.TearDown;
+begin
+  inherited;
+end;
+
+procedure TsgTupleTest._TupleOffset;
+begin
+
+end;
+
+procedure TsgTupleTest._Assign;
 type
   TMyRecord = packed record
     p: Pointer;
@@ -1860,7 +2019,7 @@ begin
 //  CheckTrue(b.i = a.i);
 end;
 
-procedure TsgTupleMetaTest._AssignPart;
+procedure TsgTupleTest._AssignPart;
 type
   TMyRecord2 = packed record
     v: TVector;
@@ -3276,14 +3435,18 @@ end;
 
 {$EndRegion}
 
+
 initialization
 
+  RegisterTest(TUnbrokenRegionTest.Suite);
+  RegisterTest(TSegmentedRegionTest.Suite);
   RegisterTest(TsgTupleMetaTest.Suite);
+  RegisterTest(TsgTupleTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
 
   // Oz.SGL.Heap
-  RegisterTest(TsgHandleManagerTest.Suite);
   RegisterTest(TsgMemoryManagerTest.Suite);
+  RegisterTest(TsgHandleManagerTest.Suite);
   RegisterTest(THeapPoolTest.Suite);
   RegisterTest(TsgItemTest.Suite);
   RegisterTest(TestTSharedRegion.Suite);
