@@ -270,6 +270,8 @@ type
     procedure Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free; inline;
+    // Erases all elements from the memory region.
+    procedure Clear; inline;
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
     // Get index for pointer to an element
@@ -986,6 +988,11 @@ end;
 procedure TUnbrokenRegion.Free;
 begin
   FRegion.Free;
+end;
+
+procedure TUnbrokenRegion.Clear;
+begin
+  FRegion.Clear;
 end;
 
 function TUnbrokenRegion.GetRegion: PMemoryRegion;

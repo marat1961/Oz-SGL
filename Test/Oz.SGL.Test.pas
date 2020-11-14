@@ -180,9 +180,12 @@ type
     region: TUnbrokenRegion;
     item: TsgItem;
     Count: Integer;
+    List: Pointer;
     procedure SetUp; override;
     procedure TearDown; override;
     procedure Init<T>(var value: T);
+    function Add<T>(const value: T): Integer;
+    procedure Get<T>(idx: Integer; var value: T);
   published
     procedure _IntegerCRUD;
     procedure _Clear;
@@ -1223,35 +1226,52 @@ begin
   item.Init(region.Region^, value);
 end;
 
+procedure TUnbrokenRegionTest.Get<T>(idx: Integer; var value: T);
+type
+  PT = ^T;
+begin
+  // read
+  value := PT(region.GetItemPtr(idx))^;
+end;
+
+function TUnbrokenRegionTest.Add<T>(const value: T): Integer;
+type
+  PT = ^T;
+var
+  idx: Integer;
+  r: Pointer;
+begin
+  // create
+  idx := Count;
+  if region.Capacity <= idx then
+    List := region.Region.IncreaseAndAlloc(idx);
+  Inc(Count);
+  // read
+  r := region.GetItemPtr(idx);
+  // update
+  PT(r)^ := value;
+  Result := idx;
+end;
+
 procedure TUnbrokenRegionTest._IntegerCRUD;
 type
   TMyArray = array [0..100000] of Integer;
   PMyArray = ^TMyArray;
 var
-  a, b: Integer;
+  a, b, c: Integer;
   idx: Integer;
   p, r: Pointer;
-  list: PMyArray;
 begin
   a := 5;
   b := 43;
   Init<Integer>(a);
   item.Assign(b);
   CheckTrue(a = b);
-  p := @a;
-  // create
-  Check(p <> nil);
-  idx := Count;
-  if region.Capacity <= idx then
-    list := region.Region.IncreaseAndAlloc(idx);
-  Inc(Count);
-  r := region.GetItemPtr(idx);
-  PInteger(r)^ := a;
-  b := List[0];
+  idx := Add<Integer>(a);
+  Get<Integer>(idx, b);
   CheckTrue(a = b);
-  // read
-  // update
-  // delete
+  c := PMyArray(List)[0];
+  CheckTrue(a = c);
 end;
 
 procedure TUnbrokenRegionTest._AssignItems;
@@ -1266,7 +1286,8 @@ end;
 
 procedure TUnbrokenRegionTest._Clear;
 begin
-
+  _IntegerCRUD;
+  region.Clear;
 end;
 
 procedure TUnbrokenRegionTest._FreeItems;
