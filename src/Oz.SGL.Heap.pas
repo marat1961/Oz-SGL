@@ -846,8 +846,6 @@ begin
   // Clear the memory of all segments.
   // Return to the heap memory of all segments except the first.
   FreeHeap(Heap.Next);
-  if Assigned(FreeItem) then
-    FreeItems(Heap);
   // Determine the size of free memory
   Heap.FreeSize := Heap.HeapSize - sizeof(TMemSegment);
   // Set the free memory pointer to the rest of the block

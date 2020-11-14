@@ -348,7 +348,7 @@ type
     // region for pointers
     FListRegion: PUnbrokenRegion;
     // region for items
-    FItemsRegion: PUnbrokenRegion;
+    FItemsRegion: PSegmentedRegion;
     function Get(Index: Integer): Pointer;
     procedure Put(Index: Integer; Item: Pointer);
     procedure CheckCapacity(NewCapacity: Integer);
@@ -923,6 +923,9 @@ var
   log: TsgLog;
 
 implementation
+
+uses
+  Oz.SGL.Test;
 
 var
   TupleElementMeta: TSharedRegion;
@@ -1834,7 +1837,7 @@ begin
   FList := nil;
   FCount := 0;
   FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
-  FItemsRegion := HeapPool.CreateUnbrokenRegion(Meta);
+  FItemsRegion := HeapPool.CreateRegion(Meta);
 end;
 
 procedure TsgPointerList.Free;
@@ -1846,13 +1849,10 @@ begin
 end;
 
 procedure TsgPointerList.Clear;
-var
-  Meta: TsgItemMeta;
 begin
-  Meta := FItemsRegion.Meta^;
-  Check(Meta.h.Valid, 'TsgPointerList.Clear: uninitialized');
-  Free;
-  Self := TsgPointerList.From(Meta);
+  FItemsRegion.Region.Clear;
+  FListRegion.Region.Clear;
+  FCount := 0;
 end;
 
 function TsgPointerList.First: Pointer;
@@ -1890,14 +1890,28 @@ begin
     Add(Source.Get(i));
 end;
 
+function TsgPointerList.Add: Pointer;
+var
+  Index: Integer;
+begin
+  Index := FCount;
+  CheckCapacity(Index);
+  Inc(FCount);
+  Result := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
+  FList[Index] := Result;
+end;
+
 function TsgPointerList.Add(Item: Pointer): Integer;
 var
   p: Pointer;
+  b: TTestRecord;
 begin
   Check(Item <> nil);
   Result := FCount;
   CheckCapacity(Result);
   Inc(FCount);
+  p := @b;
+  FItemsRegion.Region.AssignItem(p, Item);
   p := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
   FItemsRegion.Region.AssignItem(p, Item);
   FList[Result] := p;
@@ -1916,22 +1930,11 @@ begin
     Check(Item <> nil);
     CheckCapacity(FCount);
     MemSize := (FCount - Index) * SizeOf(Pointer);
-    System.Move(FList[Index], FList[Index + 1], MemSize);
-    Dest := FItemsRegion.GetItemPtr(Index);
+    Dest := FList[Index];
+    System.Move(Dest^, FList[Index + 1], MemSize);
     FItemsRegion.Region.AssignItem(Dest, Item);
     Inc(FCount);
   end;
-end;
-
-function TsgPointerList.Add: Pointer;
-var
-  Index: Integer;
-begin
-  Index := FCount;
-  CheckCapacity(Index);
-  Inc(FCount);
-  Result := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
-  FList[Index] := Result;
 end;
 
 procedure TsgPointerList.Delete(Index: Integer);

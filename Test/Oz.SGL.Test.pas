@@ -265,9 +265,9 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgTupleTest'}
+{$Region 'TsgTupleMetaTest'}
 
-  TsgTupleTest = class(TTestCase)
+  TsgTupleMetaTest = class(TTestCase)
   public
     procedure SetUp; override;
     procedure TearDown; override;
@@ -1304,7 +1304,6 @@ begin
   CheckTrue(a.id = b.id);
   CheckTrue(a.name = b.name);
   item.Free;
-  CheckTrue(a.id = 0);
   CheckTrue(a.name = '');
 end;
 
@@ -1523,21 +1522,19 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgTupleTest'}
+{$Region 'TsgTupleMetaTest'}
 
-procedure TsgTupleTest.SetUp;
+procedure TsgTupleMetaTest.SetUp;
 begin
   inherited;
-
 end;
 
-procedure TsgTupleTest.TearDown;
+procedure TsgTupleMetaTest.TearDown;
 begin
   inherited;
-
 end;
 
-procedure TsgTupleTest._TupleOffset;
+procedure TsgTupleMetaTest._TupleOffset;
 var
   te: TsgTupleElementMeta;
   offset: Cardinal;
@@ -1667,7 +1664,7 @@ begin
   CheckTrue(p1.id = 545);
 end;
 
-procedure TsgTupleTest._MakePair;
+procedure TsgTupleMetaTest._MakePair;
 var
   PairMeta, PairMetaAligned: TsgTupleMeta;
   te0, te1: PsgTupleElementMeta;
@@ -1694,7 +1691,7 @@ begin
   CheckTrue(PairMeta.Size = 28);
 end;
 
-procedure TsgTupleTest._MakeTrio;
+procedure TsgTupleMetaTest._MakeTrio;
 var
   TrioMeta: TsgTupleMeta;
   te0, te1, te2: PsgTupleElementMeta;
@@ -1714,7 +1711,7 @@ begin
   CheckTrue(TrioMeta.Size = 32);
 end;
 
-procedure TsgTupleTest._MakeQuad;
+procedure TsgTupleMetaTest._MakeQuad;
 var
   QuadMeta: TsgTupleMeta;
   te0, te1, te2, te3: PsgTupleElementMeta;
@@ -1737,7 +1734,7 @@ begin
   CheckTrue(QuadMeta.Size = 40);
 end;
 
-procedure TsgTupleTest._Cat;
+procedure TsgTupleMetaTest._Cat;
 var
   tupleMeta: TsgTupleMeta;
   Trio: TsgTupleMeta;
@@ -1765,7 +1762,7 @@ begin
   CheckTrue(tupleMeta.Size = 44);
 end;
 
-procedure TsgTupleTest._Add;
+procedure TsgTupleMetaTest._Add;
 var
   tupleMeta: TsgTupleMeta;
   te0, te1, te2: PsgTupleElementMeta;
@@ -1794,7 +1791,7 @@ begin
   CheckTrue(tupleMeta.Size = 32);
 end;
 
-procedure TsgTupleTest._Insert;
+procedure TsgTupleMetaTest._Insert;
 var
   Tuple: TsgTupleMeta;
   te0, te1, te2: PsgTupleElementMeta;
@@ -1822,7 +1819,7 @@ begin
   CheckTrue(Tuple.Size = 32);
 end;
 
-procedure TsgTupleTest._Assign;
+procedure TsgTupleMetaTest._Assign;
 type
   TMyRecord = packed record
     p: Pointer;
@@ -1863,7 +1860,7 @@ begin
 //  CheckTrue(b.i = a.i);
 end;
 
-procedure TsgTupleTest._AssignPart;
+procedure TsgTupleMetaTest._AssignPart;
 type
   TMyRecord2 = packed record
     v: TVector;
@@ -1909,7 +1906,7 @@ begin
 end;
 
 (*
-procedure TsgTupleTest._GoodAssignPart;
+procedure TsgTupleMetaTest._GoodAssignPart;
 var
   meta: TsgTupleMeta;
   rgn: PMemoryRegion;
@@ -2317,8 +2314,11 @@ begin
   end;
   CheckTrue(List.Count = ItemsCount);
   i := 0;
+  b := List.Items[0];
   for a in List do
   begin
+    if i = 0 then
+      CheckTrue(b = a);
     Inc(i);
     CheckTrue(a.e.tag = i);
     CheckTrue(a.e.h.v = i + 1);
@@ -3278,9 +3278,7 @@ end;
 
 initialization
 
-  RegisterTest(TestTSharedRegion.Suite);
-  RegisterTest(TestTsgArray.Suite);
-  RegisterTest(TsgTupleTest.Suite);
+  RegisterTest(TsgTupleMetaTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
 
   // Oz.SGL.Heap
@@ -3288,6 +3286,8 @@ initialization
   RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(THeapPoolTest.Suite);
   RegisterTest(TsgItemTest.Suite);
+  RegisterTest(TestTSharedRegion.Suite);
+  RegisterTest(TestTsgArray.Suite);
 
   // Oz.SGL.Collections
   RegisterTest(TestTsgList.Suite);
