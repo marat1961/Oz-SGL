@@ -1229,9 +1229,12 @@ end;
 procedure TUnbrokenRegionTest.Get<T>(idx: Integer; var value: T);
 type
   PT = ^T;
+var
+  p: Pointer;
 begin
   // read
-  value := PT(region.GetItemPtr(idx))^;
+  p := region.GetItemPtr(idx);
+  value := PT(p)^;
 end;
 
 function TUnbrokenRegionTest.Add<T>(const value: T): Integer;
@@ -1270,8 +1273,27 @@ begin
   idx := Add<Integer>(a);
   Get<Integer>(idx, b);
   CheckTrue(a = b);
-  c := PMyArray(List)[0];
+  c := PMyArray(List)[idx];
   CheckTrue(a = c);
+end;
+
+procedure TUnbrokenRegionTest._Clear;
+var
+  a, b: Integer;
+  i, idx: Integer;
+begin
+  _IntegerCRUD;
+  CheckTrue(Count = 1);
+  region.Clear;
+  Count := 0;
+  for i := 0 to 200 do
+  begin
+    a := (i + 1) * 5;
+    idx := Add<Integer>(a);
+    Get<Integer>(idx, b);
+    CheckTrue(a = b);
+  end;
+  CheckTrue(Count = 201);
 end;
 
 procedure TUnbrokenRegionTest._AssignItems;
@@ -1282,12 +1304,6 @@ end;
 procedure TUnbrokenRegionTest._Checks;
 begin
 
-end;
-
-procedure TUnbrokenRegionTest._Clear;
-begin
-  _IntegerCRUD;
-  region.Clear;
 end;
 
 procedure TUnbrokenRegionTest._FreeItems;
