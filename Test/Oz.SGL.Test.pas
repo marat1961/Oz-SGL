@@ -1447,7 +1447,7 @@ end;
 procedure THeapPoolTest._CreateRegion;
 var
   i: Integer;
-  r: PMemoryRegion;
+  r: PSegmentedRegion;
   head, newNode: PListNode;
   meta: TsgItemMeta;
 begin
@@ -1457,7 +1457,7 @@ begin
     head := nil;
     for i := 1 to ItemsCount do
     begin
-      newNode := r.Alloc(sizeof(TListNode));
+      newNode := r.Region.Alloc(sizeof(TListNode));
       newNode.next := head;
       newNode.n := i;
       head := newNode;
@@ -1470,7 +1470,7 @@ end;
 procedure THeapPoolTest._CreateUnbrokenRegion;
 var
   i, j: Integer;
-  r: PMemoryRegion;
+  r: PUnbrokenRegion;
   p, q, b: PListNode;
   a: TArray<NativeUInt>;
   pa, qa, a0, a1: NativeUInt;
@@ -1482,7 +1482,7 @@ begin
     q := nil;
     for i := 0 to ItemsCount - 1 do
     begin
-      p := r.Alloc(sizeof(TListNode));
+      p := r.Region.Alloc(sizeof(TListNode));
       p.next := p;
       p.n := i + 1;
       if q <> nil then

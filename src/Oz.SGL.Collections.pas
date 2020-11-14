@@ -178,7 +178,7 @@ type
 
   TsgTuples = record
   private
-    FRegion: PMemoryRegion;
+    FRegion: PUnbrokenRegion;
     FCount: Cardinal;
     FTupleMeta: PsgTupleMeta;
     function GetItem(Index: Cardinal): PsgTuple;
@@ -222,7 +222,7 @@ type
       property Current: Pointer read GetCurrent;
     end;
   private
-    FRegion: PMemoryRegion;
+    FRegion: PUnbrokenRegion;
     FCount: Integer;
     procedure SetCount(NewCount: Integer);
     procedure CheckCapacity(NewCapacity: Integer); inline;
@@ -309,7 +309,7 @@ type
   private
     // region for pointers
     FList: PsgPointers;
-    FListRegion: PMemoryRegion;
+    FListRegion: PUnbrokenRegion;
     FCount: Integer;
     function Get(Index: Integer): Pointer;
     procedure Put(Index: Integer; Item: Pointer);
@@ -346,9 +346,9 @@ type
     FList: PsgPointers;
     FCount: Integer;
     // region for pointers
-    FListRegion: PMemoryRegion;
+    FListRegion: PUnbrokenRegion;
     // region for items
-    FItemsRegion: PMemoryRegion;
+    FItemsRegion: PUnbrokenRegion;
     function Get(Index: Integer): Pointer;
     procedure Put(Index: Integer; Item: Pointer);
     procedure CheckCapacity(NewCapacity: Integer);
@@ -443,7 +443,7 @@ type
       property Current: PItem read GetCurrent;
     end;
   private
-    FRegion: PMemoryRegion;
+    FRegion: PSegmentedRegion;
     FHead: PItem;
     FLast: PItem;
   public
@@ -604,8 +604,8 @@ type
       function GetValue: Pointer; inline;
     end;
   private
-    FEntries: PMemoryRegion;
-    FCollisions: PMemoryRegion;
+    FEntries: PUnbrokenRegion;
+    FCollisions: PSegmentedRegion;
     FPair: TsgTupleMeta;
     FCount: Integer;
     FHash: THashProc;
@@ -724,7 +724,7 @@ type
     Compare: TListSortCompare;
     Update: TUpdateProc;
     Visit: TNodeProc;
-    Region: PMemoryRegion;
+    Region: PSegmentedRegion;
     Root, Sentinel: PNode;
     procedure Visiter(node: PNode);
     procedure Search(var p: PNode; var prm: TParams);
@@ -1304,7 +1304,7 @@ begin
     meta.FreeItem := FreeTuple;
     meta.AssignItem := AssignTuple;
   end;
-  FRegion := HeapPool.CreateRegion(meta);
+  FRegion := HeapPool.CreateUnbrokenRegion(meta);
 end;
 
 procedure TsgTuples.Free;
@@ -1418,8 +1418,8 @@ end;
 function TsgListHelper.Add: Pointer;
 begin
   if FRegion.Capacity <= FCount then
-    GetItems^ := FRegion.IncreaseCapacity(FCount + 1);
-  FRegion.Alloc(FRegion.Meta.ItemSize);
+    GetItems^ := FRegion.Region.IncreaseCapacity(FCount + 1);
+  FRegion.Region.Alloc(FRegion.Meta.ItemSize);
   Result := @PByte(GetItems^)[Cardinal(FCount) * FRegion.Meta.ItemSize];
   Inc(FCount);
 end;
@@ -1436,7 +1436,7 @@ end;
 procedure TsgListHelper.CheckCapacity(NewCapacity: Integer);
 begin
   if FRegion.Capacity <= NewCapacity then
-    GetItems^ := FRegion.IncreaseAndAlloc(NewCapacity);
+    GetItems^ := FRegion.Region.IncreaseAndAlloc(NewCapacity);
 end;
 
 procedure TsgListHelper.Delete(Index: Integer);
@@ -1543,8 +1543,8 @@ begin
   ItemSize := FRegion.Meta.ItemSize;
   Items := GetItems;
   if FRegion.Capacity <= FCount then
-    GetItems^ := FRegion.IncreaseCapacity(FCount + 1);
-  FRegion.Alloc(ItemSize);
+    GetItems^ := FRegion.Region.IncreaseCapacity(FCount + 1);
+  FRegion.Region.Alloc(ItemSize);
   if Index <> FCount then
   begin
     MemSize := (FCount - Index) * ItemSize;
@@ -1553,7 +1553,7 @@ begin
       PByte(Items^)[(Index + 1) * ItemSize],
       MemSize);
   end;
-  FRegion.AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
+  FRegion.Region.AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
   Inc(FCount);
 end;
 
@@ -1595,7 +1595,7 @@ begin
   Src := Source.GetItems^;
   while Cnt > 0 do
   begin
-    FRegion.AssignItem(Dest, Src);
+    FRegion.Region.AssignItem(Dest, Src);
     Inc(PByte(Dest), ItemSize);
     Inc(PByte(Src), ItemSize);
     Dec(Cnt);
@@ -1755,7 +1755,7 @@ end;
 constructor TsgPointerArray.From(Capacity: Integer);
 begin
   FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
-  FList := FListRegion.IncreaseCapacity(Capacity);
+  FList := FListRegion.Region.IncreaseCapacity(Capacity);
   FCount := 0;
 end;
 
@@ -1789,7 +1789,7 @@ begin
   Check(ptr <> nil);
   idx := FCount;
   if FListRegion.Capacity <= idx then
-    FList := FListRegion.IncreaseAndAlloc(idx);
+    FList := FListRegion.Region.IncreaseAndAlloc(idx);
   Inc(FCount);
   FList[idx] := ptr;
 end;
@@ -1834,7 +1834,7 @@ begin
   FList := nil;
   FCount := 0;
   FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
-  FItemsRegion := HeapPool.CreateRegion(Meta);
+  FItemsRegion := HeapPool.CreateUnbrokenRegion(Meta);
 end;
 
 procedure TsgPointerList.Free;
@@ -1898,8 +1898,8 @@ begin
   Result := FCount;
   CheckCapacity(Result);
   Inc(FCount);
-  p := FItemsRegion.Alloc(FItemsRegion.ItemSize);
-  FItemsRegion.AssignItem(p, Item);
+  p := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
+  FItemsRegion.Region.AssignItem(p, Item);
   FList[Result] := p;
 end;
 
@@ -1918,7 +1918,7 @@ begin
     MemSize := (FCount - Index) * SizeOf(Pointer);
     System.Move(FList[Index], FList[Index + 1], MemSize);
     Dest := FItemsRegion.GetItemPtr(Index);
-    FItemsRegion.AssignItem(Dest, Item);
+    FItemsRegion.Region.AssignItem(Dest, Item);
     Inc(FCount);
   end;
 end;
@@ -1930,7 +1930,7 @@ begin
   Index := FCount;
   CheckCapacity(Index);
   Inc(FCount);
-  Result := FItemsRegion.Alloc(FItemsRegion.ItemSize);
+  Result := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
   FList[Index] := Result;
 end;
 
@@ -2031,7 +2031,7 @@ end;
 procedure TsgPointerList.CheckCapacity(NewCapacity: Integer);
 begin
   if FListRegion.Capacity <= NewCapacity then
-    FList := FListRegion.IncreaseAndAlloc(NewCapacity);
+    FList := FListRegion.Region.IncreaseAndAlloc(NewCapacity);
 end;
 
 procedure TsgPointerList.SetCount(NewCount: Integer);
@@ -2223,7 +2223,7 @@ end;
 procedure TCustomLinkedList.Init(const Meta: TsgItemMeta);
 begin
   FRegion := HeapPool.CreateRegion(Meta);
-  FHead := FRegion.Alloc(FRegion.ItemSize);
+  FHead := FRegion.Region.Alloc(FRegion.ItemSize);
   FLast := FHead;
 end;
 
@@ -2239,8 +2239,8 @@ end;
 
 procedure TCustomLinkedList.Clear;
 begin
-  FRegion.Clear;
-  FHead := FRegion.Alloc(FRegion.ItemSize);
+  FRegion.Region.Clear;
+  FHead := FRegion.Region.Alloc(FRegion.ItemSize);
   FLast := FHead;
 end;
 
@@ -2278,7 +2278,7 @@ function TCustomLinkedList.PushFront: PItem;
 var
   new: PItem;
 begin
-  new := FRegion.Alloc(FRegion.ItemSize);
+  new := FRegion.Region.Alloc(FRegion.ItemSize);
   new.next := FHead;
   FHead.prev := new;
   FHead := new;
@@ -2294,7 +2294,7 @@ begin
   else
   begin
     p := FLast.prev;
-    new := FRegion.Alloc(FRegion.ItemSize);
+    new := FRegion.Region.Alloc(FRegion.ItemSize);
     new.next := FLast;
     new.prev := p;
     FLast.prev := new;
@@ -2307,7 +2307,7 @@ function TCustomLinkedList.Insert(const Pos: PItem): PItem;
 var
   new: PItem;
 begin
-  new := FRegion.Alloc(FRegion.ItemSize);
+  new := FRegion.Region.Alloc(FRegion.ItemSize);
   new.next := Pos.next;
   new.prev := Pos;
   Pos.next.prev := new;
@@ -2622,7 +2622,7 @@ var
   EntryMeta, CollisionMeta: TsgItemMeta;
 begin
   EntryMeta.Init<TEntry>;
-  FEntries := HeapPool.CreateRegion(EntryMeta);
+  FEntries := HeapPool.CreateUnbrokenRegion(EntryMeta);
   FPair := PairMeta;
   FHash := HashKey;
   FEquals := Equals;
@@ -2647,7 +2647,7 @@ begin
     TabSize := 19477
   else
     TabSize := 32469;
-  FEntries.IncreaseAndAlloc(TabSize);
+  FEntries.Region.IncreaseAndAlloc(TabSize);
   FCount := TabSize;
 end;
 
@@ -2703,7 +2703,7 @@ begin
     p := p.Next;
   end;
   // Insert collision at the beginning of the list
-  n := FCollisions.Alloc(FCollisions.Meta.ItemSize);
+  n := FCollisions.Region.Alloc(FCollisions.Meta.ItemSize);
   n.Next := entry.root;
   pt := FPair.Get(0);
   pt.Assign(n.GetPairRef, pair);
@@ -3021,7 +3021,7 @@ end;
 
 procedure TsgCustomTree.CreateNode(var p: PNode);
 begin
-  p := Region.Alloc(Region.ItemSize);
+  p := Region.Region.Alloc(Region.ItemSize);
   p.left := Sentinel;
   p.right := Sentinel;
   p.lh := False;
