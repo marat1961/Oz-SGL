@@ -194,16 +194,18 @@ type
   TMemSegment = record
   private
     Next: PMemSegment;  // Next segment
-    HeapSize: Cardinal; // Size of the memory segment
-    FreePtr: Pointer;   // Free memory
-    FreeSize: Cardinal; // Size of free memory
-  public
-    function GetHeapRef: Pointer; inline;
-     // Whether the address is within the heap
-    function GetHignRef: Pointer; inline;
-     // Allocate a piece of memory of the specified size
+    TopMem: PByte;      // Size of the memory segment
+    FreePtr: PByte;     // Free memory
     procedure CheckPointer(Ptr: Pointer; Size: Cardinal);
-     // Return a reference to the beginning of the heap
+  public
+    procedure Init(HeapSize: Cardinal);
+    // Return a reference to the beginning of the heap
+    function GetHeapRef: Pointer; inline;
+    // Return the size of free memory
+    function GetFreeSize: Cardinal; inline;
+    // Size of the memory segment
+    function GetHeapSize: NativeUInt; inline;
+     // Allocate a piece of memory of the specified size
     function Occupy(Size: Cardinal): Pointer;
   end;
 
@@ -765,64 +767,70 @@ procedure NewSegment(var p: PMemSegment; HeapSize: Cardinal);
 begin
   // Create a new memory segment
   GetMem(p, HeapSize);
-  p.Next := nil;
-  p.HeapSize := HeapSize;
-  // Determine the size of free memory
-  p.FreeSize := p.HeapSize - sizeof(TMemSegment);
-  // Set the free memory pointer to the rest of the block
-  p.FreePtr := Pointer(NativeUInt(p) + sizeof(TMemSegment));
-  FillChar(p.FreePtr^, p.FreeSize, 0);
+  p.Init(HeapSize);
 end;
 
 procedure IncreaseHeapSize(var p: PMemSegment; NewHeapSize: Cardinal);
 var
-  OldHeapSize, OldFreeSize: Cardinal;
+  Offset: NativeUInt;
 begin
-  Check((p <> nil) and (NewHeapSize > p.HeapSize), 'IncreaseHeapSize error');
-  OldHeapSize := p.HeapSize;
-  OldFreeSize := p.FreeSize;
+  Check((p <> nil) and (NewHeapSize > p.GetHeapSize), 'IncreaseHeapSize error');
+  Offset := NativeUInt(p.FreePtr) - NativeUInt(p);
   ReallocMem(p, NewHeapSize);
   // Increase memory segment size
-  p.HeapSize := NewHeapSize;
-  // Increase the size of free memory
-  p.FreeSize := OldFreeSize + NewHeapSize - OldHeapSize;
+  p.FreePtr := PByte(p) + Offset;
+  p.TopMem := PByte(p) + sizeof(TMemSegment) + NewHeapSize;
   // Set the free memory pointer to the rest of the block
-  p.FreePtr := Pointer(NativeUInt(p) + p.HeapSize - p.FreeSize);
-  FillChar(p.FreePtr^, p.FreeSize, 0);
+  p.FreePtr := Pointer(NativeUInt(p) + p.GetHeapSize - p.GetFreeSize);
+  FillChar(p.FreePtr^, p.GetFreeSize, 0);
+end;
+
+procedure TMemSegment.Init(HeapSize: Cardinal);
+begin
+  Next := nil;
+  // Set the free memory pointer to the rest of the block
+  TopMem := PByte(@Self) + HeapSize;
+  FreePtr := PByte(@Self) + sizeof(TMemSegment);
+  var sz := GetFreeSize;
+  FillChar(FreePtr^, sz, 0);
 end;
 
 function TMemSegment.Occupy(Size: Cardinal): Pointer;
+var
+  p: PByte;
 begin
+  p := FreePtr + Size;
   // if there is not enough memory
-  if FreeSize < Size then
+  if p > TopMem then
     exit(nil);
   Result := FreePtr;
+  FreePtr := p;
 {$IFDEF DEBUG}
   CheckPointer(Result, Size);
 {$ENDIF}
-  // reduce its size
-  FreeSize := FreeSize - Size;
-  // offset free memory pointer
-  FreePtr := Pointer(NativeUInt(FreePtr) + Size);
 end;
 
 procedure TMemSegment.CheckPointer(Ptr: Pointer; Size: Cardinal);
 var
-  lo, hi: NativeUInt;
+  lo: NativeUInt;
 begin
   lo := NativeUInt(@Self) + sizeof(TMemSegment);
-  hi := NativeUInt(@Self) + HeapSize - Size;
-  Check(InRange(NativeUInt(Ptr), lo, hi));
+  Check(InRange(NativeUInt(Ptr), lo, NativeUInt(TopMem)));
+end;
+
+function TMemSegment.GetFreeSize: Cardinal;
+begin
+  Result := TopMem - FreePtr;
 end;
 
 function TMemSegment.GetHeapRef: Pointer;
 begin
-  Result := Pointer(NativeUInt(@Self) + sizeof(TMemSegment));
+  Result := PByte(@Self) + sizeof(TMemSegment);
 end;
 
-function TMemSegment.GetHignRef: Pointer;
+function TMemSegment.GetHeapSize: NativeUInt;
 begin
-  Result := Pointer(NativeUInt(@Self) + sizeof(TMemSegment) + HeapSize);
+  Result := NativeUInt(TopMem) - NativeUInt(@Self);
 end;
 
 {$EndRegion}
@@ -852,10 +860,7 @@ begin
   if Assigned(FreeItem) then
     FreeItems(Heap);
   // Determine the size of free memory
-  Heap.FreeSize := Heap.HeapSize - sizeof(TMemSegment);
-  // Set the free memory pointer to the rest of the block
-  Heap.FreePtr := Pointer(NativeUInt(Heap) + sizeof(TMemSegment));
-  FillChar(Heap.FreePtr^, Heap.FreeSize, 0);
+  Heap.Init(Heap.GetHeapSize);
 end;
 
 procedure TMemoryRegion.Free;
@@ -916,7 +921,7 @@ end;
 
 function TMemoryRegion.GetOccupiedCount(p: PMemSegment): Integer;
 begin
-  Result := (p.HeapSize - sizeof(TMemSegment) - p.FreeSize) div FMeta.ItemSize;
+  Result := (p.GetHeapSize - sizeof(TMemSegment) - p.GetFreeSize) div FMeta.ItemSize;
 end;
 
 procedure TMemoryRegion.GrowHeap(NewCount: Integer);
@@ -940,7 +945,7 @@ begin
     p.Next := Heap;
     Heap := p;
   end;
-  FCapacity := (Heap.HeapSize - sizeof(TMemSegment)) div FMeta.ItemSize;
+  FCapacity := (Heap.GetHeapSize - sizeof(TMemSegment)) div FMeta.ItemSize;
 end;
 
 function TMemoryRegion.Grow(NewCount: Integer): Integer;
@@ -961,7 +966,7 @@ begin
 {$IFDEF DEBUG}
   Check(Valid and (Size mod FMeta.ItemSize = 0));
 {$ENDIF}
-  if (Heap = nil) or (Heap.FreeSize < Size) then
+  if (Heap = nil) or (Heap.GetFreeSize < Size) then
     GrowHeap(Size div FMeta.ItemSize + 1);
   Result := Heap.Occupy(Size);
   if Result = nil then
@@ -1025,7 +1030,7 @@ var
   p: NativeUInt;
 begin
   p := NativeUInt(Item) - NativeUInt(FRegion.Heap.GetHeapRef);
-  if p < FRegion.Heap.HeapSize then
+  if p < FRegion.Heap.GetHeapSize then
     Result := Pointer(NativeUInt(Item) + FRegion.FMeta.ItemSize)
   else
     Result := nil;
