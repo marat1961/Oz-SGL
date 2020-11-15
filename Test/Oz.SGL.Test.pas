@@ -50,6 +50,8 @@ type
     a, b, c: Byte;
   end;
 
+  t7 = array [0..6] of Byte;
+
   TId = record
     v: Integer;
   end;
@@ -202,7 +204,13 @@ type
     procedure _Word;
     procedure _Integer;
     procedure _Int64;
-    procedure _OtherSize;
+    procedure _Size3;
+    procedure _Size7;
+    procedure _ManagedType;
+    procedure _Variant;
+    procedure _Object;
+    procedure _Interface;
+    procedure _DynArray;
   end;
 
 {$EndRegion}
@@ -1392,13 +1400,147 @@ begin
   Result := (pa.a = pb.a) and (pa.b = pb.b) and (pa.c = pb.c);
 end;
 
-procedure TUnbrokenRegionTest._OtherSize;
+procedure TUnbrokenRegionTest._Size3;
 var
   a, b: t3;
 begin
   a.a := 5; a.b := 254; a.c := 127;
   b.a := 43; b.b := 77; b.c := 0;
   _CRUD<t3>(a, b, t3Equals);
+end;
+
+function t7Equals(a, b: Pointer): Boolean;
+type
+  PT = ^t7;
+var
+  pa, pb: PT;
+  i: Integer;
+begin
+  pa := PT(a); pb := PT(b);
+  for i := 0 to High(t7) do
+    if pa[i] <>  pb[i] then exit(False);
+  Result := True;
+end;
+
+procedure TUnbrokenRegionTest._Size7;
+var
+  a, b: t7;
+  i: Integer;
+begin
+  for i := 0 to High(t7) do
+  begin
+    a[i] := i + 5;
+    b[i] := i + 77;
+  end;
+  _CRUD<t7>(a, b, t7Equals);
+end;
+
+function PersonEquals(a, b: Pointer): Boolean;
+type
+  PT = ^TPerson;
+var
+  pa, pb: PT;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := (pa.id = pb.id) and (pa.name = pb.name);
+end;
+
+procedure TUnbrokenRegionTest._ManagedType;
+var
+  a, b: TPerson;
+begin
+  a := TPerson.From('Peter');
+  a.id := 1;
+  b := TPerson.From('Nick');
+  b.id := 43;
+  _CRUD<TPerson>(a, b, PersonEquals);
+end;
+
+function VariantEquals(a, b: Pointer): Boolean;
+type
+  PT = ^Variant;
+var
+  pa, pb: PT;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := pa^ = pb^;
+end;
+
+procedure TUnbrokenRegionTest._Variant;
+var
+  a, b: Variant;
+begin
+  a := 'Peter';
+  b := 12.45;
+  _CRUD<Variant>(a, b, VariantEquals);
+end;
+
+function ObjectEquals(a, b: Pointer): Boolean;
+type
+  PT = ^TIntId;
+var
+  pa, pb: PT;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := pa.Id = pb.Id;
+end;
+
+procedure TUnbrokenRegionTest._Object;
+var
+  a, b: TIntId;
+begin
+  a := TIntId.Create;
+  a.Id := 75;
+  b := TIntId.Create;
+  b.Id := 43;
+  _CRUD<TIntId>(a, b, ObjectEquals);
+end;
+
+function InterfaceEquals(a, b: Pointer): Boolean;
+type
+  PT = ^IIntId;
+var
+  pa, pb: PT;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := pa.Id = pb.Id;
+end;
+
+procedure TUnbrokenRegionTest._Interface;
+var
+  a, b: IIntId;
+begin
+  a := TIntId.Create;
+  a.Id := 75;
+  b := TIntId.Create;
+  b.Id := 43;
+  _CRUD<IIntId>(a, b, InterfaceEquals);
+end;
+
+type
+  TDynArray = TArray<Integer>;
+
+function DynArrayEquals(a, b: Pointer): Boolean;
+type
+  PT = ^TDynArray;
+var
+  pa, pb: PT;
+  i: Integer;
+begin
+  pa := PT(a); pb := PT(b);
+  if Length(pa^) <> Length(pb^) then exit(False);
+  for i := 0 to High(pa^) do
+    if pa^[i] <> pb^[i] then exit(False);
+  Result := True;
+end;
+
+procedure TUnbrokenRegionTest._DynArray;
+var
+  a, b: TDynArray;
+begin
+  a := [5, 75, 588];
+  b := [43];
+  _CRUD<TDynArray>(a, b, DynArrayEquals);
 end;
 
 {$EndRegion}
@@ -1534,8 +1676,6 @@ begin
 end;
 
 procedure TsgItemTest.TestItem;
-type
-  t7 = array [0..6] of Byte;
 var
   i: Integer;
   a, b: t7;
