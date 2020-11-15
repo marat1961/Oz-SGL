@@ -208,6 +208,7 @@ type
     procedure _Checks<T>;
     procedure _Test<T>(var prm: TParam<T>);
   published
+    procedure Test;
     procedure _Byte;
     procedure _Word;
     procedure _Integer;
@@ -1251,6 +1252,7 @@ end;
 
 procedure TUnbrokenRegionTest.SetUp;
 begin
+  Count := 0;
 end;
 
 procedure TUnbrokenRegionTest.TearDown;
@@ -1349,6 +1351,7 @@ procedure TUnbrokenRegionTest._Test<T>(var prm: TParam<T>);
 begin
   _CRUD<T>(prm.a, prm.b, prm.equals);
   _Clear<T>(prm);
+  region.Free;
 end;
 
 procedure ByteUpdate(p: Pointer; value: Integer);
@@ -1516,7 +1519,7 @@ procedure PersonUpdate(p: Pointer; value: Integer);
 type
   PT = ^TPerson;
 begin
-  with PT(p)^ do 
+  with PT(p)^ do
   begin
     id := value;
     name := IntToStr(value);
@@ -1701,6 +1704,26 @@ begin
   b := 'string b';
   prm.Init(a, b, StringUpdate, StringEquals);
   _Test<string>(prm);
+end;
+
+procedure TUnbrokenRegionTest.Test;
+type
+  TMyArray = array [0..100000] of string;
+  PMyArray = ^TMyArray;
+var
+  a, b, c: string;
+  idx: Integer;
+begin
+  Init<string>(a);
+  idx := Add<string>(a);
+  Get<string>(idx, b);
+  CheckTrue(StringEquals(@a, @b));
+  c := PMyArray(List)[idx];
+  CheckTrue(StringEquals(@a, @c));  
+  CheckTrue(Count = 1);
+  region.Clear;
+  idx := Add<string>(a);
+  region.Free;
 end;
 
 procedure WideStringUpdate(p: Pointer; value: Integer);
