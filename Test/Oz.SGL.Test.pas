@@ -46,6 +46,10 @@ type
 
 {$Region 'TTestRecord'}
 
+  t3 = record
+    a, b, c: Byte;
+  end;
+
   TId = record
     v: Integer;
   end;
@@ -175,6 +179,8 @@ type
 {$Region 'TUnbrokenRegionTest'}
 
   TUnbrokenRegionTest = class(TTestCase)
+  type
+    TUpdateProc = procedure(p: Pointer; value: Integer);
   public
     meta: TsgItemMeta;
     region: TUnbrokenRegion;
@@ -186,12 +192,17 @@ type
     procedure Init<T>(var value: T);
     function Add<T>(const value: T): Integer;
     procedure Get<T>(idx: Integer; var value: T);
+    procedure _CRUD<T>(var a, b: T; equals: TEqualsFunc);
+    procedure _Clear<T>(update: TUpdateProc; equals: TEqualsFunc);
+    procedure _AssignItems<T>;
+    procedure _FreeItems<T>;
+    procedure _Checks<T>;
   published
-    procedure _IntegerCRUD;
-    procedure _Clear;
-    procedure _AssignItems;
-    procedure _FreeItems;
-    procedure _Checks;
+    procedure _Byte;
+    procedure _Word;
+    procedure _Integer;
+    procedure _Int64;
+    procedure _OtherSize;
   end;
 
 {$EndRegion}
@@ -1256,59 +1267,138 @@ begin
   Result := idx;
 end;
 
-procedure TUnbrokenRegionTest._IntegerCRUD;
+procedure TUnbrokenRegionTest._CRUD<T>(var a, b: T; equals: TEqualsFunc);
 type
-  TMyArray = array [0..100000] of Integer;
+  TMyArray = array [0..100000] of T;
   PMyArray = ^TMyArray;
 var
-  a, b, c: Integer;
+  c: T;
   idx: Integer;
-  p, r: Pointer;
 begin
-  a := 5;
-  b := 43;
-  Init<Integer>(a);
+  Init<T>(a);
   item.Assign(b);
-  CheckTrue(a = b);
-  idx := Add<Integer>(a);
-  Get<Integer>(idx, b);
-  CheckTrue(a = b);
+  CheckTrue(equals(@a, @b));
+  idx := Add<T>(a);
+  Get<T>(idx, b);
+  CheckTrue(equals(@a, @b));
   c := PMyArray(List)[idx];
-  CheckTrue(a = c);
+  CheckTrue(equals(@a, @c));
 end;
 
-procedure TUnbrokenRegionTest._Clear;
+procedure TUnbrokenRegionTest._Clear<T>(update: TUpdateProc; equals: TEqualsFunc);
 var
-  a, b: Integer;
+  a, b, c: T;
   i, idx: Integer;
 begin
-  _IntegerCRUD;
   CheckTrue(Count = 1);
   region.Clear;
   Count := 0;
   for i := 0 to 200 do
   begin
-    a := (i + 1) * 5;
-    idx := Add<Integer>(a);
-    Get<Integer>(idx, b);
-    CheckTrue(a = b);
+    update(@a, i);
+    idx := Add<T>(a);
+    Get<T>(idx, b);
+    CheckTrue(equals(@a, @c));
   end;
   CheckTrue(Count = 201);
 end;
 
-procedure TUnbrokenRegionTest._AssignItems;
+procedure TUnbrokenRegionTest._AssignItems<T>;
 begin
 
 end;
 
-procedure TUnbrokenRegionTest._Checks;
+procedure TUnbrokenRegionTest._Checks<T>;
 begin
 
 end;
 
-procedure TUnbrokenRegionTest._FreeItems;
+procedure TUnbrokenRegionTest._FreeItems<T>;
 begin
 
+end;
+
+function ByteEquals(a, b: Pointer): Boolean;
+type
+  PT = ^Byte;
+begin
+  Result := PT(a)^ = PT(b)^;
+end;
+
+procedure TUnbrokenRegionTest._Byte;
+var
+  a, b: Byte;
+begin
+  a := 5;
+  b := 43;
+  _CRUD<Byte>(a, b, ByteEquals);
+end;
+
+function WordEquals(a, b: Pointer): Boolean;
+type
+  PT = ^Word;
+begin
+  Result := PT(a)^ = PT(b)^;
+end;
+
+procedure TUnbrokenRegionTest._Word;
+var
+  a, b: Word;
+begin
+  a := 5;
+  b := 43;
+  _CRUD<Word>(a, b, WordEquals);
+end;
+
+function IntEquals(a, b: Pointer): Boolean;
+type
+  PT = ^Integer;
+begin
+  Result := PT(a)^ = PT(b)^;
+end;
+
+procedure TUnbrokenRegionTest._Integer;
+var
+  a, b: Integer;
+begin
+  a := 5;
+  b := 43;
+  _CRUD<Integer>(a, b, IntEquals);
+end;
+
+function Int64Equals(a, b: Pointer): Boolean;
+type
+  PT = ^Int64;
+begin
+  Result := PT(a)^ = PT(b)^;
+end;
+
+procedure TUnbrokenRegionTest._Int64;
+var
+  a, b: Int64;
+begin
+  a := 5;
+  b := 43;
+  _CRUD<Int64>(a, b, Int64Equals);
+end;
+
+function t3Equals(a, b: Pointer): Boolean;
+type
+  PT = ^t3;
+var
+  pa, pb: PT;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := (pa.a = pb.a) and (pa.b = pb.b) and (pa.c = pb.c);
+end;
+
+procedure TUnbrokenRegionTest._OtherSize;
+var
+  a, b: t3;
+begin
+  a.a := 5; a.b := 254; a.c := 127;
+  b.a := 43; b.b := 77; b.c := 0;
+  _CRUD<t3>(a, b, t3Equals);
 end;
 
 {$EndRegion}
@@ -1426,8 +1516,6 @@ begin
 end;
 
 procedure TsgItemTest.TestOtherSize;
-type
-  t3 = record a, b, c: Byte; end;
 var
   a, b: t3;
 begin
