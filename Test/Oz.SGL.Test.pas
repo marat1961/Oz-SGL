@@ -211,6 +211,9 @@ type
     procedure _Object;
     procedure _Interface;
     procedure _DynArray;
+    procedure _String;
+    procedure _WideString;
+    procedure _RawByteString;
   end;
 
 {$EndRegion}
@@ -1541,6 +1544,66 @@ begin
   a := [5, 75, 588];
   b := [43];
   _CRUD<TDynArray>(a, b, DynArrayEquals);
+end;
+
+function StringEquals(a, b: Pointer): Boolean;
+type
+  PT = ^string;
+var
+  pa, pb: PT;
+  i: Integer;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := pa^ = pb^;
+end;
+
+procedure TUnbrokenRegionTest._String;
+var
+  a, b: string;
+begin
+  a := 'string a';
+  b := 'string b';
+  _CRUD<string>(a, b, StringEquals);
+end;
+
+function WideStringEquals(a, b: Pointer): Boolean;
+type
+  PT = ^WideString;
+var
+  pa, pb: PT;
+  i: Integer;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := pa^ = pb^;
+end;
+
+procedure TUnbrokenRegionTest._WideString;
+var
+  a, b: WideString;
+begin
+  a := 'string a';
+  b := 'string b';
+  _CRUD<WideString>(a, b, WideStringEquals);
+end;
+
+function RawByteStringEquals(a, b: Pointer): Boolean;
+type
+  PT = ^RawByteString;
+var
+  pa, pb: PT;
+  i: Integer;
+begin
+  pa := PT(a); pb := PT(b);
+  Result := pa^ = pb^;
+end;
+
+procedure TUnbrokenRegionTest._RawByteString;
+var
+  a, b: RawByteString;
+begin
+  a := 'string a';
+  b := 'string b';
+  _CRUD<RawByteString>(a, b, RawByteStringEquals);
 end;
 
 {$EndRegion}
