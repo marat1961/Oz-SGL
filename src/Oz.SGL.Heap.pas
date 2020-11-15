@@ -779,20 +779,16 @@ begin
   ReallocMem(p, NewHeapSize);
   // Increase memory segment size
   p.FreePtr := PByte(p) + Offset;
-  p.TopMem := PByte(p) + sizeof(TMemSegment) + NewHeapSize;
-  // Set the free memory pointer to the rest of the block
-  p.FreePtr := Pointer(NativeUInt(p) + p.GetHeapSize - p.GetFreeSize);
+  p.TopMem := PByte(p) + NewHeapSize;
   FillChar(p.FreePtr^, p.GetFreeSize, 0);
 end;
 
 procedure TMemSegment.Init(HeapSize: Cardinal);
 begin
   Next := nil;
-  // Set the free memory pointer to the rest of the block
-  TopMem := PByte(@Self) + HeapSize;
   FreePtr := PByte(@Self) + sizeof(TMemSegment);
-  var sz := GetFreeSize;
-  FillChar(FreePtr^, sz, 0);
+  TopMem := PByte(@Self) + HeapSize;
+  FillChar(FreePtr^, GetFreeSize, 0);
 end;
 
 function TMemSegment.Occupy(Size: Cardinal): Pointer;
