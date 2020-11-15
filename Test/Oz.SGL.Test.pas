@@ -183,6 +183,13 @@ type
   TUnbrokenRegionTest = class(TTestCase)
   type
     TUpdateProc = procedure(p: Pointer; value: Integer);
+    TParam<T> = record
+    var
+      a, b, c: T;
+      update: TUpdateProc; 
+      equals: TEqualsFunc;
+      procedure Init(av, bv: T; u: TUpdateProc; eq: TEqualsFunc);
+    end;
   public
     meta: TsgItemMeta;
     region: TUnbrokenRegion;
@@ -195,10 +202,11 @@ type
     function Add<T>(const value: T): Integer;
     procedure Get<T>(idx: Integer; var value: T);
     procedure _CRUD<T>(var a, b: T; equals: TEqualsFunc);
-    procedure _Clear<T>(update: TUpdateProc; equals: TEqualsFunc);
+    procedure _Clear<T>(var prm: TParam<T>);
     procedure _AssignItems<T>;
     procedure _FreeItems<T>;
     procedure _Checks<T>;
+    procedure _Test<T>(var prm: TParam<T>);
   published
     procedure _Byte;
     procedure _Word;
@@ -1232,6 +1240,15 @@ end;
 
 {$Region 'TUnbrokenRegionTest'}
 
+procedure TUnbrokenRegionTest.TParam<T>.Init(av, bv: T; 
+  u: TUpdateProc; eq: TEqualsFunc);
+begin
+  a := av;
+  b := bv;
+  update := u; 
+  equals := eq;
+end;
+
 procedure TUnbrokenRegionTest.SetUp;
 begin
 end;
@@ -1296,9 +1313,8 @@ begin
   CheckTrue(equals(@a, @c));
 end;
 
-procedure TUnbrokenRegionTest._Clear<T>(update: TUpdateProc; equals: TEqualsFunc);
+procedure TUnbrokenRegionTest._Clear<T>(var prm: TParam<T>);
 var
-  a, b, c: T;
   i, idx: Integer;
 begin
   CheckTrue(Count = 1);
@@ -1306,10 +1322,10 @@ begin
   Count := 0;
   for i := 0 to 200 do
   begin
-    update(@a, i);
-    idx := Add<T>(a);
-    Get<T>(idx, b);
-    CheckTrue(equals(@a, @c));
+    prm.update(@prm.a, i);
+    idx := Add<T>(prm.a);
+    Get<T>(idx, prm.b);
+    CheckTrue(prm.equals(@prm.a, @prm.b));
   end;
   CheckTrue(Count = 201);
 end;
@@ -1329,6 +1345,19 @@ begin
 
 end;
 
+procedure TUnbrokenRegionTest._Test<T>(var prm: TParam<T>);
+begin
+  _CRUD<T>(prm.a, prm.b, prm.equals);
+  _Clear<T>(prm);
+end;
+
+procedure ByteUpdate(p: Pointer; value: Integer);
+type
+  PT = ^Byte;
+begin
+  PT(p)^ := value;
+end;
+
 function ByteEquals(a, b: Pointer): Boolean;
 type
   PT = ^Byte;
@@ -1338,11 +1367,17 @@ end;
 
 procedure TUnbrokenRegionTest._Byte;
 var
-  a, b: Byte;
+  prm: TParam<Byte>;
 begin
-  a := 5;
-  b := 43;
-  _CRUD<Byte>(a, b, ByteEquals);
+  prm.Init(5, 43, ByteUpdate, ByteEquals);
+  _Test<Byte>(prm);
+end;
+
+procedure WordUpdate(p: Pointer; value: Integer);
+type
+  PT = ^Word;
+begin
+  PT(p)^ := value;
 end;
 
 function WordEquals(a, b: Pointer): Boolean;
@@ -1354,11 +1389,17 @@ end;
 
 procedure TUnbrokenRegionTest._Word;
 var
-  a, b: Word;
+  prm: TParam<Word>;
 begin
-  a := 5;
-  b := 43;
-  _CRUD<Word>(a, b, WordEquals);
+  prm.Init(5, 43, WordUpdate, WordEquals);
+  _Test<Word>(prm);
+end;
+
+procedure IntUpdate(p: Pointer; value: Integer);
+type
+  PT = ^Integer;
+begin
+  PT(p)^ := value;
 end;
 
 function IntEquals(a, b: Pointer): Boolean;
@@ -1370,11 +1411,17 @@ end;
 
 procedure TUnbrokenRegionTest._Integer;
 var
-  a, b: Integer;
+  prm: TParam<Integer>;
 begin
-  a := 5;
-  b := 43;
-  _CRUD<Integer>(a, b, IntEquals);
+  prm.Init(5, 43, IntUpdate, IntEquals);
+  _Test<Integer>(prm);
+end;
+
+procedure Int64Update(p: Pointer; value: Integer);
+type
+  PT = ^Int64;
+begin
+  PT(p)^ := value;
 end;
 
 function Int64Equals(a, b: Pointer): Boolean;
@@ -1386,11 +1433,22 @@ end;
 
 procedure TUnbrokenRegionTest._Int64;
 var
-  a, b: Int64;
+  prm: TParam<Int64>;
 begin
-  a := 5;
-  b := 43;
-  _CRUD<Int64>(a, b, Int64Equals);
+  prm.Init(5, 43, Int64Update, Int64Equals);
+  _Test<Int64>(prm);
+end;
+
+procedure t3Update(p: Pointer; value: Integer);
+type
+  PT = ^t3;
+begin
+  with PT(p)^ do 
+  begin 
+    a := value + 5; 
+    b := value + 25; 
+    c := value; 
+  end;
 end;
 
 function t3Equals(a, b: Pointer): Boolean;
@@ -1405,11 +1463,25 @@ end;
 
 procedure TUnbrokenRegionTest._Size3;
 var
+  prm: TParam<t3>;
   a, b: t3;
 begin
-  a.a := 5; a.b := 254; a.c := 127;
-  b.a := 43; b.b := 77; b.c := 0;
-  _CRUD<t3>(a, b, t3Equals);
+  a.a := 45; a.b := 49; a.c := 78;
+  b.a := 5; b.b := 12; b.c := 3;
+  prm.Init(a, b, t3Update, t3Equals);
+  _Test<t3>(prm);
+end;
+
+procedure t7Update(p: Pointer; value: Integer);
+type
+  PT = ^t7;
+var
+  i: Integer;
+  pv: PT;
+begin
+  pv := PT(p);
+  for i := 0 to High(t7) do
+    pv[i] := value + i;
 end;
 
 function t7Equals(a, b: Pointer): Boolean;
@@ -1427,6 +1499,7 @@ end;
 
 procedure TUnbrokenRegionTest._Size7;
 var
+  prm: TParam<t7>;
   a, b: t7;
   i: Integer;
 begin
@@ -1435,7 +1508,19 @@ begin
     a[i] := i + 5;
     b[i] := i + 77;
   end;
-  _CRUD<t7>(a, b, t7Equals);
+  prm.Init(a, b, t7Update, t7Equals);
+  _Test<t7>(prm);
+end;
+
+procedure PersonUpdate(p: Pointer; value: Integer);
+type
+  PT = ^TPerson;
+begin
+  with PT(p)^ do 
+  begin
+    id := value;
+    name := IntToStr(value);
+  end;
 end;
 
 function PersonEquals(a, b: Pointer): Boolean;
@@ -1451,12 +1536,21 @@ end;
 procedure TUnbrokenRegionTest._ManagedType;
 var
   a, b: TPerson;
+  prm: TParam<TPerson>;
 begin
   a := TPerson.From('Peter');
   a.id := 1;
   b := TPerson.From('Nick');
   b.id := 43;
-  _CRUD<TPerson>(a, b, PersonEquals);
+  prm.Init(a, b, PersonUpdate, PersonEquals);
+  _Test<TPerson>(prm);
+end;
+
+procedure VariantUpdate(p: Pointer; value: Integer);
+type
+  PT = ^Variant;
+begin
+  PT(p)^ := IntToStr(value);
 end;
 
 function VariantEquals(a, b: Pointer): Boolean;
@@ -1472,10 +1566,19 @@ end;
 procedure TUnbrokenRegionTest._Variant;
 var
   a, b: Variant;
+  prm: TParam<Variant>;
 begin
   a := 'Peter';
   b := 12.45;
-  _CRUD<Variant>(a, b, VariantEquals);
+  prm.Init(a, b, VariantUpdate, VariantEquals);
+  _Test<Variant>(prm);
+end;
+
+procedure ObjectUpdate(p: Pointer; value: Integer);
+type
+  PT = ^TIntId;
+begin
+  PT(p)^.Id := value;
 end;
 
 function ObjectEquals(a, b: Pointer): Boolean;
@@ -1491,12 +1594,21 @@ end;
 procedure TUnbrokenRegionTest._Object;
 var
   a, b: TIntId;
+  prm: TParam<TIntId>;
 begin
   a := TIntId.Create;
   a.Id := 75;
   b := TIntId.Create;
   b.Id := 43;
-  _CRUD<TIntId>(a, b, ObjectEquals);
+  prm.Init(a, b, ObjectUpdate, ObjectEquals);
+  _Test<TIntId>(prm);
+end;
+
+procedure InterfaceUpdate(p: Pointer; value: Integer);
+type
+  PT = ^IIntId;
+begin
+  PT(p)^.Id := value;
 end;
 
 function InterfaceEquals(a, b: Pointer): Boolean;
@@ -1512,16 +1624,30 @@ end;
 procedure TUnbrokenRegionTest._Interface;
 var
   a, b: IIntId;
+  prm: TParam<IIntId>;
 begin
   a := TIntId.Create;
   a.Id := 75;
   b := TIntId.Create;
   b.Id := 43;
-  _CRUD<IIntId>(a, b, InterfaceEquals);
+  prm.Init(a, b, InterfaceUpdate, InterfaceEquals);
+  _Test<IIntId>(prm);
 end;
 
 type
   TDynArray = TArray<Integer>;
+
+procedure DynArrayUpdate(p: Pointer; value: Integer);
+type
+  PT = ^TDynArray;
+var
+  i: Integer;
+  pa: PT;
+begin
+  pa := PT(p);
+  for i := 0 to High(pa^) do
+    pa^[i] := value + i;
+end;
 
 function DynArrayEquals(a, b: Pointer): Boolean;
 type
@@ -1540,10 +1666,19 @@ end;
 procedure TUnbrokenRegionTest._DynArray;
 var
   a, b: TDynArray;
+  prm: TParam<TDynArray>;
 begin
   a := [5, 75, 588];
   b := [43];
-  _CRUD<TDynArray>(a, b, DynArrayEquals);
+  prm.Init(a, b, DynArrayUpdate, DynArrayEquals);
+  _Test<TDynArray>(prm);
+end;
+
+procedure StringUpdate(p: Pointer; value: Integer);
+type
+  PT = ^string;
+begin
+  PT(p)^ := IntToStr(value);
 end;
 
 function StringEquals(a, b: Pointer): Boolean;
@@ -1560,10 +1695,19 @@ end;
 procedure TUnbrokenRegionTest._String;
 var
   a, b: string;
+  prm: TParam<string>;
 begin
   a := 'string a';
   b := 'string b';
-  _CRUD<string>(a, b, StringEquals);
+  prm.Init(a, b, StringUpdate, StringEquals);
+  _Test<string>(prm);
+end;
+
+procedure WideStringUpdate(p: Pointer; value: Integer);
+type
+  PT = ^WideString;
+begin
+  PT(p)^ := IntToStr(value);
 end;
 
 function WideStringEquals(a, b: Pointer): Boolean;
@@ -1580,10 +1724,19 @@ end;
 procedure TUnbrokenRegionTest._WideString;
 var
   a, b: WideString;
+  prm: TParam<WideString>;
 begin
   a := 'string a';
   b := 'string b';
-  _CRUD<WideString>(a, b, WideStringEquals);
+  prm.Init(a, b, WideStringUpdate, WideStringEquals);
+  _Test<WideString>(prm);
+end;
+
+procedure RawByteStringUpdate(p: Pointer; value: Integer);
+type
+  PT = ^RawByteString;
+begin
+  PT(p)^ := RawByteString(IntToStr(value));
 end;
 
 function RawByteStringEquals(a, b: Pointer): Boolean;
@@ -1600,10 +1753,12 @@ end;
 procedure TUnbrokenRegionTest._RawByteString;
 var
   a, b: RawByteString;
+  prm: TParam<RawByteString>;
 begin
   a := 'string a';
   b := 'string b';
-  _CRUD<RawByteString>(a, b, RawByteStringEquals);
+  prm.Init(a, b, RawByteStringUpdate, RawByteStringEquals);
+  _Test<RawByteString>(prm);
 end;
 
 {$EndRegion}
@@ -3762,7 +3917,6 @@ begin
 end;
 
 {$EndRegion}
-
 
 initialization
 
