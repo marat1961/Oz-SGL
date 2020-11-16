@@ -2205,7 +2205,7 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   b1 := 123; b2 := 75;
-  te.Assign(@b1, @b2);
+  te.Assign(@te.Meta, @b1, @b2);
   CheckTrue(b1 = 75);
 
   // Word
@@ -2219,7 +2219,7 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   w1 := 12349; w2 := 705;
-  te.Assign(@w1, @w2);
+  te.Assign(@te.Meta, @w1, @w2);
   CheckTrue(w1 = 705);
 
   // Integer
@@ -2232,7 +2232,7 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   i1 := 12279349; i2 := 70564;
-  te.Assign(@i1, @i2);
+  te.Assign(@te.Meta, @i1, @i2);
   CheckTrue(i1 = 70564);
 
   // Check the clearing and assignment of data not aligned to the word boundary.
@@ -2243,9 +2243,9 @@ begin
     if Odd(NativeUInt(ptr1)) then
       break;
   end;
-  te.Assign(ptr2, @i2);
+  te.Assign(@te.Meta, ptr2, @i2);
   CheckTrue(Integer(ptr2^) = 70564);
-  te.Assign(ptr1, ptr2);
+  te.Assign(@te.Meta, ptr1, ptr2);
   CheckTrue(Integer(ptr1^) = 70564);
 
   // Double
@@ -2258,7 +2258,7 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   d1 := 12279349.34; d2 := 70564.567;
-  te.Assign(@d1, @d2);
+  te.Assign(@te.Meta, @d1, @d2);
   CheckTrue(SameValue(d1, 70564.567));
 
   // Check the clearing and assignment of data not aligned to the word boundary.
@@ -2269,9 +2269,9 @@ begin
     if Odd(NativeUInt(ptr1)) then
       break;
   end;
-  te.Assign(ptr2, @d2);
+  te.Assign(@te.Meta, ptr2, @d2);
   CheckTrue(SameValue(Double(ptr2^), 70564.567));
-  te.Assign(ptr1, ptr2);
+  te.Assign(@te.Meta, ptr1, ptr2);
   CheckTrue(SameValue(Double(ptr1^), 70564.567));
 
   // string
@@ -2284,9 +2284,9 @@ begin
   CheckTrue(Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   s1 := '12279349'; s2 := '70564';
-  te.Free(@s1);
+  te.Free(@te.Meta, @s1);
   CheckTrue(s1 = '');
-  te.Assign(@s1, @s2);
+  te.Assign(@te.Meta, @s1, @s2);
   CheckTrue(s1 = '70564');
 
   // TPerson
@@ -2302,10 +2302,10 @@ begin
   p1.id := 45;
   p2 := TPerson.From('er70564');
   p2.id := 545;
-  te.Free(@p1);
+  te.Free(@te.Meta, @p1);
   CheckTrue(p1.name = '');
   CheckTrue(p1.id = 45);
-  te.Assign(@p1, @p2);
+  te.Assign(@te.Meta, @p1, @p2);
   CheckTrue(p1.name = 'er70564');
   CheckTrue(p1.id = 545);
 end;
@@ -3169,6 +3169,7 @@ var
   p: TPerson;
   i: Integer;
 begin
+  CheckTrue(List.Region.Region.Meta.ItemSize = sizeof(TPerson));
   CheckTrue(List.Count = 0);
   p.id := 1;
   p.name := 'p1';

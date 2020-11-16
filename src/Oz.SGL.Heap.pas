@@ -30,9 +30,7 @@ uses
 {$Region 'Forward declarations'}
 
 type
-  TCompareProc = function(const A, B): Integer of object;
-  TFreeItem = procedure(p: Pointer) of object;
-  TAssignProc = procedure(Dest, Value: Pointer) of object;
+  TCompareProc = function(const A, B): Integer;
   TFreeProc = procedure(p: Pointer);
   TEqualsFunc = function(a, b: Pointer): Boolean;
   THashProc = function(const Value): Cardinal;
@@ -151,10 +149,11 @@ type
     rfOwnedObject);
   TRegionFlagSet = set of TRegionFlag;
 
+  PsgItemMeta = ^TsgItemMeta;
+  TFreeItem = procedure(meta: PsgItemMeta; p: Pointer);
+  TAssignProc = procedure(meta: PsgItemMeta; Dest, Value: Pointer);
+
   TsgItemMeta = record
-  type
-    PBytes = ^TBytes;
-    PInterface = ^IInterface;
   var
     TypeInfo: Pointer;
     ItemSize: Cardinal;
@@ -163,28 +162,13 @@ type
     FreeItem: TFreeItem;
     AssignItem: TAssignProc;
   strict private
-    // Dest := Value;
-    procedure Assign1(Dest, Value: Pointer);
-    procedure Assign2(Dest, Value: Pointer);
-    procedure Assign4(Dest, Value: Pointer);
-    procedure Assign8(Dest, Value: Pointer);
-    procedure AssignItemValue(Dest, Value: Pointer);
-    procedure AssignManaged(Dest, Value: Pointer);
-    procedure AssignVariant(Dest, Value: Pointer);
-    procedure AssignMRef(Dest, Value: Pointer);
-    // Value.Free;
-    procedure FreeManaged(p: Pointer);
-    procedure FreeVariant(p: Pointer);
-    procedure FreeMRef(p: Pointer);
     procedure InitMethods;
-    procedure UDFree(p: Pointer);
   public
     procedure Init<T>(OnFree: TFreeProc = nil); overload;
     procedure Init<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
       OnFree: TFreeProc = nil); overload;
     procedure InitTuple(ItemSize: Cardinal; Flags: TRegionFlagSet);
   end;
-  PsgItemMeta = ^TsgItemMeta;
 
 {$EndRegion}
 
@@ -194,19 +178,21 @@ type
   TMemSegment = record
   private
     Next: PMemSegment;  // Next segment
-    TopMem: PByte;      // Size of the memory segment
-    FreePtr: PByte;     // Free memory
+    TopMem: PByte;      // Reference to top memory
+    FreePtr: PByte;     // Reference to free memory
     procedure CheckPointer(Ptr: Pointer; Size: Cardinal);
   public
     procedure Init(HeapSize: Cardinal);
-    // Return a reference to the beginning of the heap
-    function GetHeapRef: Pointer; inline;
-    // Return the size of free memory
-    function GetFreeSize: Cardinal; inline;
-    // Size of the memory segment
-    function GetHeapSize: NativeUInt; inline;
-     // Allocate a piece of memory of the specified size
+    // Allocate a piece of memory of the specified size
     function Occupy(Size: Cardinal): Pointer;
+    // Return a reference to the beginning of the heap
+    function GetHeapRef: PByte; inline;
+    // Return the size of free memory
+    function GetFreeSize: NativeUInt; inline;
+    // Return the size of the memory segment
+    function GetHeapSize: NativeUInt; inline;
+    // Return the occupied size:
+    function GetOccupiedSize: NativeUInt; inline;
   end;
 
 {$EndRegion}
@@ -280,6 +266,8 @@ type
     function GetItemIndex(Item: Pointer): Integer;
     // Increment pointer to an element
     function NextItem(Item: Pointer): Pointer;
+    // Assign
+    procedure AssignItem(Dest, Src: Pointer);
     // Propeties
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
@@ -303,6 +291,8 @@ type
     procedure Free; inline;
     // Dispose count items
     procedure Dispose(Items: Pointer; Count: Cardinal);
+    // Assign
+    procedure AssignItem(Dest, Src: Pointer);
     // Propeties
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
@@ -394,6 +384,9 @@ var
 
 implementation
 
+type
+  PBytes = ^TBytes;
+  PInterface = ^IInterface;
 var
   FHeapPool: THeapPool = nil;
 
@@ -609,6 +602,88 @@ begin
   InitMethods;
 end;
 
+procedure Assign1(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  PByte(Dest)^ := PByte(Value)^;
+end;
+
+procedure Assign2(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  PWord(Dest)^ := PWord(Value)^;
+end;
+
+procedure Assign4(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  PCardinal(Dest)^ := PCardinal(Value)^;
+end;
+
+procedure Assign8(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  PUInt64(Dest)^ := PUInt64(Value)^;
+end;
+
+procedure AssignItemValue(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  Move(Value^, Dest^, meta.ItemSize);
+end;
+
+procedure AssignManaged(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  System.CopyRecord(Dest, Value, meta.TypeInfo);
+end;
+
+procedure AssignVariant(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  PVariant(Dest)^ := PVariant(Value)^;
+end;
+
+procedure AssignMRef(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  case meta.h.TypeKind of
+    TTypeKind.tkUString: PString(Dest)^ := PString(Value)^;
+    TTypeKind.tkDynArray: PBytes(Dest)^ := PBytes(Value)^;
+    TTypeKind.tkInterface: PInterface(Dest)^ := PInterface(Value)^;
+{$IF Defined(AUTOREFCOUNT)}
+    TTypeKind.tkClass: PObject(Dest)^ := PObject(Value)^;
+{$ENDIF}
+    TTypeKind.tkLString: PRawByteString(Dest)^ := PRawByteString(Value)^;
+{$IF not Defined(NEXTGEN)}
+    TTypeKind.tkWString: PWideString(Dest)^ := PWideString(Value)^;
+{$ENDIF}
+  end;
+end;
+
+procedure UDFree(meta: PsgItemMeta; p: Pointer);
+begin
+  meta.OnFree(p);
+end;
+
+procedure FreeManaged(meta: PsgItemMeta; p: Pointer);
+begin
+  FinalizeRecord(p, meta.TypeInfo);
+end;
+
+procedure FreeMRef(meta: PsgItemMeta; p: Pointer);
+begin
+  case meta.h.TypeKind of
+    TTypeKind.tkUString: PString(p)^ := '';
+    TTypeKind.tkDynArray: PBytes(p)^ := nil;
+    TTypeKind.tkInterface: PInterface(p)^ := nil;
+{$IF Defined(AUTOREFCOUNT)}
+    TTypeKind.tkClass: PObject(p)^ := nil;
+{$ENDIF}
+    TTypeKind.tkLString: PRawByteString(p)^ := '';
+{$IF not Defined(NEXTGEN)}
+    TTypeKind.tkWString: PWideString(p)^ := '';
+{$ENDIF}
+  end;
+end;
+
+procedure FreeVariant(meta: PsgItemMeta; p: Pointer);
+begin
+  PVariant(p)^ := 0;
+end;
+
 procedure TsgItemMeta.InitMethods;
 begin
   if h.ManagedType then
@@ -655,88 +730,6 @@ begin
   end;
 end;
 
-procedure TsgItemMeta.Assign1(Dest, Value: Pointer);
-begin
-  PByte(Dest)^ := PByte(Value)^;
-end;
-
-procedure TsgItemMeta.Assign2(Dest, Value: Pointer);
-begin
-  PWord(Dest)^ := PWord(Value)^;
-end;
-
-procedure TsgItemMeta.Assign4(Dest, Value: Pointer);
-begin
-  PCardinal(Dest)^ := PCardinal(Value)^;
-end;
-
-procedure TsgItemMeta.Assign8(Dest, Value: Pointer);
-begin
-  PUInt64(Dest)^ := PUInt64(Value)^;
-end;
-
-procedure TsgItemMeta.AssignItemValue(Dest, Value: Pointer);
-begin
-  Move(Value^, Dest^, ItemSize);
-end;
-
-procedure TsgItemMeta.AssignManaged(Dest, Value: Pointer);
-begin
-  System.CopyRecord(Dest, Value, TypeInfo);
-end;
-
-procedure TsgItemMeta.AssignVariant(Dest, Value: Pointer);
-begin
-  PVariant(Dest)^ := PVariant(Value)^;
-end;
-
-procedure TsgItemMeta.AssignMRef(Dest, Value: Pointer);
-begin
-  case h.TypeKind of
-    TTypeKind.tkUString: PString(Dest)^ := PString(Value)^;
-    TTypeKind.tkDynArray: PBytes(Dest)^ := PBytes(Value)^;
-    TTypeKind.tkInterface: PInterface(Dest)^ := PInterface(Value)^;
-{$IF Defined(AUTOREFCOUNT)}
-    TTypeKind.tkClass: PObject(Dest)^ := PObject(Value)^;
-{$ENDIF}
-    TTypeKind.tkLString: PRawByteString(Dest)^ := PRawByteString(Value)^;
-{$IF not Defined(NEXTGEN)}
-    TTypeKind.tkWString: PWideString(Dest)^ := PWideString(Value)^;
-{$ENDIF}
-  end;
-end;
-
-procedure TsgItemMeta.UDFree(p: Pointer);
-begin
-  OnFree(p);
-end;
-
-procedure TsgItemMeta.FreeManaged(p: Pointer);
-begin
-  FinalizeRecord(p, TypeInfo);
-end;
-
-procedure TsgItemMeta.FreeMRef(p: Pointer);
-begin
-  case h.TypeKind of
-    TTypeKind.tkUString: PString(p)^ := '';
-    TTypeKind.tkDynArray: PBytes(p)^ := nil;
-    TTypeKind.tkInterface: PInterface(p)^ := nil;
-{$IF Defined(AUTOREFCOUNT)}
-    TTypeKind.tkClass: PObject(p)^ := nil;
-{$ENDIF}
-    TTypeKind.tkLString: PRawByteString(p)^ := '';
-{$IF not Defined(NEXTGEN)}
-    TTypeKind.tkWString: PWideString(p)^ := '';
-{$ENDIF}
-  end;
-end;
-
-procedure TsgItemMeta.FreeVariant(p: Pointer);
-begin
-  PVariant(p)^ := 0;
-end;
-
 {$EndRegion}
 
 {$Region 'TsgItem'}
@@ -751,12 +744,12 @@ end;
 
 procedure TsgItem.Assign(const Value);
 begin
-  Region.AssignItem(Ptr, @Value);
+  Region.AssignItem(Region.Meta, Ptr, @Value);
 end;
 
 procedure TsgItem.Free;
 begin
-  Region.FreeItem(Ptr);
+  Region.FreeItem(Region.Meta, Ptr);
 end;
 
 {$EndRegion}
@@ -814,19 +807,33 @@ begin
   Check(InRange(NativeUInt(Ptr), lo, NativeUInt(TopMem)));
 end;
 
-function TMemSegment.GetFreeSize: Cardinal;
+function TMemSegment.GetFreeSize: NativeUInt;
 begin
+{$IFDEF DEBUG}
+  Assert(NativeUInt(TopMem) >= NativeUInt(FreePtr));
+{$ENDIF}
   Result := TopMem - FreePtr;
 end;
 
-function TMemSegment.GetHeapRef: Pointer;
+function TMemSegment.GetHeapRef: PByte;
 begin
   Result := PByte(@Self) + sizeof(TMemSegment);
 end;
 
 function TMemSegment.GetHeapSize: NativeUInt;
 begin
-  Result := NativeUInt(TopMem) - NativeUInt(@Self);
+{$IFDEF DEBUG}
+  Assert(NativeUInt(TopMem) >= NativeUInt(@Self));
+{$ENDIF}
+  Result := TopMem - PByte(@Self);
+end;
+
+function TMemSegment.GetOccupiedSize: NativeUInt;
+begin
+{$IFDEF DEBUG}
+  Assert(NativeUInt(FreePtr) >= NativeUInt(GetHeapRef));
+{$ENDIF}
+  Result := FreePtr - GetHeapRef;
 end;
 
 {$EndRegion}
@@ -849,12 +856,12 @@ end;
 
 procedure TMemoryRegion.Clear;
 begin
-  // Clear the memory of all segments.
-  // Return to the heap memory of all segments except the first.
-  FreeHeap(Heap.Next);
   // Clear managed fields
   if Assigned(FreeItem) then
     FreeItems(Heap);
+  // Clear the memory of all segments.
+  // Return to the heap memory of all segments except the first.
+  FreeHeap(Heap.Next);
   // Determine the size of free memory
   Heap.Init(Heap.GetHeapSize);
 end;
@@ -890,7 +897,7 @@ begin
   N := GetOccupiedCount(p);
   while N > 0 do
   begin
-    FreeItem(Ptr);
+    FreeItem(@FMeta, Ptr);
     a := NativeUInt(Ptr);
     Ptr := Pointer(NativeUInt(Ptr) + FMeta.ItemSize);
     b := NativeUInt(Ptr);
@@ -917,7 +924,7 @@ end;
 
 function TMemoryRegion.GetOccupiedCount(p: PMemSegment): Integer;
 begin
-  Result := (p.GetHeapSize - sizeof(TMemSegment) - p.GetFreeSize) div FMeta.ItemSize;
+  Result := p.GetOccupiedSize div FMeta.ItemSize;
 end;
 
 procedure TMemoryRegion.GrowHeap(NewCount: Integer);
@@ -972,7 +979,7 @@ end;
 function TMemoryRegion.AddItem(Item: Pointer): Pointer;
 begin
   Result := Alloc(ItemSize);
-  AssignItem(Result, Item);
+  AssignItem(@FMeta, Result, Item);
 end;
 
 function TMemoryRegion.GetMeta: PsgItemMeta;
@@ -1037,6 +1044,11 @@ begin
   Result := @FRegion.FMeta;
 end;
 
+procedure TUnbrokenRegion.AssignItem(Dest, Src: Pointer);
+begin
+  FRegion.AssignItem(@FRegion.FMeta, Dest, Src);
+end;
+
 {$EndRegion}
 
 {$Region 'TSegmentedRegion'}
@@ -1064,6 +1076,11 @@ end;
 function TSegmentedRegion.GetMeta: PsgItemMeta;
 begin
   Result := @FRegion.FMeta;
+end;
+
+procedure TSegmentedRegion.AssignItem(Dest, Src: Pointer);
+begin
+  FRegion.AssignItem(@FRegion.FMeta, Dest, Src);
 end;
 
 {$EndRegion}

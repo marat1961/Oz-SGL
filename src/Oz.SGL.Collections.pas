@@ -176,6 +176,7 @@ type
 
 {$Region 'TsgTuples: Tuple memory region'}
 
+  PsgTuples = ^TsgTuples;
   TsgTuples = record
   private
     FRegion: PUnbrokenRegion;
@@ -184,10 +185,6 @@ type
     function GetItem(Index: Cardinal): PsgTuple;
     procedure CheckCapacity(NewCapacity: Integer); inline;
     procedure SetCount(NewCount: Cardinal);
-    // Handlers for assigning the tuple and freeing the tuple
-    procedure AssignTuple(Dest, Value: Pointer);
-    procedure MoveTuple(Dest, Value: Pointer);
-    procedure FreeTuple(p: Pointer);
   public
     procedure Init(const tupleMeta: TsgTupleMeta; Capacity: Cardinal;
       Flags: TRegionFlagSet = []);
@@ -570,6 +567,7 @@ type
     procedure Sort(Compare: TListSortCompare); inline;
     // Get Delphi Enumerator
     function GetEnumerator: TEnumerator;
+    function Region: PSegmentedRegion;
   end;
 
 {$EndRegion}
@@ -1240,7 +1238,7 @@ end;
 
 procedure TsgTupleElement.Assign(pvalue: Pointer);
 begin
-  TeMeta.Assign(Ptr, pvalue);
+  TeMeta.Assign(@TeMeta.Meta, Ptr, pvalue);
 end;
 
 function TsgTupleElement.GetPvalue: Pointer;
@@ -1277,6 +1275,36 @@ end;
 {$EndRegion}
 
 {$Region 'TsgTuples'}
+
+procedure MoveTuple(meta: PsgItemMeta; Dest, Value: Pointer);
+begin
+  Move(Value^, Dest^, PsgTuples(meta).FTupleMeta.Size);
+end;
+
+procedure AssignTuple(meta: PsgItemMeta; Dest, Value: Pointer);
+var
+  i: Integer;
+  te: PsgTupleElementMeta;
+begin
+  for i := 0 to PsgTuples(meta).Count - 1 do
+  begin
+    te := PsgTuples(meta).FTupleMeta.Elements[i];
+    te.Assign(@te.Meta, PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
+  end;
+end;
+
+procedure FreeTuple(meta: PsgItemMeta; p: Pointer);
+var
+  i: Integer;
+  te: PsgTupleElementMeta;
+begin
+  for i := 0 to PsgTuples(meta).Count - 1 do
+  begin
+    te := PsgTuples(meta).FTupleMeta.Elements[i];
+    if Assigned(te.Free) then
+      te.Free(@te.Meta, PByte(p) + te.Offset);
+  end;
+end;
 
 procedure TsgTuples.Init(const tupleMeta: TsgTupleMeta; Capacity: Cardinal;
   Flags: TRegionFlagSet);
@@ -1334,36 +1362,6 @@ end;
 function TsgTuples.Add: PsgTuple;
 begin
   Result := nil;
-end;
-
-procedure TsgTuples.MoveTuple(Dest, Value: Pointer);
-begin
-  Move(Value^, Dest^, FTupleMeta.Size);
-end;
-
-procedure TsgTuples.AssignTuple(Dest, Value: Pointer);
-var
-  i: Integer;
-  te: PsgTupleElementMeta;
-begin
-  for i := 0 to Count - 1 do
-  begin
-    te := FTupleMeta.Elements[i];
-    te.Assign(PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
-  end;
-end;
-
-procedure TsgTuples.FreeTuple(p: Pointer);
-var
-  i: Integer;
-  te: PsgTupleElementMeta;
-begin
-  for i := 0 to Count - 1 do
-  begin
-    te := FTupleMeta.Elements[i];
-    if Assigned(te.Free) then
-      te.Free(PByte(p) + te.Offset);
-  end;
 end;
 
 {$EndRegion}
@@ -1553,7 +1551,7 @@ begin
       PByte(Items^)[(Index + 1) * ItemSize],
       MemSize);
   end;
-  FRegion.Region.AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
+  FRegion.AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
   Inc(FCount);
 end;
 
@@ -1595,7 +1593,7 @@ begin
   Src := Source.GetItems^;
   while Cnt > 0 do
   begin
-    FRegion.Region.AssignItem(Dest, Src);
+    FRegion.AssignItem(Dest, Src);
     Inc(PByte(Dest), ItemSize);
     Inc(PByte(Src), ItemSize);
     Dec(Cnt);
@@ -1907,7 +1905,7 @@ begin
   CheckCapacity(Result);
   Inc(FCount);
   p := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
-  FItemsRegion.Region.AssignItem(p, Item);
+  FItemsRegion.AssignItem(p, Item);
   FList[Result] := p;
 end;
 
@@ -1926,7 +1924,7 @@ begin
     MemSize := (FCount - Index) * SizeOf(Pointer);
     Dest := FList[Index];
     System.Move(Dest^, FList[Index + 1], MemSize);
-    FItemsRegion.Region.AssignItem(Dest, Item);
+    FItemsRegion.AssignItem(Dest, Item);
     Inc(FCount);
   end;
 end;
@@ -2525,6 +2523,11 @@ begin
   FList.PopBack;
 end;
 
+function TsgLinkedList<T>.Region: PSegmentedRegion;
+begin
+  Result := FList.FRegion;
+end;
+
 procedure TsgLinkedList<T>.Reverse;
 begin
   FList.Reverse;
@@ -2703,9 +2706,9 @@ begin
   n := FCollisions.Region.Alloc(FCollisions.Meta.ItemSize);
   n.Next := entry.root;
   pt := FPair.Get(0);
-  pt.Assign(n.GetPairRef, pair);
+  pt.Assign(@pt.Meta, n.GetPairRef, pair);
   pt := FPair.Get(1);
-  pt.Assign(PByte(n.GetPairRef) + pt.Offset, PByte(pair) + pt.Offset);
+  pt.Assign(@pt.Meta, PByte(n.GetPairRef) + pt.Offset, PByte(pair) + pt.Offset);
   entry.root := n;
   Result.Init(FPair, n);
 end;
@@ -3318,7 +3321,7 @@ begin
   p := d.Items;
   while n > 0 do
   begin
-     FRegion.Meta.FreeItem(p);
+     FRegion.Meta.FreeItem(FRegion.Meta, p);
      p := p + ItemSize;
      Dec(n);
   end;
