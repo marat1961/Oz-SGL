@@ -1332,7 +1332,7 @@ begin
     meta.FreeItem := FreeTuple;
     meta.AssignItem := AssignTuple;
   end;
-  FRegion := HeapPool.CreateUnbrokenRegion(meta);
+  FRegion := SysCtx.Pool.CreateUnbrokenRegion(meta);
 end;
 
 procedure TsgTuples.Free;
@@ -1391,7 +1391,7 @@ end;
 
 procedure TsgListHelper.Init(const Meta: TsgItemMeta);
 begin
-  FRegion := HeapPool.CreateUnbrokenRegion(Meta);
+  FRegion := SysCtx.Pool.CreateUnbrokenRegion(Meta);
   FCount := 0;
 end;
 
@@ -1752,7 +1752,7 @@ end;
 
 constructor TsgPointerArray.From(Capacity: Integer);
 begin
-  FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
+  FListRegion := SysCtx.CreateUnbrokenRegion(SysCtx.PointerMeta);
   FList := FListRegion.Region.IncreaseCapacity(Capacity);
   FCount := 0;
 end;
@@ -1831,8 +1831,8 @@ constructor TsgPointerList.From(const Meta: TsgItemMeta);
 begin
   FList := nil;
   FCount := 0;
-  FListRegion := HeapPool.CreateUnbrokenRegion(PointerMeta);
-  FItemsRegion := HeapPool.CreateRegion(Meta);
+  FListRegion := SysCtx.CreateUnbrokenRegion(SysCtx.PointerMeta);
+  FItemsRegion := SysCtx.CreateRegion(Meta);
 end;
 
 procedure TsgPointerList.Free;
@@ -2217,7 +2217,7 @@ end;
 
 procedure TCustomLinkedList.Init(const Meta: TsgItemMeta);
 begin
-  FRegion := HeapPool.CreateRegion(Meta);
+  FRegion := SysCtx.CreateRegion(Meta);
   FHead := FRegion.Region.Alloc(FRegion.ItemSize);
   FLast := FHead;
 end;
@@ -2622,13 +2622,13 @@ var
   EntryMeta, CollisionMeta: TsgItemMeta;
 begin
   EntryMeta.Init<TEntry>;
-  FEntries := HeapPool.CreateUnbrokenRegion(EntryMeta);
+  FEntries := SysCtx.CreateUnbrokenRegion(EntryMeta);
   FPair := PairMeta;
   FHash := HashKey;
   FEquals := Equals;
   CollisionMeta.Init<TCollision>;
   CollisionMeta.ItemSize := sizeof(TCollision) + FPair.Size;
-  FCollisions := HeapPool.CreateRegion(CollisionMeta);
+  FCollisions := SysCtx.CreateRegion(CollisionMeta);
   SetEntriesLength(ExpectedSize);
 end;
 
@@ -2851,7 +2851,7 @@ procedure TsgCustomTree.Init(const Meta: TsgItemMeta; Compare: TListSortCompare;
   Update: TUpdateProc);
 begin
   Self := Default(TsgCustomTree);
-  Region := HeapPool.CreateRegion(Meta);
+  Region := SysCtx.CreateRegion(Meta);
   Self.Compare := Compare;
   Self.Update := Update;
   CreateNode(Sentinel);
@@ -3321,9 +3321,9 @@ begin
   p := d.Items;
   while n > 0 do
   begin
-     FRegion.Meta.FreeItem(FRegion.Meta, p);
-     p := p + ItemSize;
-     Dec(n);
+    FRegion.Meta.FreeItem(FRegion.Meta, p);
+    p := p + ItemSize;
+    Dec(n);
   end;
 end;
 

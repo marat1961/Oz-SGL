@@ -340,13 +340,10 @@ type
   end;
 
   THeapPool = class
-  private const
-    Seed: Word = 19927;
   strict private
     FRegions: PMemoryRegion;
     FRealesed: TRegionItems;
     FBlockSize: Word;
-    FSeed: Word;
     // Occupy region
     function FindOrCreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
   public
@@ -358,17 +355,57 @@ type
     function CreateRegion(Meta: TsgItemMeta): PSegmentedRegion;
     // Release the region
     procedure Release(r: PMemoryRegion);
-    function Valid: Boolean; inline;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgContext: Processing context'}
+
+  TsgContext = class
+  private
+    function GetHeapPool: THeapPool;
+  protected
+    FHeapPool: THeapPool;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    // Create a continuous region (e.g. memory for arrays)
+    function CreateUnbrokenRegion(Meta: TsgItemMeta): PUnbrokenRegion; inline;
+    // Create a segmented region (for elements with a fixed address)
+    function CreateRegion(Meta: TsgItemMeta): PSegmentedRegion; inline;
+    // Release the region
+    procedure Release(r: PMemoryRegion);
+    // Clear main memory pool
+    procedure ClearHeapPool;
+    // Main memory pool
+    property Pool: THeapPool read GetHeapPool;
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgSystemContext: System processing context'}
+
+  TsgSystemContext = class(TsgContext)
+  protected
+    FHeap: THeapPool;
+    // metadata for region of Pointer
+    FPointerMeta: TsgItemMeta;
+    // metadata for region of TMemoryRegion
+    FMemoryRegionMeta: TsgItemMeta;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    // metadata for region of Pointer
+    property PointerMeta: TsgItemMeta read FPointerMeta;
+    // metadata for region of TMemoryRegion
+    property MemoryRegionMeta: TsgItemMeta read FPointerMeta;
+    property Pool: THeapPool read FHeap;
   end;
 
 {$EndRegion}
 
 {$Region 'Procedures and functions'}
 
-// Return main memory pool
-function HeapPool: THeapPool;
-// Clear main memory pool
-procedure ClearHeapPool;
 // if not ok raise error
 procedure Check(ok: Boolean; const Msg: string = '');
 // raise fatal error
@@ -377,32 +414,15 @@ procedure FatalError(const Msg: string);
 {$EndRegion}
 
 var
-  // meta for region of Pointer
-  PointerMeta: TsgItemMeta;
-  // meta for region of TMemoryRegion
-  MemoryRegionMeta: TsgItemMeta;
+  SysCtx: TsgSystemContext;
 
 implementation
 
 type
   PBytes = ^TBytes;
   PInterface = ^IInterface;
-var
-  FHeapPool: THeapPool = nil;
 
 {$Region 'Procedures and functions'}
-
-function HeapPool: THeapPool;
-begin
-  if FHeapPool = nil then
-    FHeapPool := THeapPool.Create;
-  Result := FHeapPool;
-end;
-
-procedure ClearHeapPool;
-begin
-  FreeAndNil(FHeapPool);
-end;
 
 procedure Check(ok: Boolean; const Msg: string = '');
 begin
@@ -1128,10 +1148,9 @@ end;
 constructor THeapPool.Create(BlockSize: Word);
 begin
   inherited Create;
-  FSeed := Seed;
   FBlockSize := BlockSize;
   New(FRegions);
-  FRegions.Init(MemoryRegionMeta, BlockSize);
+  FRegions.Init(SysCtx.MemoryRegionMeta, BlockSize);
   FRealesed.Init;
 end;
 
@@ -1176,11 +1195,6 @@ begin
     r.FreeHeap(r.Heap);
   except
   end;
-end;
-
-function THeapPool.Valid: Boolean;
-begin
-  Result := FSeed = Seed;
 end;
 
 {$EndRegion}
@@ -1339,17 +1353,81 @@ end;
 
 {$EndRegion}
 
-procedure InitMeta;
+{$Region 'TsgContext'}
+
+constructor TsgContext.Create;
 begin
-  PointerMeta.Init<Pointer>;
-  MemoryRegionMeta.Init<TMemoryRegion>([rfSegmented], TRemoveAction.HoldValue, FreeRegion);
+  inherited;
+  FHeapPool := THeapPool.Create;
+end;
+
+function TsgContext.CreateRegion(Meta: TsgItemMeta): PSegmentedRegion;
+begin
+  Result := FHeapPool.CreateRegion(Meta);
+end;
+
+function TsgContext.CreateUnbrokenRegion(Meta: TsgItemMeta): PUnbrokenRegion;
+begin
+  Result := FHeapPool.CreateUnbrokenRegion(Meta);
+end;
+
+destructor TsgContext.Destroy;
+begin
+  ClearHeapPool;
+  inherited;
+end;
+
+procedure TsgContext.ClearHeapPool;
+begin
+  FreeAndNil(FHeapPool);
+end;
+
+function TsgContext.GetHeapPool: THeapPool;
+begin
+  if FHeapPool = nil then
+    FHeapPool := THeapPool.Create;
+  Result := FHeapPool;
+end;
+
+procedure TsgContext.Release(r: PMemoryRegion);
+begin
+
+end;
+
+{$EndRegion}
+
+{$Region 'TsgSystemContext'}
+
+constructor TsgSystemContext.Create;
+begin
+  inherited;
+  FPointerMeta.Init<Pointer>;
+  FMemoryRegionMeta.Init<TMemoryRegion>([rfSegmented],
+    TRemoveAction.HoldValue, FreeRegion);
+end;
+
+destructor TsgSystemContext.Destroy;
+begin
+  inherited;
+end;
+
+{$EndRegion}
+
+procedure InitSysCtx;
+begin
+  SysCtx.Create;
+end;
+
+procedure ClearSysCtx;
+begin
+  FreeAndNil(SysCtx);
 end;
 
 initialization
-  InitMeta;
+  InitSysCtx;
 
 finalization
-  ClearHeapPool;
+  ClearSysCtx;
 
 end.
 

@@ -2957,7 +2957,7 @@ end;
 procedure TsgRecordListTest.TearDown;
 begin
   List.Clear;
-  ClearHeapPool;
+  SysCtx.ClearHeapPool;
 end;
 
 procedure TsgRecordListTest._Add0;
