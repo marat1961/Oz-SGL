@@ -85,18 +85,24 @@ type
   const
     // Align tuple element to the word boundary
     AllignTuple = sizeof(Pointer);
-  var
-    Offset: Cardinal;  // The offset of an element in a tuple
-    Meta: TsgItemMeta;
+  private
+    FOffset: Cardinal;
+    FMeta: PsgItemMeta;
+    function GetFreeItem: TFreeItem;
+    function GetAssignItem: TAssignProc;
+    function GetItemSize: Cardinal;
   public
-    procedure Init<T>;
     // Determine the offset to the start of the next tuple element.
     function NextTupleOffset(Allign: Boolean): Cardinal;
+    // The offset of an element in a tuple
+    property Offset: Cardinal read FOffset write FOffset;
+    // Tuple element metadata
+    property Meta: PsgItemMeta read FMeta;
     // Free tuple element
-    property Free: TFreeItem read Meta.FreeItem;
+    property Free: TFreeItem read GetFreeItem;
     // Dest^ := Value^; - Assign tuple element
-    property Assign: TAssignProc read Meta.AssignItem;
-    property Size: Cardinal read Meta.ItemSize;
+    property Assign: TAssignProc read GetAssignItem;
+    property Size: Cardinal read GetItemSize;
   end;
 
 {$EndRegion}
@@ -857,7 +863,7 @@ type
   TSharedRegion = record
   const
     RegionHandle: hRegion = (v: 1);
-  private
+  strict private
     FRegion: TMemoryRegion;
     FMemoryManager: TsgMemoryManager;
     FHandleManager: TsgHandleManager;
@@ -887,12 +893,17 @@ type
 
   TsgSystemContext = class(TsgContext)
   private
-    FTeMeta: TsgItemMeta;
+    FTeMeta: PsgItemMeta;
     FTupleElementMeta: TSharedRegion;
+    FTe: TsgArray<TsgTupleElementMeta>;
     function GetTupleElementMeta: PSharedRegion; inline;
   public
     constructor Create;
     destructor Destroy; override;
+
+    // Factory methods to create Tuple element metadata
+    function CreateTeMeta<T>: PsgTupleElementMeta;
+
     // shared memory region for tuples metadata
     property TupleElementMeta: PSharedRegion read GetTupleElementMeta;
   end;
@@ -1141,20 +1152,29 @@ end;
 
 {$Region 'TsgTupleElementMeta'}
 
-procedure TsgTupleElementMeta.Init<T>;
-begin
-  Self.Offset := 0;
-  Meta.Init<T>;
-end;
-
 function TsgTupleElementMeta.NextTupleOffset(Allign: Boolean): Cardinal;
 var
   n: Cardinal;
 begin
-  n := Meta.ItemSize;
+  n := FMeta.ItemSize;
   if Allign then
     n := ((n + AllignTuple - 1) div AllignTuple) * AllignTuple;
-  Result := Offset + n;
+  Result := FOffset + n;
+end;
+
+function TsgTupleElementMeta.GetFreeItem: TFreeItem;
+begin
+  Result := FMeta.FreeItem;
+end;
+
+function TsgTupleElementMeta.GetAssignItem: TAssignProc;
+begin
+  Result := FMeta.AssignItem;
+end;
+
+function TsgTupleElementMeta.GetItemSize: Cardinal;
+begin
+  Result := FMeta.ItemSize;
 end;
 
 {$EndRegion}
@@ -1179,16 +1199,16 @@ var
 begin
   meta := FElements.Add;
   meta^ := te^;
-  meta.Offset := FSize;
+  meta.FOffset := FSize;
   FSize := meta.NextTupleOffset(Allign);
 end;
 
 procedure TsgTupleMeta.AddTe<T>(Allign: Boolean);
 var
-  te: TsgTupleElementMeta;
+  te: PsgTupleElementMeta;
 begin
-  te.Init<T>;
-  AddElement(@te, Allign);
+  te := SysCtx.CreateTeMeta<T>;
+  AddElement(te, Allign);
 end;
 
 procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
@@ -1237,7 +1257,7 @@ var
 begin
   FSize := 0;
   te := FElements.Insert(0);
-  te.Init<T>;
+  te := SysCtx.CreateTeMeta<T>;
   for i := 0 to FElements.Count - 1 do
   begin
     te := FElements.Items[i];
@@ -1252,7 +1272,7 @@ end;
 
 procedure TsgTupleElement.Assign(pvalue: Pointer);
 begin
-  TeMeta.Assign(@TeMeta.Meta, Ptr, pvalue);
+  TeMeta.Assign(TeMeta.FMeta, Ptr, pvalue);
 end;
 
 function TsgTupleElement.GetPvalue: Pointer;
@@ -1303,7 +1323,7 @@ begin
   for i := 0 to PsgTuples(meta).Count - 1 do
   begin
     te := PsgTuples(meta).FTupleMeta.Elements[i];
-    te.Assign(@te.Meta, PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
+    te.Assign(te.Meta, PByte(Dest) + te.Offset, PByte(Value) + te.Offset);
   end;
 end;
 
@@ -1316,7 +1336,7 @@ begin
   begin
     te := PsgTuples(meta).FTupleMeta.Elements[i];
     if Assigned(te.Free) then
-      te.Free(@te.Meta, PByte(p) + te.Offset);
+      te.Free(te.Meta, PByte(p) + te.Offset);
   end;
 end;
 
@@ -1326,9 +1346,9 @@ var
   i: Integer;
   te: PsgTupleElementMeta;
   managedType: Boolean;
-  meta: TsgItemMeta;
+  meta: PsgItemMeta;
 begin
-  meta.InitTuple(tupleMeta.FSize, Flags);
+  meta := SysCtx.CreateTupleMeta(tupleMeta.FSize, Flags);
   managedType := False;
   for i := 0 to Count - 1 do
   begin
@@ -1346,7 +1366,7 @@ begin
     meta.FreeItem := FreeTuple;
     meta.AssignItem := AssignTuple;
   end;
-  FRegion := SysCtx.Pool.CreateUnbrokenRegion(meta);
+  FRegion := SysCtx.Pool.CreateUnbrokenRegion(meta^);
 end;
 
 procedure TsgTuples.Free;
@@ -2115,10 +2135,10 @@ end;
 
 constructor TsgRecordList<T>.From(OnFree: TFreeProc);
 var
-  Meta: TsgItemMeta;
+  Meta: PsgItemMeta;
 begin
-  Meta.Init<T>(OnFree);
-  FList := TsgPointerList.From(Meta);
+  Meta := SysCtx.CreateMeta<T>(OnFree);
+  FList := TsgPointerList.From(Meta^);
 end;
 
 procedure TsgRecordList<T>.Free;
@@ -2460,10 +2480,10 @@ end;
 
 procedure TsgLinkedList<T>.Init(OnFree: TFreeProc);
 var
-  Meta: TsgItemMeta;
+  Meta: PsgItemMeta;
 begin
-  Meta.Init<TItem>(OnFree);
-  FList.Init(Meta);
+  Meta := SysCtx.CreateMeta<T>(OnFree);
+  FList.Init(Meta^);
 end;
 
 function TsgLinkedList<T>.Insert(Pos: TIterator; const Value: T): TIterator;
@@ -2633,16 +2653,16 @@ end;
 constructor TsgCustomHashMap.From(const PairMeta: TsgTupleMeta; ExpectedSize: Integer;
   HashKey: THashProc; Equals: TEqualsFunc);
 var
-  EntryMeta, CollisionMeta: TsgItemMeta;
+  EntryMeta, CollisionMeta: PsgItemMeta;
 begin
-  EntryMeta.Init<TEntry>;
-  FEntries := SysCtx.CreateUnbrokenRegion(EntryMeta);
+  EntryMeta := SysCtx.CreateMeta<TEntry>;
+  FEntries := SysCtx.CreateUnbrokenRegion(EntryMeta^);
   FPair := PairMeta;
   FHash := HashKey;
   FEquals := Equals;
-  CollisionMeta.Init<TCollision>;
+  CollisionMeta := SysCtx.CreateMeta<TCollision>;
   CollisionMeta.ItemSize := sizeof(TCollision) + FPair.Size;
-  FCollisions := SysCtx.CreateRegion(CollisionMeta);
+  FCollisions := SysCtx.CreateRegion(CollisionMeta^);
   SetEntriesLength(ExpectedSize);
 end;
 
@@ -2720,9 +2740,9 @@ begin
   n := FCollisions.Region.Alloc(FCollisions.Meta.ItemSize);
   n.Next := entry.root;
   pt := FPair.Get(0);
-  pt.Assign(@pt.Meta, n.GetPairRef, pair);
+  pt.Assign(pt.Meta, n.GetPairRef, pair);
   pt := FPair.Get(1);
-  pt.Assign(@pt.Meta, PByte(n.GetPairRef) + pt.Offset, PByte(pair) + pt.Offset);
+  pt.Assign(pt.Meta, PByte(n.GetPairRef) + pt.Offset, PByte(pair) + pt.Offset);
   entry.root := n;
   Result.Init(FPair, n);
 end;
@@ -3101,10 +3121,10 @@ end;
 constructor TsgMap<Key, T>.From(Compare: TListSortCompare;
   OnFreeNode: TFreeProc);
 var
-  Meta: TsgItemMeta;
+  Meta: PsgItemMeta;
 begin
-  Meta.Init<TsgMapIterator<Key, T>.TNode>(OnFreeNode);
-  tree.Init(Meta, Compare, UpdateValue);
+  Meta := SysCtx.CreateMeta<TsgMapIterator<Key, T>.TNode>(OnFreeNode);
+  tree.Init(Meta^, Compare, UpdateValue);
 end;
 
 procedure TsgMap<Key, T>.Free;
@@ -3227,10 +3247,10 @@ end;
 
 procedure TsgSet<Key>.Init(Compare: TListSortCompare; OnFreeNode: TFreeProc);
 var
-  Meta: TsgItemMeta;
+  Meta: PsgItemMeta;
 begin
-  Meta.Init<TsgSetIterator<Key>.TNode>(OnFreeNode);
-  tree.Init(Meta, Compare, UpdateValue);
+  Meta := SysCtx.CreateMeta<TsgSetIterator<Key>.TNode>(OnFreeNode);
+  tree.Init(Meta^, Compare, UpdateValue);
 end;
 
 procedure TsgSet<Key>.Free;
@@ -3440,8 +3460,16 @@ end;
 constructor TsgSystemContext.Create;
 begin
   inherited;
-  FTeMeta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
-  FTupleElementMeta.Init(FTeMeta, 1024);
+  FTeMeta := SysCtx.CreateMeta<TsgTupleElementMeta>([rfSegmented],
+    TRemoveAction.HoldValue);
+  FTupleElementMeta.Init(FTeMeta^, 1024);
+end;
+
+function TsgSystemContext.CreateTeMeta<T>: PsgTupleElementMeta;
+begin
+  Result := nil;
+  Result.FOffset := 0;
+  Result.FMeta := CreateMeta<T>;
 end;
 
 destructor TsgSystemContext.Destroy;

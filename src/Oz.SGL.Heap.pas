@@ -371,8 +371,6 @@ type
   protected
     FHeapPool: THeapPool;
     FMetaRegion: PSegmentedRegion;
-    procedure InitTuple(Meta: PsgItemMeta;
-      ItemSize: Cardinal; Flags: TRegionFlagSet);
   public
     constructor Create;
     destructor Destroy; override;
@@ -394,6 +392,7 @@ type
     function CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta; overload;
     function CreateMeta<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
       OnFree: TFreeProc = nil): PsgItemMeta; overload;
+    function CreateTupleMeta(ItemSize: Cardinal; Flags: TRegionFlagSet): PsgItemMeta;
 
     // Factory methods to create tuples
 
@@ -1357,19 +1356,19 @@ begin
   inherited;
 end;
 
-procedure TsgContext.InitTuple(Meta: PsgItemMeta;
-  ItemSize: Cardinal; Flags: TRegionFlagSet);
+function TsgContext.CreateTupleMeta(ItemSize: Cardinal;
+  Flags: TRegionFlagSet): PsgItemMeta;
 begin
-  FillChar(Meta^, sizeof(TsgItemMeta), 0);
+  FillChar(Result^, sizeof(TsgItemMeta), 0);
   if rfSegmented in Flags then
-    Meta.h.SetSegmented(True);
+    Result.h.SetSegmented(True);
   if rfRangeCheck in Flags then
-    Meta.h.SetRangeCheck(True);
+    Result.h.SetRangeCheck(True);
   if rfNotification in Flags then
-    Meta.h.SetNotification(True);
+    Result.h.SetNotification(True);
   if rfOwnedObject in Flags then
-    Meta.h.SetOwnedObject(True);
-  Meta.ItemSize := ItemSize;
+    Result.h.SetOwnedObject(True);
+  Result.ItemSize := ItemSize;
 end;
 
 function TsgContext.CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta;
