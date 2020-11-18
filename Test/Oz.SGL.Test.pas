@@ -191,7 +191,7 @@ type
       procedure Init(av, bv: T; u: TUpdateProc; eq: TEqualsFunc);
     end;
   public
-    meta: TsgItemMeta;
+    meta: PsgItemMeta;
     region: TUnbrokenRegion;
     item: TsgItem;
     Count: Integer;
@@ -232,7 +232,7 @@ type
   TSegmentedRegionTest = class(TTestCase)
   public
     region: TSegmentedRegion;
-    meta: TsgItemMeta;
+    meta: PsgItemMeta;
     item: TsgItem;
     procedure SetUp; override;
     procedure TearDown; override;
@@ -247,7 +247,7 @@ type
   TsgItemTest = class(TTestCase)
   public
     region: TMemoryRegion;
-    meta: TsgItemMeta;
+    meta: PsgItemMeta;
     item: TsgItem;
     procedure SetUp; override;
     procedure TearDown; override;
@@ -302,7 +302,7 @@ type
     Descr: TMemoryDescriptor;
     a, b, c, d, e: PTestRecord;
   public
-    Meta: TsgItemMeta;
+    Meta: PsgItemMeta;
     Region: TSharedRegion;
     procedure SetUp; override;
     procedure TearDown; override;
@@ -318,7 +318,7 @@ type
 
   TestTsgArray = class(TTestCase)
   public
-    Meta: TsgItemMeta;
+    Meta: PsgItemMeta;
     Region: TSharedRegion;
     procedure SetUp; override;
     procedure TearDown; override;
@@ -372,7 +372,7 @@ type
   TestTsgList = class(TTestCase)
   public
     List: TsgList<TTestRecord>;
-    Meta: TsgItemMeta;
+    Meta: PsgItemMeta;
     procedure SetUp; override;
     procedure TearDown; override;
   published
@@ -1262,8 +1262,8 @@ end;
 
 procedure TUnbrokenRegionTest.Init<T>(var value: T);
 begin
-  meta.Init<T>;
-  region.Init(meta, 1024);
+  meta := SysCtx.CreateMeta<T>;
+  region.Init(meta^, 1024);
   item.Init(region.Region^, value);
 end;
 
@@ -1797,8 +1797,8 @@ end;
 
 procedure TSegmentedRegionTest.Init<T>(var value: T);
 begin
-  meta.Init<T>;
-  region.Init(meta, 1024);
+  meta := SysCtx.CreateMeta<T>;
+  region.Init(meta^, 1024);
   item.Init(region.Region^, value);
 end;
 
@@ -1818,8 +1818,8 @@ end;
 
 procedure TsgItemTest.InitItem<T>(var value: T);
 begin
-  meta.Init<T>;
-  region.Init(meta, 1024);
+  meta := SysCtx.CreateMeta<T>;
+  region.Init(meta^, 1024);
   item.Init(region, value);
 end;
 
@@ -2091,10 +2091,10 @@ var
   i: Integer;
   r: PSegmentedRegion;
   head, newNode: PListNode;
-  meta: TsgItemMeta;
+  meta: PsgItemMeta;
 begin
-  meta.Init<TListNode>;
-  r := HeapPool.CreateRegion(meta);
+  meta := SysCtx.CreateMeta<TListNode>;
+  r := HeapPool.CreateRegion(meta^);
   try
     head := nil;
     for i := 1 to ItemsCount do
@@ -2116,10 +2116,10 @@ var
   p, q, b: PListNode;
   a: TArray<NativeUInt>;
   pa, qa, a0, a1: NativeUInt;
-  meta: TsgItemMeta;
+  meta: PsgItemMeta;
 begin
-  meta.Init<TListNode>;
-  r := HeapPool.CreateUnbrokenRegion(meta);
+  meta := SysCtx.CreateMeta<TListNode>;
+  r := HeapPool.CreateUnbrokenRegion(meta^);
   try
     q := nil;
     for i := 0 to ItemsCount - 1 do
@@ -2179,7 +2179,7 @@ end;
 
 procedure TsgTupleMetaTest._TupleOffset;
 var
-  te: TsgTupleElementMeta;
+  te: PsgTupleElementMeta;
   offset: Cardinal;
   b1, b2: Byte;
   w1, w2: Word;
@@ -2192,7 +2192,7 @@ var
   i: Integer;
 begin
   // Byte
-  te.Init<Byte>;
+  te := SysCtx.CreateTeMeta<Byte>;
   CheckTrue(te.Meta.ItemSize = 1);
   CheckTrue(te.Meta.h.TypeKind = TTypeKind.tkInteger);
   offset := te.NextTupleOffset(False);
@@ -2202,11 +2202,11 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   b1 := 123; b2 := 75;
-  te.Assign(@te.Meta, @b1, @b2);
+  te.Assign(te.Meta, @b1, @b2);
   CheckTrue(b1 = 75);
 
   // Word
-  te.Init<Word>;
+  te := SysCtx.CreateTeMeta<Word>;
   CheckTrue(te.Meta.ItemSize = 2);
   CheckTrue(te.Meta.h.TypeKind = TTypeKind.tkInteger);
   offset := te.NextTupleOffset(False);
@@ -2216,11 +2216,11 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   w1 := 12349; w2 := 705;
-  te.Assign(@te.Meta, @w1, @w2);
+  te.Assign(te.Meta, @w1, @w2);
   CheckTrue(w1 = 705);
 
   // Integer
-  te.Init<Integer>;
+  te := SysCtx.CreateTeMeta<Integer>;
   CheckTrue(te.Meta.ItemSize = 4);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 4);
@@ -2229,7 +2229,7 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   i1 := 12279349; i2 := 70564;
-  te.Assign(@te.Meta, @i1, @i2);
+  te.Assign(te.Meta, @i1, @i2);
   CheckTrue(i1 = 70564);
 
   // Check the clearing and assignment of data not aligned to the word boundary.
@@ -2240,13 +2240,13 @@ begin
     if Odd(NativeUInt(ptr1)) then
       break;
   end;
-  te.Assign(@te.Meta, ptr2, @i2);
+  te.Assign(te.Meta, ptr2, @i2);
   CheckTrue(Integer(ptr2^) = 70564);
-  te.Assign(@te.Meta, ptr1, ptr2);
+  te.Assign(te.Meta, ptr1, ptr2);
   CheckTrue(Integer(ptr1^) = 70564);
 
   // Double
-  te.Init<Double>;
+  te := SysCtx.CreateTeMeta<Double>;
   CheckTrue(te.Meta.ItemSize = 8);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 8);
@@ -2255,7 +2255,7 @@ begin
   CheckTrue(not Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   d1 := 12279349.34; d2 := 70564.567;
-  te.Assign(@te.Meta, @d1, @d2);
+  te.Assign(te.Meta, @d1, @d2);
   CheckTrue(SameValue(d1, 70564.567));
 
   // Check the clearing and assignment of data not aligned to the word boundary.
@@ -2266,13 +2266,13 @@ begin
     if Odd(NativeUInt(ptr1)) then
       break;
   end;
-  te.Assign(@te.Meta, ptr2, @d2);
+  te.Assign(te.Meta, ptr2, @d2);
   CheckTrue(SameValue(Double(ptr2^), 70564.567));
-  te.Assign(@te.Meta, ptr1, ptr2);
+  te.Assign(te.Meta, ptr1, ptr2);
   CheckTrue(SameValue(Double(ptr1^), 70564.567));
 
   // string
-  te.Init<string>;
+  te := SysCtx.CreateTeMeta<string>;
   CheckTrue(te.Meta.ItemSize = 4);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 4);
@@ -2281,13 +2281,13 @@ begin
   CheckTrue(Assigned(te.Free));
   CheckTrue(Assigned(te.Assign));
   s1 := '12279349'; s2 := '70564';
-  te.Free(@te.Meta, @s1);
+  te.Free(te.Meta, @s1);
   CheckTrue(s1 = '');
-  te.Assign(@te.Meta, @s1, @s2);
+  te.Assign(te.Meta, @s1, @s2);
   CheckTrue(s1 = '70564');
 
   // TPerson
-  te.Init<TPerson>;
+  te := SysCtx.CreateTeMeta<TPerson>;
   CheckTrue(te.Meta.ItemSize = 8);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 8);
@@ -2299,10 +2299,10 @@ begin
   p1.id := 45;
   p2 := TPerson.From('er70564');
   p2.id := 545;
-  te.Free(@te.Meta, @p1);
+  te.Free(te.Meta, @p1);
   CheckTrue(p1.name = '');
   CheckTrue(p1.id = 45);
-  te.Assign(@te.Meta, @p1, @p2);
+  te.Assign(te.Meta, @p1, @p2);
   CheckTrue(p1.name = 'er70564');
   CheckTrue(p1.id = 545);
 end;
@@ -2596,8 +2596,8 @@ end;
 
 procedure TestTSharedRegion.SetUp;
 begin
-  Meta.Init<TTestRecord>;
-  Region.Init(Meta, 5000);
+  Meta := SysCtx.CreateMeta<TTestRecord>;
+  Region.Init(Meta^, 5000);
 end;
 
 procedure TestTSharedRegion.TearDown;
@@ -2648,8 +2648,8 @@ end;
 
 procedure TestTsgArray.SetUp;
 begin
-  Meta.Init<TTestRecord>;
-  Region.Init(Meta, 5000);
+  Meta := SysCtx.CreateMeta<TTestRecord>;
+  Region.Init(Meta^, 5000);
 end;
 
 procedure TestTsgArray.TearDown;
@@ -2736,8 +2736,8 @@ end;
 
 procedure TestTsgList.SetUp;
 begin
-  Meta.Init<TTestRecord>;
-  List := TsgList<TTestRecord>.From(Meta);
+  Meta := SysCtx.CreateMeta<TTestRecord>;
+  List := TsgList<TTestRecord>.From(Meta^);
 end;
 
 procedure TestTsgList.TearDown;
@@ -2921,7 +2921,7 @@ var
 begin
   v.Init(25, 1);
   v.s := '123';
-  Source := TsgList<TTestRecord>.From(Meta);
+  Source := TsgList<TTestRecord>.From(Meta^);
   try
     Source.Add(v);
     for i := 1 to Cnt do
