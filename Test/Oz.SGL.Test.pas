@@ -1689,7 +1689,6 @@ type
   PT = ^string;
 var
   pa, pb: PT;
-  i: Integer;
 begin
   pa := PT(a); pb := PT(b);
   Result := pa^ = pb^;
@@ -1738,7 +1737,6 @@ type
   PT = ^WideString;
 var
   pa, pb: PT;
-  i: Integer;
 begin
   pa := PT(a); pb := PT(b);
   Result := pa^ = pb^;
@@ -1767,7 +1765,6 @@ type
   PT = ^RawByteString;
 var
   pa, pb: PT;
-  i: Integer;
 begin
   pa := PT(a); pb := PT(b);
   Result := pa^ = pb^;

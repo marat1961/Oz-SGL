@@ -374,7 +374,7 @@ type
     // Create a segmented region (for elements with a fixed address)
     function CreateRegion(Meta: TsgItemMeta): PSegmentedRegion; inline;
     // Release the region
-    procedure Release(r: PMemoryRegion);
+    procedure Release(r: PMemoryRegion); inline;
     // Clear main memory pool
     procedure ClearHeapPool;
     // Main memory pool
@@ -386,20 +386,16 @@ type
 {$Region 'TsgSystemContext: System processing context'}
 
   TsgSystemContext = class(TsgContext)
-  protected
-    FHeap: THeapPool;
-    // metadata for region of Pointer
+  private class var
     FPointerMeta: TsgItemMeta;
-    // metadata for region of TMemoryRegion
     FMemoryRegionMeta: TsgItemMeta;
   public
     constructor Create;
     destructor Destroy; override;
     // metadata for region of Pointer
-    property PointerMeta: TsgItemMeta read FPointerMeta;
+    class property PointerMeta: TsgItemMeta read FPointerMeta;
     // metadata for region of TMemoryRegion
-    property MemoryRegionMeta: TsgItemMeta read FPointerMeta;
-    property Pool: THeapPool read FHeap;
+    class property MemoryRegionMeta: TsgItemMeta read FPointerMeta;
   end;
 
 {$EndRegion}
@@ -1401,9 +1397,6 @@ end;
 constructor TsgSystemContext.Create;
 begin
   inherited;
-  FPointerMeta.Init<Pointer>;
-  FMemoryRegionMeta.Init<TMemoryRegion>([rfSegmented],
-    TRemoveAction.HoldValue, FreeRegion);
 end;
 
 destructor TsgSystemContext.Destroy;
@@ -1415,7 +1408,10 @@ end;
 
 procedure InitSysCtx;
 begin
-  SysCtx.Create;
+  SysCtx.FPointerMeta.Init<Pointer>;
+  SysCtx.FMemoryRegionMeta.Init<TMemoryRegion>([rfSegmented],
+    TRemoveAction.HoldValue, FreeRegion);
+  SysCtx := TsgSystemContext.Create;
 end;
 
 procedure ClearSysCtx;
