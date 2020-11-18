@@ -163,11 +163,10 @@ type
     AssignItem: TAssignProc;
   strict private
     procedure InitMethods;
-  public
+  private
     procedure Init<T>(OnFree: TFreeProc = nil); overload;
     procedure Init<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
       OnFree: TFreeProc = nil); overload;
-    procedure InitTuple(ItemSize: Cardinal; Flags: TRegionFlagSet);
   end;
 
 {$EndRegion}
@@ -289,6 +288,8 @@ type
     procedure Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free; inline;
+    // Add item
+    function AddItem: Pointer;
     // Dispose count items
     procedure Dispose(Items: Pointer; Count: Cardinal);
     // Assign
@@ -369,6 +370,9 @@ type
     function GetHeapPool: THeapPool;
   protected
     FHeapPool: THeapPool;
+    FMetaRegion: PSegmentedRegion;
+    procedure InitTuple(Meta: PsgItemMeta;
+      ItemSize: Cardinal; Flags: TRegionFlagSet);
   public
     constructor Create;
     destructor Destroy; override;
@@ -380,10 +384,21 @@ type
     procedure Release(r: PMemoryRegion); inline;
     // Clear main memory pool
     procedure ClearHeapPool;
+
     // Metadata for standard types
     class procedure InitMetadata;
     class property PointerMeta: TsgItemMeta read FPointerMeta;
-    class property MemoryRegionMeta: TsgItemMeta read FPointerMeta;
+    class property MemoryRegionMeta: TsgItemMeta read FMemoryRegionMeta;
+
+    // Factory methods to create metadata
+    function CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta; overload;
+    function CreateMeta<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
+      OnFree: TFreeProc = nil): PsgItemMeta; overload;
+
+    // Factory methods to create tuples
+
+    // Factory methods to create shared regions
+
     // Main memory pool
     property Pool: THeapPool read GetHeapPool;
   end;
@@ -562,20 +577,6 @@ end;
 {$EndRegion}
 
 {$Region 'TsgItemMeta'}
-
-procedure TsgItemMeta.InitTuple(ItemSize: Cardinal; Flags: TRegionFlagSet);
-begin
-  FillChar(Self, sizeof(TsgItemMeta), 0);
-  if rfSegmented in Flags then
-    h.SetSegmented(True);
-  if rfRangeCheck in Flags then
-    h.SetRangeCheck(True);
-  if rfNotification in Flags then
-    h.SetNotification(True);
-  if rfOwnedObject in Flags then
-    h.SetOwnedObject(True);
-  Self.ItemSize := ItemSize;
-end;
 
 procedure TsgItemMeta.Init<T>(OnFree: TFreeProc);
 begin
@@ -1066,6 +1067,11 @@ begin
   FRegion.Free;
 end;
 
+function TSegmentedRegion.AddItem: Pointer;
+begin
+  Result := FRegion.Alloc(ItemSize);
+end;
+
 function TSegmentedRegion.GetRegion: PMemoryRegion;
 begin
   Result := @FRegion;
@@ -1342,12 +1348,41 @@ constructor TsgContext.Create;
 begin
   inherited;
   FHeapPool := THeapPool.Create;
+  FMetaRegion := CreateRegion(MemoryRegionMeta);
 end;
 
 destructor TsgContext.Destroy;
 begin
   ClearHeapPool;
   inherited;
+end;
+
+procedure TsgContext.InitTuple(Meta: PsgItemMeta;
+  ItemSize: Cardinal; Flags: TRegionFlagSet);
+begin
+  FillChar(Meta^, sizeof(TsgItemMeta), 0);
+  if rfSegmented in Flags then
+    Meta.h.SetSegmented(True);
+  if rfRangeCheck in Flags then
+    Meta.h.SetRangeCheck(True);
+  if rfNotification in Flags then
+    Meta.h.SetNotification(True);
+  if rfOwnedObject in Flags then
+    Meta.h.SetOwnedObject(True);
+  Meta.ItemSize := ItemSize;
+end;
+
+function TsgContext.CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta;
+begin
+  Result := FMetaRegion.AddItem;
+  Result.Init<T>(OnFree);
+end;
+
+function TsgContext.CreateMeta<T>(Flags: TRegionFlagSet;
+  RemoveAction: TRemoveAction; OnFree: TFreeProc = nil): PsgItemMeta;
+begin
+  Result := FMetaRegion.AddItem;
+  Result.Init<T>(Flags, RemoveAction, OnFree);
 end;
 
 class procedure TsgContext.InitMetadata;
