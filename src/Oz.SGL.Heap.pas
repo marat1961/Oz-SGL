@@ -362,6 +362,9 @@ type
 {$Region 'TsgContext: Processing context'}
 
   TsgContext = class
+  private class var
+    FPointerMeta: TsgItemMeta;
+    FMemoryRegionMeta: TsgItemMeta;
   private
     function GetHeapPool: THeapPool;
   protected
@@ -377,25 +380,12 @@ type
     procedure Release(r: PMemoryRegion); inline;
     // Clear main memory pool
     procedure ClearHeapPool;
+    // Metadata for standard types
+    class procedure InitMetadata;
+    class property PointerMeta: TsgItemMeta read FPointerMeta;
+    class property MemoryRegionMeta: TsgItemMeta read FPointerMeta;
     // Main memory pool
     property Pool: THeapPool read GetHeapPool;
-  end;
-
-{$EndRegion}
-
-{$Region 'TsgSystemContext: System processing context'}
-
-  TsgSystemContext = class(TsgContext)
-  private class var
-    FPointerMeta: TsgItemMeta;
-    FMemoryRegionMeta: TsgItemMeta;
-  public
-    constructor Create;
-    destructor Destroy; override;
-    // metadata for region of Pointer
-    class property PointerMeta: TsgItemMeta read FPointerMeta;
-    // metadata for region of TMemoryRegion
-    class property MemoryRegionMeta: TsgItemMeta read FPointerMeta;
   end;
 
 {$EndRegion}
@@ -408,9 +398,6 @@ procedure Check(ok: Boolean; const Msg: string = '');
 procedure FatalError(const Msg: string);
 
 {$EndRegion}
-
-var
-  SysCtx: TsgSystemContext;
 
 implementation
 
@@ -1146,7 +1133,7 @@ begin
   inherited Create;
   FBlockSize := BlockSize;
   New(FRegions);
-  FRegions.Init(SysCtx.MemoryRegionMeta, BlockSize);
+  FRegions.Init(TsgContext.MemoryRegionMeta, BlockSize);
   FRealesed.Init;
 end;
 
@@ -1357,6 +1344,19 @@ begin
   FHeapPool := THeapPool.Create;
 end;
 
+destructor TsgContext.Destroy;
+begin
+  ClearHeapPool;
+  inherited;
+end;
+
+class procedure TsgContext.InitMetadata;
+begin
+  PointerMeta.Init<Pointer>;
+  MemoryRegionMeta.Init<TMemoryRegion>([rfSegmented],
+    TRemoveAction.HoldValue, FreeRegion);
+end;
+
 function TsgContext.CreateRegion(Meta: TsgItemMeta): PSegmentedRegion;
 begin
   Result := FHeapPool.CreateRegion(Meta);
@@ -1365,12 +1365,6 @@ end;
 function TsgContext.CreateUnbrokenRegion(Meta: TsgItemMeta): PUnbrokenRegion;
 begin
   Result := FHeapPool.CreateUnbrokenRegion(Meta);
-end;
-
-destructor TsgContext.Destroy;
-begin
-  ClearHeapPool;
-  inherited;
 end;
 
 procedure TsgContext.ClearHeapPool;
@@ -1391,39 +1385,6 @@ begin
 end;
 
 {$EndRegion}
-
-{$Region 'TsgSystemContext'}
-
-constructor TsgSystemContext.Create;
-begin
-  inherited;
-end;
-
-destructor TsgSystemContext.Destroy;
-begin
-  inherited;
-end;
-
-{$EndRegion}
-
-procedure InitSysCtx;
-begin
-  SysCtx.FPointerMeta.Init<Pointer>;
-  SysCtx.FMemoryRegionMeta.Init<TMemoryRegion>([rfSegmented],
-    TRemoveAction.HoldValue, FreeRegion);
-  SysCtx := TsgSystemContext.Create;
-end;
-
-procedure ClearSysCtx;
-begin
-  FreeAndNil(SysCtx);
-end;
-
-initialization
-  InitSysCtx;
-
-finalization
-  ClearSysCtx;
 
 end.
 

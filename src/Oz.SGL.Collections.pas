@@ -883,6 +883,22 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgSystemContext: System processing context'}
+
+  TsgSystemContext = class(TsgContext)
+  private
+    FTeMeta: TsgItemMeta;
+    FTupleElementMeta: TSharedRegion;
+    function GetTupleElementMeta: PSharedRegion; inline;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    // shared memory region for tuples metadata
+    property TupleElementMeta: PSharedRegion read GetTupleElementMeta;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgLog'}
 
   TsgLog = record
@@ -912,18 +928,16 @@ type
 
 // Check the index entry into the range [0...Count - 1].
 procedure CheckIndex(Index, Count: Integer); inline;
-
+// Quick sort
 procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
 
 {$EndRegion}
 
 var
+  SysCtx: TsgSystemContext;
   log: TsgLog;
 
 implementation
-
-var
-  TupleElementMeta: TSharedRegion;
 
 {$Region 'Procedures and functions'}
 
@@ -1150,7 +1164,7 @@ end;
 procedure TsgTupleMeta.Init(Count: Cardinal; OnFree: TFreeProc);
 begin
   FSize := 0;
-  FElements.Init(@TupleElementMeta, Count);
+  FElements.Init(SysCtx.TupleElementMeta, Count);
   FOnFree := OnFree;
 end;
 
@@ -1752,7 +1766,7 @@ end;
 
 constructor TsgPointerArray.From(Capacity: Integer);
 begin
-  FListRegion := SysCtx.CreateUnbrokenRegion(SysCtx.PointerMeta);
+  FListRegion := SysCtx.CreateUnbrokenRegion(TsgContext.PointerMeta);
   FList := FListRegion.Region.IncreaseCapacity(Capacity);
   FCount := 0;
 end;
@@ -3421,24 +3435,44 @@ end;
 
 {$EndRegion}
 
-procedure TupleMetaInit;
-var
-  meta: TsgItemMeta;
+{$Region 'TsgSystemContext'}
+
+constructor TsgSystemContext.Create;
 begin
-  meta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
-  TupleElementMeta.Init(meta, 1024);
+  inherited;
+  FTeMeta.Init<TsgTupleElementMeta>([rfSegmented], TRemoveAction.HoldValue);
+  FTupleElementMeta.Init(FTeMeta, 1024);
 end;
 
-procedure TupleMetaFree;
+destructor TsgSystemContext.Destroy;
 begin
-  TupleElementMeta.Free;
+  FTupleElementMeta.Free;
+  inherited;
+end;
+
+function TsgSystemContext.GetTupleElementMeta: PSharedRegion;
+begin
+  Result := @FTupleElementMeta;
+end;
+
+{$EndRegion}
+
+procedure InitSysCtx;
+begin
+  TsgSystemContext.InitMetadata;
+  SysCtx := TsgSystemContext.Create;
+end;
+
+procedure ClearSysCtx;
+begin
+  FreeAndNil(SysCtx);
 end;
 
 initialization
-  TupleMetaInit;
+  InitSysCtx;
 
 finalization
-  TupleMetaFree;
+  ClearSysCtx;
 
 end.
 
