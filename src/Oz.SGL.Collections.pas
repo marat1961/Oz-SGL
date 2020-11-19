@@ -902,12 +902,12 @@ type
       Meta: TsgItemMeta;
       Region: TSharedRegion;
       Items: TsgArray<T>;
-      procedure Setup(Size: Integer = 1024 * 8);
+      procedure Setup(Size: Integer = 4096);
       procedure Free;
     end;
   private
     FItemMeta: TSharedData<TsgItemMeta>;
-    FTeMeta: TSharedData<TsgItemMeta>;
+    FTeMeta: TSharedData<TsgTupleElementMeta>;
     FSharedRegion: TSharedData<TsgItemMeta>;
     // temporarily, then replace with a spherical region
     FTupleElementMeta: TSharedRegion;
@@ -3531,12 +3531,13 @@ end;
 function TsgSystemContext.CreateMeta<T>(Flags: TRegionFlagSet;
   RemoveAction: TRemoveAction; OnFree: TFreeProc): PsgItemMeta;
 begin
-  Result := FTeMeta.Items.Add;
+  Result := FItemMeta.Items.Add;
   Result.Init<T>(Flags, RemoveAction, OnFree);
 end;
 
 function TsgSystemContext.CreateTeMeta<T>: PsgTupleElementMeta;
 begin
+  Result := FTeMeta.Items.Add;
   Result.FOffset := 0;
   Result.FMeta := CreateMeta<T>;
 end;
