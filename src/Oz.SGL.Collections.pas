@@ -121,8 +121,8 @@ type
     // Add tuple element
     procedure AddElement(te: PsgTupleElementMeta; Allign: Boolean);
     procedure AddTe<T>(Allign: Boolean);
-    procedure Init(Count: Cardinal; OnFree: TFreeProc);
   public
+    procedure Init(Count: Cardinal; OnFree: TFreeProc);
     procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     procedure MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
@@ -893,25 +893,26 @@ type
 
   TsgSystemContext = class(TsgContext)
   const
-    ItemMetaHandle: hCollection = (v: 1);
-    TeMetaHandle: hCollection = (v: 2);
-    SharedRegionMetaHandle: hCollection = (v: 3);
+    ItemMetaHandle: hRegion = (v: 1);
+    TeMetaHandle: hRegion = (v: 2);
+    SharedRegionMetaHandle: hRegion = (v: 3);
   private type
-    // arrays from a shared region
-    TSharedData<T> = record
+    // Arrays from a shared region
+    TSharedData = record
       Meta: TsgItemMeta;
       Region: TSharedRegion;
-      Items: TsgArray<T>;
-      procedure Setup(Size: Integer = 4096);
+      Items: TsgArrayHelper;
+      procedure Setup<T>(Size: Integer = 4096);
       procedure Free;
     end;
   private
-    FItemMeta: TSharedData<TsgItemMeta>;
-    FTeMeta: TSharedData<TsgTupleElementMeta>;
-    FSharedRegion: TSharedData<TsgItemMeta>;
-    // temporarily, then replace with a spherical region
-    FTupleElementMeta: TSharedRegion;
-    function GetTupleElementMeta: PSharedRegion; inline;
+    FItemMeta: TSharedData{TsgItemMeta};
+    FTeMeta: TSharedData{TsgTupleElementMeta};
+    FSharedRegion: TSharedData{TsgArrayHelper};
+    // Factory methods to create tuple metadata
+    function CreateTupleMeta(ItemSize: Cardinal; Flags: TRegionFlagSet): PsgItemMeta;
+    // Factory methods to create ArrayHelper from shared regions
+    function CreateArrayHelper(Capacity: Cardinal): PsgArrayHelper;
   public
     constructor Create;
     destructor Destroy; override;
@@ -921,12 +922,12 @@ type
     function CreateMeta<T>(Flags: TRegionFlagSet;
       RemoveAction: TRemoveAction = HoldValue;
       OnFree: TFreeProc = nil): PsgItemMeta; overload;
-    function CreateTupleMeta(ItemSize: Cardinal; Flags: TRegionFlagSet): PsgItemMeta;
-    // Factory methods to create Tuple element metadata
+
+    // Factory methods to create tuple element metadata
     function CreateTeMeta<T>: PsgTupleElementMeta;
 
-    // shared memory region for tuples metadata
-    property TupleElementMeta: PSharedRegion read GetTupleElementMeta;
+    // Factory methods to create array from shared regions
+    procedure CreateArray<T>(Capacity: Cardinal; var Value: TsgArray<T>);
   end;
 
 {$EndRegion}
@@ -1205,7 +1206,7 @@ end;
 procedure TsgTupleMeta.Init(Count: Cardinal; OnFree: TFreeProc);
 begin
   FSize := 0;
-  FElements.Init(SysCtx.TupleElementMeta, Count);
+  SysCtx.CreateArray<TsgTupleElementMeta>(Count, FElements);
   FOnFree := OnFree;
 end;
 
@@ -3478,14 +3479,14 @@ end;
 
 {$Region 'TsgSystemContext'}
 
-procedure TsgSystemContext.TSharedData<T>.Setup(Size: Integer);
+procedure TsgSystemContext.TSharedData.Setup<T>(Size: Integer);
 begin
   Meta.Init<T>;
   Region.Init(Meta, Size);
   Items.Init(@Region, Size);
 end;
 
-procedure TsgSystemContext.TSharedData<T>.Free;
+procedure TsgSystemContext.TSharedData.Free;
 begin
   Items.Free;
   Region.Free;
@@ -3494,9 +3495,9 @@ end;
 constructor TsgSystemContext.Create;
 begin
   inherited;
-  FItemMeta.Setup();
-  FTeMeta.Setup;
-  FSharedRegion.Setup;
+  FItemMeta.Setup<TsgItemMeta>;
+  FTeMeta.Setup<TsgTupleElementMeta>;
+  FSharedRegion.Setup<TsgArrayHelper>;
 end;
 
 destructor TsgSystemContext.Destroy;
@@ -3510,7 +3511,7 @@ end;
 function TsgSystemContext.CreateTupleMeta(ItemSize: Cardinal;
   Flags: TRegionFlagSet): PsgItemMeta;
 begin
-  FillChar(Result^, sizeof(TsgItemMeta), 0);
+  Result := PsgItemMeta(FItemMeta.Items.Add);
   if rfSegmented in Flags then
     Result.h.Segmented := True;
   if rfRangeCheck in Flags then
@@ -3524,27 +3525,33 @@ end;
 
 function TsgSystemContext.CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta;
 begin
-  Result := FItemMeta.Items.Add;
+  Result := PsgItemMeta(FItemMeta.Items.Add);
   Result.Init<T>(OnFree);
 end;
 
 function TsgSystemContext.CreateMeta<T>(Flags: TRegionFlagSet;
   RemoveAction: TRemoveAction; OnFree: TFreeProc): PsgItemMeta;
 begin
-  Result := FItemMeta.Items.Add;
+  Result := PsgItemMeta(FItemMeta.Items.Add);
   Result.Init<T>(Flags, RemoveAction, OnFree);
 end;
 
 function TsgSystemContext.CreateTeMeta<T>: PsgTupleElementMeta;
 begin
-  Result := FTeMeta.Items.Add;
+  Result := PsgTupleElementMeta(FTeMeta.Items.Add);
   Result.FOffset := 0;
   Result.FMeta := CreateMeta<T>;
 end;
 
-function TsgSystemContext.GetTupleElementMeta: PSharedRegion;
+function TsgSystemContext.CreateArrayHelper(Capacity: Cardinal): PsgArrayHelper;
 begin
-  Result := @FTupleElementMeta;
+  Result := PsgArrayHelper(FSharedRegion.Items.Add);
+  Result.Init(@FSharedRegion.Region, Capacity);
+end;
+
+procedure TsgSystemContext.CreateArray<T>(Capacity: Cardinal; var Value: TsgArray<T>);
+begin
+  Value.FList := CreateArrayHelper(Capacity)^;
 end;
 
 {$EndRegion}
