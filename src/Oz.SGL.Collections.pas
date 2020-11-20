@@ -121,13 +121,17 @@ type
     // Add tuple element
     procedure AddElement(te: PsgTupleElementMeta; Allign: Boolean);
     procedure AddTe<T>(Allign: Boolean);
-  public
     procedure Init(Count: Cardinal; OnFree: TFreeProc);
-    procedure MakePair<T1, T2>(OnFree: TFreeProc = nil; Allign: Boolean = True);
-    procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil; Allign: Boolean = True);
-    procedure MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil; Allign: Boolean = True);
+  public
+    procedure MakePair<T1, T2>(OnFree: TFreeProc = nil;
+      Allign: Boolean = True);
+    procedure MakeTrio<T1, T2, T3>(OnFree: TFreeProc = nil;
+      Allign: Boolean = True);
+    procedure MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc = nil;
+      Allign: Boolean = True);
     // Creates a tuple by concatenating
-    procedure Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc = nil; Allign: Boolean = True);
+    procedure Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc = nil;
+      Allign: Boolean = True);
     // Add metadata for a tuple element to the end of tuple.
     procedure Add<T>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     // Insert metadata for the tuple element at the start of tuple.
@@ -870,7 +874,7 @@ type
     FSizes: array [TsgHandleManager.TIndex] of Cardinal;
     function GetMeta: PsgItemMeta; inline;
     function GetItemSize: Cardinal; inline;
-    procedure ClearManagedTypes(const d: TMemoryDescriptor);
+    procedure ClearManagedTypes(const descr: TMemoryDescriptor);
     procedure FreeUsed(h: hCollection);
   public
     // Initialize shared memory region for collections
@@ -878,11 +882,11 @@ type
     // Free the region
     procedure Free;
     // Allocate memory for collection items
-    procedure Alloc(var d: TMemoryDescriptor);
+    procedure Alloc(var descr: TMemoryDescriptor);
     // Return memory to heap
-    procedure FreeMem(var d: TMemoryDescriptor);
+    procedure FreeMem(var descr: TMemoryDescriptor);
     // Reallocate memory for collection items
-    procedure Realloc(var d: TMemoryDescriptor; Count: Cardinal);
+    procedure Realloc(var descr: TMemoryDescriptor; Count: Cardinal);
     property ItemSize: Cardinal read GetItemSize;
     property Meta: PsgItemMeta read GetMeta;
   end;
@@ -892,12 +896,8 @@ type
 {$Region 'TsgSystemContext: System processing context'}
 
   TsgSystemContext = class(TsgContext)
-  const
-    ItemMetaHandle: hRegion = (v: 1);
-    TeMetaHandle: hRegion = (v: 2);
-    SharedRegionMetaHandle: hRegion = (v: 3);
   private type
-    // Arrays from a shared region
+    TRegionId = (rItemMeta, rTeMeta, rTupleMeta, rSharedRegion);
     TSharedData = record
       Meta: TsgItemMeta;
       Region: TSharedRegion;
@@ -905,12 +905,12 @@ type
       procedure Setup<T>(Size: Integer = 4096);
       procedure Free;
     end;
+    TMetaList = array [TRegionId] of TSharedData;
   private
-    FItemMeta: TSharedData{TsgItemMeta};
-    FTeMeta: TSharedData{TsgTupleElementMeta};
-    FSharedRegion: TSharedData{TsgArrayHelper};
-    // Factory methods to create tuple metadata
-    function CreateTupleMeta(ItemSize: Cardinal; Flags: TRegionFlagSet): PsgItemMeta;
+    FMetaList: TMetaList;
+    // Init metadata for Tuple meta region
+    procedure InitTupleMeta(var meta: TsgItemMeta;
+      ItemSize: Cardinal; Flags: TRegionFlagSet);
     // Factory methods to create ArrayHelper from shared regions
     function CreateArrayHelper(Capacity: Cardinal): PsgArrayHelper;
   public
@@ -925,6 +925,9 @@ type
 
     // Factory methods to create tuple element metadata
     function CreateTeMeta<T>: PsgTupleElementMeta;
+
+    // Return shared region
+    function GetShareRegion(id: TRegionId): PSharedRegion;
 
     // Factory methods to create array from shared regions
     procedure CreateArray<T>(Capacity: Cardinal; var Value: TsgArray<T>);
@@ -1368,9 +1371,9 @@ var
   i: Integer;
   te: PsgTupleElementMeta;
   managedType: Boolean;
-  meta: PsgItemMeta;
+  meta: TsgItemMeta;
 begin
-  meta := SysCtx.CreateTupleMeta(tupleMeta.FSize, Flags);
+  SysCtx.InitTupleMeta(meta, tupleMeta.FSize, Flags);
   managedType := False;
   for i := 0 to Count - 1 do
   begin
@@ -1388,7 +1391,7 @@ begin
     meta.FreeItem := FreeTuple;
     meta.AssignItem := AssignTuple;
   end;
-  FRegion := SysCtx.Pool.CreateUnbrokenRegion(meta^);
+  FRegion := SysCtx.Pool.CreateUnbrokenRegion(meta);
 end;
 
 procedure TsgTuples.Free;
@@ -3345,36 +3348,36 @@ end;
 
 procedure TSharedRegion.FreeUsed(h: hCollection);
 var
-  d: TMemoryDescriptor;
+  descr: TMemoryDescriptor;
 begin
-  d.Items := FHandleManager.Get(h);
-  d.Count := FSizes[h.Index];
-  ClearManagedTypes(d);
+  descr.Items := FHandleManager.Get(h);
+  descr.Count := FSizes[h.Index];
+  ClearManagedTypes(descr);
 end;
 
-procedure TSharedRegion.Alloc(var d: TMemoryDescriptor);
+procedure TSharedRegion.Alloc(var descr: TMemoryDescriptor);
 begin
-  d.Items := FMemoryManager.Alloc(d.Count * ItemSize);
-  d.h := FHandleManager.Add(d.Items);
-  FSizes[d.h.Index] := d.Count;
+  descr.Items := FMemoryManager.Alloc(descr.Count * ItemSize);
+  descr.h := FHandleManager.Add(descr.Items);
+  FSizes[descr.h.Index] := descr.Count;
 end;
 
-procedure TSharedRegion.FreeMem(var d: TMemoryDescriptor);
+procedure TSharedRegion.FreeMem(var descr: TMemoryDescriptor);
 begin
-  FHandleManager.Remove(d.h);
+  FHandleManager.Remove(descr.h);
   if FRegion.Meta.h.ManagedType then
-    ClearManagedTypes(d);
-  FMemoryManager.FreeMem(d.Items, d.Count * ItemSize);
-  d.Clear;
+    ClearManagedTypes(descr);
+  FMemoryManager.FreeMem(descr.Items, descr.Count * ItemSize);
+  descr.Clear;
 end;
 
-procedure TSharedRegion.ClearManagedTypes(const d: TMemoryDescriptor);
+procedure TSharedRegion.ClearManagedTypes(const descr: TMemoryDescriptor);
 var
   p: PByte;
   n: Cardinal;
 begin
-  n := d.Count;
-  p := d.Items;
+  n := descr.Count;
+  p := descr.Items;
   while n > 0 do
   begin
     FRegion.Meta.FreeItem(FRegion.Meta, p);
@@ -3383,17 +3386,17 @@ begin
   end;
 end;
 
-procedure TSharedRegion.Realloc(var d: TMemoryDescriptor; Count: Cardinal);
+procedure TSharedRegion.Realloc(var descr: TMemoryDescriptor; Count: Cardinal);
 var
   p: Pointer;
 begin
-  p := FHandleManager.Get(d.h);
-  Assert(p = d.Items);
-  p := FMemoryManager.Realloc(d.Items, d.Count * ItemSize, Count * ItemSize);
+  p := FHandleManager.Get(descr.h);
+  Assert(p = descr.Items);
+  p := FMemoryManager.Realloc(descr.Items, descr.Count * ItemSize, Count * ItemSize);
   if p = nil then
     EsgError.Create('TSharedRegion.Realloc: not enough memory');
-  d.Items := p;
-  d.Count := Count;
+  descr.Items := p;
+  descr.Count := Count;
 end;
 
 function TSharedRegion.GetItemSize: Cardinal;
@@ -3493,60 +3496,76 @@ begin
 end;
 
 constructor TsgSystemContext.Create;
+var
+  i: TRegionId;
 begin
   inherited;
-  FItemMeta.Setup<TsgItemMeta>;
-  FTeMeta.Setup<TsgTupleElementMeta>;
-  FSharedRegion.Setup<TsgArrayHelper>;
+  for i := Low(TRegionId) to High(TRegionId) do
+    with FMetaList[i] do
+    begin
+      case i of
+        rItemMeta: Meta.Init<TsgItemMeta>;
+        rTeMeta: Meta.Init<TsgTupleElementMeta>;
+        rTupleMeta: InitTupleMeta(Meta, sizeof(TsgTupleMeta), []);
+        rSharedRegion: Meta.Init<TsgArrayHelper>;
+      end;
+      Region.Init(Meta, 4095);
+      Items.Init(@Region, 4095);
+   end;
 end;
 
 destructor TsgSystemContext.Destroy;
+var
+  i: TRegionId;
 begin
-  FItemMeta.Free;
-  FTeMeta.Free;
-  FSharedRegion.Free;
+  for i := Low(TRegionId) to High(TRegionId) do
+    FMetaList[i].Free;
   inherited;
 end;
 
-function TsgSystemContext.CreateTupleMeta(ItemSize: Cardinal;
-  Flags: TRegionFlagSet): PsgItemMeta;
+procedure TsgSystemContext.InitTupleMeta(var meta: TsgItemMeta;
+  ItemSize: Cardinal; Flags: TRegionFlagSet);
 begin
-  Result := PsgItemMeta(FItemMeta.Items.Add);
   if rfSegmented in Flags then
-    Result.h.Segmented := True;
+    meta.h.Segmented := True;
   if rfRangeCheck in Flags then
-    Result.h.RangeCheck := True;
+    meta.h.RangeCheck := True;
   if rfNotification in Flags then
-    Result.h.Notification := True;
+    meta.h.Notification := True;
   if rfOwnedObject in Flags then
-    Result.h.OwnedObject := True;
-  Result.ItemSize := ItemSize;
+    meta.h.OwnedObject := True;
+  meta.ItemSize := ItemSize;
+end;
+
+function TsgSystemContext.GetShareRegion(id: TRegionId): PSharedRegion;
+begin
+  Result := @FMetaList[id].Region;
 end;
 
 function TsgSystemContext.CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta;
 begin
-  Result := PsgItemMeta(FItemMeta.Items.Add);
+  Result := PsgItemMeta(FMetaList[rItemMeta].Items.Add);
   Result.Init<T>(OnFree);
 end;
 
 function TsgSystemContext.CreateMeta<T>(Flags: TRegionFlagSet;
   RemoveAction: TRemoveAction; OnFree: TFreeProc): PsgItemMeta;
 begin
-  Result := PsgItemMeta(FItemMeta.Items.Add);
+  Result := PsgItemMeta(FMetaList[rItemMeta].Items.Add);
   Result.Init<T>(Flags, RemoveAction, OnFree);
 end;
 
 function TsgSystemContext.CreateTeMeta<T>: PsgTupleElementMeta;
 begin
-  Result := PsgTupleElementMeta(FTeMeta.Items.Add);
+  Result := PsgTupleElementMeta(FMetaList[rTeMeta].Items.Add);
   Result.FOffset := 0;
   Result.FMeta := CreateMeta<T>;
 end;
 
 function TsgSystemContext.CreateArrayHelper(Capacity: Cardinal): PsgArrayHelper;
 begin
-  Result := PsgArrayHelper(FSharedRegion.Items.Add);
-  Result.Init(@FSharedRegion.Region, Capacity);
+  Result := PsgArrayHelper(FMetaList[rSharedRegion].Items.Add);
+  Result.Init(@FMetaList[rSharedRegion].Region, Capacity);
 end;
 
 procedure TsgSystemContext.CreateArray<T>(Capacity: Cardinal; var Value: TsgArray<T>);
