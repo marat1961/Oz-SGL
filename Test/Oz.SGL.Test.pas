@@ -178,6 +178,19 @@ type
 
 {$EndRegion}
 
+{$Region 'TSysCtxTest'}
+
+  TSysCtxTest = class(TTestCase)
+  public
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestCreateMeta;
+    procedure TestCreateTeMeta;
+  end;
+
+{$EndRegion}
+
 {$Region 'TUnbrokenRegionTest'}
 
   TUnbrokenRegionTest = class(TTestCase)
@@ -1239,9 +1252,68 @@ end;
 
 {$EndRegion}
 
+{$Region 'TSysCtxTest'}
+
+procedure TSysCtxTest.SetUp;
+begin
+end;
+
+procedure TSysCtxTest.TearDown;
+begin
+end;
+
+procedure TSysCtxTest.TestCreateMeta;
+var
+  value: Integer;
+  meta: PsgItemMeta;
+  region: TUnbrokenRegion;
+  item: TsgItem;
+begin
+  value := 45;
+  meta := SysCtx.CreateMeta<Integer>;
+  region.Init(meta^, 1024);
+  item.Init(region.Region^, value);
+end;
+
+procedure TSysCtxTest.TestCreateTeMeta;
+var
+  i: Integer;
+  List: TsgTupleMeta.TsgTeMetaList;
+  a, b, c, d, p, meta: PsgTupleElementMeta;
+  item: TsgItem;
+  List2: TsgTupleMeta.TsgTeMetaList;
+  smeta: PsgItemMeta;
+  Region: TSharedRegion;
+begin
+  smeta := SysCtx.CreateMeta<TsgTupleElementMeta>;
+  Region.Init(smeta^, 5000);
+  List2.Init(@Region, ItemsCount);
+  for i := 1 to 4 do
+  begin
+    p := List2.Add;
+    p.Offset := i;
+    CheckTrue(List2.Count = Cardinal(i));
+  end;
+  SysCtx.CreateTeMetas(4, List);
+  a := List.Add;
+  a.Offset := 0;
+  b := List.Add;
+  a.Offset := 4;
+  c := List.Add;
+  a.Offset := 8;
+  d := List.Add;
+  a.Offset := 16;
+  for i := 0 to 3 do
+  begin
+    meta := List.Items[i];
+  end;
+end;
+
+{$EndRegion}
+
 {$Region 'TUnbrokenRegionTest'}
 
-procedure TUnbrokenRegionTest.TParam<T>.Init(av, bv: T; 
+procedure TUnbrokenRegionTest.TParam<T>.Init(av, bv: T;
   u: TUpdateProc; eq: TEqualsFunc);
 begin
   a := av;
@@ -2490,9 +2562,9 @@ type
   end;
 var
   Trio: TsgTupleMeta;
-  r: PMemoryRegion;
   te0, te1, te2: PsgTupleElementMeta;
-  a, b: TMyRecord;
+//  r: PMemoryRegion;
+//  a, b: TMyRecord;
 begin
   // create a pair without alignment
   Trio.MakeTrio<Pointer, TVector, Integer>(nil, False);
@@ -2531,10 +2603,10 @@ type
   end;
 var
   meta: TsgTupleMeta;
-  rgn: PMemoryRegion;
   te0, te1, te2: PsgTupleElementMeta;
-  a, b: TMyRecord2;
-  item: PsgItemMeta;
+//  rgn: PMemoryRegion;
+//  a, b: TMyRecord2;
+//  item: PsgItemMeta;
 begin
   // create a pair without alignment
   meta.MakeTrio<TVector, string, Integer>(nil, False);
@@ -2689,11 +2761,11 @@ begin
     p := List.Add;
     p^ := a;
     CheckTrue(List.Count = Cardinal(i));
-    // считать и проверить содержимое
+
     p := List.Items[i - 1];
     CheckTrue(p.v = i);
     CheckTrue(a.Equals(p^));
-    // проверить все ранее добавленные значения
+
     for j := 1 to i do
     begin
       a.Init(j, j + 1);
@@ -2707,11 +2779,59 @@ begin
 end;
 
 procedure TestTsgArray.TestDelete;
+const
+  N = 400;
+var
+  List1, List2: TsgArray<TTestRecord>;
+  i: Integer;
+  a: TTestRecord;
+  p: PTestRecord;
 begin
+  List1.Init(@Region, N);
+  List2.Init(@Region, N);
+  for i := 1 to N do
+  begin
+    a.Init(i, i + 1);
+    a.e.tag := i;
+
+    p := List1.Add;
+    p^ := a;
+    CheckTrue(List1.Count = Cardinal(i));
+    p := List1.Items[i - 1];
+    CheckTrue(p.v = i);
+    CheckTrue(a.Equals(p^));
+
+    p := List2.Add;
+    p^ := a;
+    CheckTrue(List2.Count = Cardinal(i));
+    p := List2.Items[i - 1];
+    CheckTrue(p.v = i);
+    CheckTrue(a.Equals(p^));
+
+  end;
 end;
 
 procedure TestTsgArray.TestInsert;
+var
+  List: TsgArray<TTestRecord>;
+  i: Integer;
+  a: TTestRecord;
+  p: PTestRecord;
 begin
+  List.Init(@Region, ItemsCount);
+  for i := 1 to ItemsCount do
+  begin
+    a.Init(i, i + 1);
+    a.e.tag := i;
+    p := List.Insert(0);
+    p^ := a;
+    CheckTrue(List.Count = Cardinal(i));
+
+    p := List.Items[0];
+    CheckTrue(p.v = i);
+    CheckTrue(a.Equals(p^));
+  end;
+  List.Free;
 end;
 
 procedure TestTsgArray.TestRemove;
@@ -3941,21 +4061,26 @@ end;
 
 initialization
 
-  RegisterTest(TUnbrokenRegionTest.Suite);
-  RegisterTest(TSegmentedRegionTest.Suite);
-  RegisterTest(TsgTupleMetaTest.Suite);
-  RegisterTest(TsgTupleTest.Suite);
-  RegisterTest(TestTsgHashMap.Suite);
+  RegisterTest(TSysCtxTest.Suite);
+
+  // Oz.SGL.HandleManager
+  RegisterTest(TsgHandleManagerTest.Suite);
 
   // Oz.SGL.Heap
   RegisterTest(TsgMemoryManagerTest.Suite);
-  RegisterTest(TsgHandleManagerTest.Suite);
-  RegisterTest(THeapPoolTest.Suite);
   RegisterTest(TsgItemTest.Suite);
+  RegisterTest(TUnbrokenRegionTest.Suite);
+  RegisterTest(TSegmentedRegionTest.Suite);
+  RegisterTest(THeapPoolTest.Suite);
+
   RegisterTest(TestTSharedRegion.Suite);
   RegisterTest(TestTsgArray.Suite);
 
   // Oz.SGL.Collections
+  RegisterTest(TsgTupleMetaTest.Suite);
+  RegisterTest(TsgTupleTest.Suite);
+  RegisterTest(TestTsgHashMap.Suite);
+
   RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgRecordListTest.Suite);
   RegisterTest(TsgLinkedListTest.Suite);

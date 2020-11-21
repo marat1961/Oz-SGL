@@ -1180,6 +1180,7 @@ end;
 
 procedure TsgMemoryManager.Init(Heap: Pointer; HeapSize: Cardinal);
 begin
+  Assert(Heap <> nil);
   Avail := Heap;
   Avail^.Next := nil;
   HeapSize := (HeapSize + 3) and not 3;
@@ -1192,6 +1193,7 @@ function TsgMemoryManager.Alloc(Size: Cardinal): Pointer;
 var
   p, q: PsgFreeBlock;
 begin
+  Assert(Avail <> nil);
   // Align block size to 4 bytes.
   Size := (Size + 3) and not 3;
   if (Size = 0) or (Size mod MinSize <> 0) then
