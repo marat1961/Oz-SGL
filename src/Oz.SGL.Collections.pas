@@ -3359,6 +3359,8 @@ end;
 procedure TSharedRegion.Alloc(var descr: TMemoryDescriptor);
 begin
   descr.Items := FMemoryManager.Alloc(descr.Count * ItemSize);
+  if descr.Items = nil then
+    raise EsgError.Create(EsgError.NotEnoughMemory);
   descr.h := FHandleManager.Add(descr.Items);
   FSizes[descr.h.Index] := descr.Count;
 end;

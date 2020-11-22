@@ -46,7 +46,8 @@ type
     ListCountError = 2;
     CapacityError = 3;
     IncompatibleDataType = 4;
-    ErrorMax = 4;
+    NotEnoughMemory = 5;
+    ErrorMax = 5;
   private type
     TErrorMessages = array [0..ErrorMax] of string;
   private const
@@ -55,7 +56,8 @@ type
       'List index error (%d)',
       'List count error (%d)',
       'List capacity error (%d)',
-      'Incompatible data type');
+      'Incompatible data type',
+      'NotEnoughMemory');
   public
     constructor Create(ErrNo: Integer); overload;
     constructor Create(ErrNo, IntParam: Integer); overload;

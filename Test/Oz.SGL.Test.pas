@@ -199,7 +199,7 @@ type
     TParam<T> = record
     var
       a, b, c: T;
-      update: TUpdateProc; 
+      update: TUpdateProc;
       equals: TEqualsFunc;
       procedure Init(av, bv: T; u: TUpdateProc; eq: TEqualsFunc);
     end;
@@ -1306,7 +1306,7 @@ procedure TUnbrokenRegionTest.TParam<T>.Init(av, bv: T;
 begin
   a := av;
   b := bv;
-  update := u; 
+  update := u;
   equals := eq;
 end;
 
@@ -1506,11 +1506,11 @@ procedure t3Update(p: Pointer; value: Integer);
 type
   PT = ^t3;
 begin
-  with PT(p)^ do 
-  begin 
-    a := value + 5; 
-    b := value + 25; 
-    c := value; 
+  with PT(p)^ do
+  begin
+    a := value + 5;
+    b := value + 25;
+    c := value;
   end;
 end;
 
@@ -1778,7 +1778,7 @@ begin
   Get<string>(idx, b);
   CheckTrue(StringEquals(@a, @b));
   c := PMyArray(List)[idx];
-  CheckTrue(StringEquals(@a, @c));  
+  CheckTrue(StringEquals(@a, @c));
   CheckTrue(Count = 1);
 //  region.Clear;
 //  idx := Add<string>(a);
