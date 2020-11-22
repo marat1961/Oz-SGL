@@ -80,7 +80,7 @@ type
     TopMemory: Pointer;
   public
     procedure Init(Heap: Pointer; HeapSize: Cardinal);
-    // Allocate memory and return a pointer
+    // Allocate memory and return a pointer (nil for not enough memory)
     function Alloc(Size: Cardinal): Pointer;
     // Return memory to heap
     procedure FreeMem(Ptr: Pointer; Size: Cardinal);

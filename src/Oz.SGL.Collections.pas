@@ -902,7 +902,7 @@ type
     TSharedData = record
       Meta: TsgItemMeta;
       Region: TSharedRegion;
-      Items: TsgArrayHelper;
+      List: TsgArrayHelper;
     end;
     TMetaList = array [TRegionId] of TSharedData;
   private
@@ -916,7 +916,6 @@ type
     constructor Create;
     destructor Destroy; override;
 
-    procedure Check;
     // Сreate metadata for type T
     function CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta; overload;
     function CreateMeta<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
@@ -3499,16 +3498,9 @@ begin
       rTupleMeta: InitTupleMeta(dt.Meta, sizeof(TsgTupleMeta), []);
       rSharedRegion: dt.Meta.Init<TsgArrayHelper>;
     end;
-    dt.Region.Init(dt.Meta, 4096);
-    dt.Items.Init(@dt.Region, 4096);
+    dt.Region.Init(dt.Meta, 65536);
+    dt.List.Init(@dt.Region, 4096);
   end;
-end;
-
-procedure TsgSystemContext.Check;
-var
-  dt: PSharedData;
-begin
-  dt := @FMetaList[rTeMeta];
 end;
 
 destructor TsgSystemContext.Destroy;
@@ -3519,7 +3511,7 @@ begin
   for i := Low(TRegionId) to High(TRegionId) do
   begin
     dt := @FMetaList[i];
-    dt.Items.Free;
+    dt.List.Free;
     dt.Region.Free;
   end;
   inherited;
@@ -3546,20 +3538,20 @@ end;
 
 function TsgSystemContext.CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta;
 begin
-  Result := PsgItemMeta(FMetaList[rItemMeta].Items.Add);
+  Result := PsgItemMeta(FMetaList[rItemMeta].List.Add);
   Result.Init<T>(OnFree);
 end;
 
 function TsgSystemContext.CreateMeta<T>(Flags: TRegionFlagSet;
   RemoveAction: TRemoveAction; OnFree: TFreeProc): PsgItemMeta;
 begin
-  Result := PsgItemMeta(FMetaList[rItemMeta].Items.Add);
+  Result := PsgItemMeta(FMetaList[rItemMeta].List.Add);
   Result.Init<T>(Flags, RemoveAction, OnFree);
 end;
 
 function TsgSystemContext.CreateTeMeta<T>: PsgTupleElementMeta;
 begin
-  Result := PsgTupleElementMeta(FMetaList[rTeMeta].Items.Add);
+  Result := PsgTupleElementMeta(FMetaList[rTeMeta].List.Add);
   Result.FOffset := 0;
   Result.FMeta := CreateMeta<T>;
 end;
@@ -3572,7 +3564,7 @@ end;
 
 function TsgSystemContext.CreateArrayHelper(Capacity: Cardinal): PsgArrayHelper;
 begin
-  Result := PsgArrayHelper(FMetaList[rSharedRegion].Items.Add);
+  Result := PsgArrayHelper(FMetaList[rSharedRegion].List.Add);
   Result.Init(@FMetaList[rSharedRegion].Region, Capacity);
 end;
 

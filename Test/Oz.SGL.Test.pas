@@ -1279,21 +1279,8 @@ procedure TSysCtxTest.TestCreateTeMeta;
 var
   i: Integer;
   List: TsgTupleMeta.TsgTeMetaList;
-  a, b, c, d, p, meta: PsgTupleElementMeta;
-  item: TsgItem;
-  List2: TsgTupleMeta.TsgTeMetaList;
-  smeta: PsgItemMeta;
-  Region: TSharedRegion;
+  a, b, c, d, meta: PsgTupleElementMeta;
 begin
-  smeta := SysCtx.CreateMeta<TsgTupleElementMeta>;
-  Region.Init(smeta^, 5000);
-  List2.Init(@Region, ItemsCount);
-  for i := 1 to 4 do
-  begin
-    p := List2.Add;
-    p.Offset := i;
-    CheckTrue(List2.Count = Cardinal(i));
-  end;
   SysCtx.CreateTeMetas(4, List);
   a := List.Add;
   a.Offset := 0;
@@ -1306,6 +1293,7 @@ begin
   for i := 0 to 3 do
   begin
     meta := List.Items[i];
+
   end;
 end;
 
