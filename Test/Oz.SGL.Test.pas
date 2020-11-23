@@ -2239,7 +2239,7 @@ end;
 
 procedure TsgTupleMetaTest._TupleOffset;
 var
-  te: PsgTupleElementMeta;
+  te: TsgTupleElementMeta;
   offset: Cardinal;
   b1, b2: Byte;
   w1, w2: Word;
@@ -2252,7 +2252,7 @@ var
   i: Integer;
 begin
   // Byte
-  te := SysCtx.CreateTeMeta<Byte>;
+  te.Init<Byte>;
   CheckTrue(te.Meta.ItemSize = 1);
   CheckTrue(te.Meta.h.TypeKind = TTypeKind.tkInteger);
   offset := te.NextTupleOffset(False);
@@ -2266,7 +2266,7 @@ begin
   CheckTrue(b1 = 75);
 
   // Word
-  te := SysCtx.CreateTeMeta<Word>;
+  te.Init<Word>;
   CheckTrue(te.Meta.ItemSize = 2);
   CheckTrue(te.Meta.h.TypeKind = TTypeKind.tkInteger);
   offset := te.NextTupleOffset(False);
@@ -2280,7 +2280,7 @@ begin
   CheckTrue(w1 = 705);
 
   // Integer
-  te := SysCtx.CreateTeMeta<Integer>;
+  te.Init<Integer>;
   CheckTrue(te.Meta.ItemSize = 4);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 4);
@@ -2306,7 +2306,7 @@ begin
   CheckTrue(Integer(ptr1^) = 70564);
 
   // Double
-  te := SysCtx.CreateTeMeta<Double>;
+  te.Init<Double>;
   CheckTrue(te.Meta.ItemSize = 8);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 8);
@@ -2332,7 +2332,7 @@ begin
   CheckTrue(SameValue(Double(ptr1^), 70564.567));
 
   // string
-  te := SysCtx.CreateTeMeta<string>;
+  te.Init<string>;
   CheckTrue(te.Meta.ItemSize = 4);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 4);
@@ -2347,7 +2347,7 @@ begin
   CheckTrue(s1 = '70564');
 
   // TPerson
-  te := SysCtx.CreateTeMeta<TPerson>;
+  te.Init<TPerson>;
   CheckTrue(te.Meta.ItemSize = 8);
   offset := te.NextTupleOffset(False);
   CheckTrue(offset = 8);

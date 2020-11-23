@@ -1198,7 +1198,7 @@ begin
   Assert(Avail <> nil);
   // Align block size to 4 bytes.
   Size := (Size + 3) and not 3;
-  if (Size = 0) or (Size mod MinSize <> 0) then
+  if Size = 0 then
     raise EsgError.Create('Alloc: Invalid size');
   p := PsgFreeBlock(@Avail);
   repeat

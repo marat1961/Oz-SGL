@@ -87,17 +87,19 @@ type
     AllignTuple = sizeof(Pointer);
   private
     FOffset: Cardinal;
-    FMeta: PsgItemMeta;
+    FMeta: TsgItemMeta;
+    function GetMeta: PsgItemMeta;
     function GetFreeItem: TFreeItem;
     function GetAssignItem: TAssignProc;
     function GetItemSize: Cardinal;
   public
+    procedure Init<T>;
     // Determine the offset to the start of the next tuple element.
     function NextTupleOffset(Allign: Boolean): Cardinal;
     // The offset of an element in a tuple
     property Offset: Cardinal read FOffset write FOffset;
     // Tuple element metadata
-    property Meta: PsgItemMeta read FMeta;
+    property Meta: PsgItemMeta read GetMeta;
     // Free tuple element
     property Free: TFreeItem read GetFreeItem;
     // Dest^ := Value^; - Assign tuple element
@@ -119,7 +121,7 @@ type
     FElements: TsgTeMetaList;
     FOnFree: TFreeProc;
     // Add tuple element
-    procedure AddElement(te: PsgTupleElementMeta; Allign: Boolean);
+    procedure AddElement(meta: PsgTupleElementMeta; Allign: Boolean);
     procedure AddTe<T>(Allign: Boolean);
     procedure Init(Count: Cardinal; OnFree: TFreeProc);
   public
@@ -921,8 +923,6 @@ type
     function CreateMeta<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
       OnFree: TFreeProc = nil): PsgItemMeta; overload;
 
-    // Сreate tuple element metadata for type T
-    function CreateTeMeta<T>: PsgTupleElementMeta;
     // Сreate TArray<TsgTupleElementMeta>
     procedure CreateTeMetas(Count: Cardinal;
       var List: TsgTupleMeta.TsgTeMetaList);
@@ -1178,6 +1178,12 @@ end;
 
 {$Region 'TsgTupleElementMeta'}
 
+procedure TsgTupleElementMeta.Init<T>;
+begin
+  FOffset := 0;
+  Meta.Init<T>;
+end;
+
 function TsgTupleElementMeta.NextTupleOffset(Allign: Boolean): Cardinal;
 var
   n: Cardinal;
@@ -1203,6 +1209,11 @@ begin
   Result := FMeta.ItemSize;
 end;
 
+function TsgTupleElementMeta.GetMeta: PsgItemMeta;
+begin
+  Result := @FMeta;
+end;
+
 {$EndRegion}
 
 {$Region 'TsgTupleMeta'}
@@ -1219,22 +1230,24 @@ begin
   Result := FElements.GetItem(Index);
 end;
 
-procedure TsgTupleMeta.AddElement(te: PsgTupleElementMeta; Allign: Boolean);
+procedure TsgTupleMeta.AddElement(meta: PsgTupleElementMeta; Allign: Boolean);
 var
-  meta: PsgTupleElementMeta;
+  te: PsgTupleElementMeta;
 begin
-  meta := FElements.Add;
-  meta^ := te^;
-  meta.FOffset := FSize;
-  FSize := meta.NextTupleOffset(Allign);
+  te := FElements.Add;
+  te^ := meta^;
+  te.FOffset := FSize;
+  FSize := te.NextTupleOffset(Allign);
 end;
 
 procedure TsgTupleMeta.AddTe<T>(Allign: Boolean);
 var
   te: PsgTupleElementMeta;
 begin
-  te := SysCtx.CreateTeMeta<T>;
-  AddElement(te, Allign);
+  te := FElements.Add;
+  te.Init<T>;
+  te.FOffset := FSize;
+  FSize := te.NextTupleOffset(Allign);
 end;
 
 procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
@@ -1283,7 +1296,7 @@ var
 begin
   FSize := 0;
   te := FElements.Insert(0);
-  te := SysCtx.CreateTeMeta<T>;
+  te.Init<T>;
   for i := 0 to FElements.Count - 1 do
   begin
     te := FElements.Items[i];
@@ -1298,7 +1311,7 @@ end;
 
 procedure TsgTupleElement.Assign(pvalue: Pointer);
 begin
-  TeMeta.Assign(TeMeta.FMeta, Ptr, pvalue);
+  TeMeta.Assign(TeMeta.Meta, Ptr, pvalue);
 end;
 
 function TsgTupleElement.GetPvalue: Pointer;
@@ -3549,13 +3562,6 @@ function TsgSystemContext.CreateMeta<T>(Flags: TRegionFlagSet;
 begin
   Result := PsgItemMeta(FMetaList[rItemMeta].List.Add);
   Result.Init<T>(Flags, RemoveAction, OnFree);
-end;
-
-function TsgSystemContext.CreateTeMeta<T>: PsgTupleElementMeta;
-begin
-  Result := PsgTupleElementMeta(FMetaList[rTeMeta].List.Add);
-  Result.FOffset := 0;
-  Result.FMeta := CreateMeta<T>;
 end;
 
 procedure TsgSystemContext.CreateTeMetas(Count: Cardinal;
