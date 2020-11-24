@@ -441,6 +441,15 @@ type
     TItem = record
       next: PItem;
     end;
+    TEnumerator = record
+    private
+      FItem: PItem;
+      function GetCurrent: PItem;
+    public
+      constructor From(const List: TCustomForwardList);
+      function MoveNext: Boolean;
+      property Current: PItem read GetCurrent;
+    end;
   private
     FRegion: PSegmentedRegion;
     FHead: PItem;
@@ -448,6 +457,10 @@ type
   public
     procedure Init(const Meta: TsgItemMeta);
     procedure Free;
+    // Checks if the container has no elements.
+    function Empty: Boolean; inline;
+    // Returns the number of elements in the container.
+    function Count: Integer;
     // Erases all elements from the container.
     procedure Clear;
     // Prepends the the empty value to the beginning of the container.
@@ -2300,6 +2313,26 @@ end;
 
 {$EndRegion}
 
+{$Region 'TCustomForwardList.TEnumerator'}
+
+constructor TCustomForwardList.TEnumerator.From(const List: TCustomForwardList);
+begin
+  FItem := PItem(@List.FHead);
+end;
+
+function TCustomForwardList.TEnumerator.GetCurrent: PItem;
+begin
+  Result := FItem;
+end;
+
+function TCustomForwardList.TEnumerator.MoveNext: Boolean;
+begin
+  Result := (FItem <> nil) and (FItem.next <> nil) and (FItem.next.next <> nil);
+  if Result then FItem := FItem.next;
+end;
+
+{$EndRegion}
+
 {$Region 'TCustomForwardList'}
 
 procedure TCustomForwardList.Init(const Meta: TsgItemMeta);
@@ -2314,34 +2347,107 @@ begin
   FRegion.Free;
 end;
 
+function TCustomForwardList.Empty: Boolean;
+begin
+  Result := FLast = FHead;
+end;
+
+function TCustomForwardList.Count: Integer;
+var
+  p: PItem;
+begin
+  p := FHead;
+  Result := 0;
+  while p <> FLast do
+  begin
+    Inc(Result);
+    p := p.next;
+  end;
+end;
+
 procedure TCustomForwardList.Clear;
 begin
-
+  FRegion.Region.Clear;
+  FHead := FRegion.Region.Alloc(FRegion.ItemSize);
+  FLast := FHead;
 end;
 
 function TCustomForwardList.PushFront: PItem;
+var
+  new: PItem;
 begin
-  Result := nil;
+  new := FRegion.Region.Alloc(FRegion.ItemSize);
+  new.next := FHead;
+  FHead := new;
+  Result := new;
 end;
 
 procedure TCustomForwardList.PopFront;
 begin
-
+  Check(not Empty, 'PopFront: list empty');
+  FHead := FHead.next;
 end;
 
 function TCustomForwardList.InsertAfter(const Pos: PItem): PItem;
+var
+  new: PItem;
 begin
-  Result := nil;
+  new := FRegion.Region.Alloc(FRegion.ItemSize);
+  new.next := Pos.next;
+  Pos.next := new;
+  Result := new;
 end;
 
 procedure TCustomForwardList.Reverse;
+var
+  q, p, n: PItem;
 begin
-
+  if Empty then exit;
+  q := FLast;
+  p := FHead;
+  n := FHead;
+  while p <> FLast do
+  begin
+    n := n.next;
+    p.next := q;
+    q := p;
+    p := n;
+  end;
+  FHead.next := nil;
+  FHead := q;
 end;
 
 procedure TCustomForwardList.Sort(Compare: TListSortCompare);
+var
+  i, n: Integer;
+  pa: TsgPointerArray;
+  p, q: PItem;
 begin
-
+  n := Count;
+  if n <= 1 then exit;
+  pa := TsgPointerArray.From(n);
+  try
+    p := FHead;
+    while p <> FLast do
+    begin
+      pa.Add(p);
+      p := p.next;
+    end;
+    pa.Sort(Compare);
+    q := nil;
+    for i := 0 to pa.Count - 1 do
+    begin
+      p := pa.Items[i];
+      if i = 0 then
+        FHead := p
+      else
+        q.next := p;
+      q := p;
+    end;
+    p.next := FLast;
+  finally
+    pa.Free
+  end;
 end;
 
 {$EndRegion}
@@ -2400,16 +2506,14 @@ end;
 function TCustomLinkedList.Count: Integer;
 var
   p: PItem;
-  n: Integer;
 begin
   p := FHead;
-  n := 0;
+  Result := 0;
   while p <> FLast do
   begin
-    Inc(n);
+    Inc(Result);
     p := p.next;
   end;
-  Result := n;
 end;
 
 function TCustomLinkedList.Front: PItem;
