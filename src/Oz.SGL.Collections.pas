@@ -432,6 +432,40 @@ type
 
 {$EndRegion}
 
+{$Region 'TCustomForwardList: Untyped Forward List'}
+
+  PCustomForwardList = ^TCustomForwardList;
+  TCustomForwardList = record
+  type
+    PItem = ^TItem;
+    TItem = record
+      next: PItem;
+    end;
+  private
+    FRegion: PSegmentedRegion;
+    FHead: PItem;
+    FLast: PItem;
+  public
+    procedure Init(const Meta: TsgItemMeta);
+    procedure Free;
+    // Erases all elements from the container.
+    procedure Clear;
+    // Prepends the the empty value to the beginning of the container.
+    // No iterators or references are invalidated.
+    function PushFront: PItem;
+    // Removes the first element of the container.
+    procedure PopFront;
+    // Inserts value after pos
+    function InsertAfter(const Pos: PItem): PItem;
+    // Reverses the order of the elements in the container.
+    // No references or iterators become invalidated.
+    procedure Reverse;
+    // Sorts the elements in ascending order. The order of equal elements is preserved.
+    procedure Sort(Compare: TListSortCompare);
+  end;
+
+{$EndRegion}
+
 {$Region 'TCustomLinkedList: Untyped Bidirectional Linked List'}
 
   PCustomLinkedList = ^TCustomLinkedList;
@@ -2262,6 +2296,52 @@ end;
 function TsgRecordList<T>.IsEmpty: Boolean;
 begin
   Result := FList.Count = 0;
+end;
+
+{$EndRegion}
+
+{$Region 'TCustomForwardList'}
+
+procedure TCustomForwardList.Init(const Meta: TsgItemMeta);
+begin
+  FRegion := SysCtx.CreateRegion(Meta);
+  FHead := FRegion.Region.Alloc(FRegion.ItemSize);
+  FLast := FHead;
+end;
+
+procedure TCustomForwardList.Free;
+begin
+  FRegion.Free;
+end;
+
+procedure TCustomForwardList.Clear;
+begin
+
+end;
+
+function TCustomForwardList.PushFront: PItem;
+begin
+  Result := nil;
+end;
+
+procedure TCustomForwardList.PopFront;
+begin
+
+end;
+
+function TCustomForwardList.InsertAfter(const Pos: PItem): PItem;
+begin
+  Result := nil;
+end;
+
+procedure TCustomForwardList.Reverse;
+begin
+
+end;
+
+procedure TCustomForwardList.Sort(Compare: TListSortCompare);
+begin
+
 end;
 
 {$EndRegion}
