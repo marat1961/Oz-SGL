@@ -422,6 +422,29 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgForwardListTest'}
+
+  TsgForwardListTest = class(TTestCase)
+  public
+    List: TsgForwardList<TPerson>;
+    procedure SetUp; override;
+    procedure TearDown; override;
+    procedure DumpList;
+  published
+    procedure _Clear;
+    procedure _Empty;
+    procedure _Count;
+    procedure _Front;
+    procedure _PushFront;
+    procedure _InsertAfter;
+    procedure _PopFront;
+    procedure _Reverse;
+    procedure _Sort;
+    procedure _Eol;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgLinkedListTest'}
 
   TsgLinkedListTest = class(TTestCase)
@@ -3235,6 +3258,325 @@ end;
 
 {$EndRegion}
 
+{$Region 'TsgForwardListTest'}
+
+procedure FreePerson1(ptr: Pointer);
+var
+  it: TsgForwardList<TPerson>.TIterator;
+begin
+  it := TsgForwardList<TPerson>.TIterator(ptr);
+  it.Value^ := Default(TPerson);
+end;
+
+procedure TsgForwardListTest.SetUp;
+begin
+  List.Init(FreePerson1);
+  log.Init;
+end;
+
+procedure TsgForwardListTest.TearDown;
+begin
+  List.Free;
+  log.Free;
+end;
+
+procedure TsgForwardListTest.DumpList;
+var
+  it: TsgForwardList<TPerson>.TIterator;
+begin
+  it := List.Front;
+  while not it.Eol do
+  begin
+    log.print('Person id=', [it.Value.id, ', "', it.Value.name, '"']);
+    it.Next;
+  end;
+end;
+
+procedure TsgForwardListTest._Clear;
+var
+  p: TPerson;
+  i: Integer;
+begin
+  CheckTrue(List.Region.Region.Meta.ItemSize = sizeof(TPerson));
+  CheckTrue(List.Count = 0);
+  p.id := 1;
+  p.name := 'p1';
+  List.PushFront(p);
+  CheckTrue(List.Count = 1);
+  p.id := 2;
+  p.name := 'p2';
+  List.PushFront(p);
+  CheckTrue(List.Count = 2);
+  p.id := 3;
+  p.name := 'p3';
+  List.PushFront(p);
+  CheckTrue(List.Count = 3);
+  List.Clear;
+  CheckTrue(List.Count = 0);
+  for i := 1 to ItemsCount do
+  begin
+    p.id := i;
+    p.name := 'p' + IntToStr(i);
+    List.PushFront(p);
+    CheckTrue(List.Count = i);
+  end;
+end;
+
+procedure TsgForwardListTest._Empty;
+var
+  p: TPerson;
+begin
+  CheckTrue(List.Empty);
+  p.id := 1;
+  p.name := 'Smith';
+  List.PushFront(p);
+  CheckFalse(List.Empty);
+end;
+
+procedure TsgForwardListTest._Count;
+var
+  p: TPerson;
+  i: Integer;
+begin
+  CheckTrue(List.Count = 0);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushFront(p);
+  CheckTrue(List.Count = 1);
+  for i := 1 to 5 do
+    List.PushFront(p);
+  CheckTrue(List.Count = 6);
+end;
+
+procedure TsgForwardListTest._Front;
+var
+  it: TsgForwardList<TPerson>.TIterator;
+  p: TPerson;
+begin
+  CheckTrue(List.Count = 0);
+  it := List.Front;
+  CheckTrue(it.Eol);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(not it.Eol);
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  p.id := 2;
+  p.name := 'Leo';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  CheckTrue(not it.Eol);
+end;
+
+procedure TsgForwardListTest._PushFront;
+var
+  it: TsgForwardList<TPerson>.TIterator;
+  p: TPerson;
+begin
+  CheckTrue(List.Count = 0);
+  it := List.Front;
+  CheckTrue(it.Eol);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(not it.Eol);
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  p.id := 2;
+  p.name := 'Leo';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  p.id := 3;
+  p.name := 'Neo';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+end;
+
+procedure TsgForwardListTest._InsertAfter;
+var
+  it: TsgForwardList<TPerson>.TIterator;
+  p: TPerson;
+begin
+  CheckTrue(List.Count = 0);
+  it := List.Front;
+  CheckTrue(it.Eol);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  p.id := 2;
+  p.name := 'Leo';
+  it := List.InsertAfter(it, p);
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+end;
+
+procedure TsgForwardListTest._PopFront;
+var
+  it: TsgForwardList<TPerson>.TIterator;
+  p: TPerson;
+begin
+  CheckTrue(List.Count = 0);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  List.PopFront;
+  CheckTrue(List.Count = 0);
+  p.id := 1;
+  p.name := 'Nick';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  p.id := 2;
+  p.name := 'Leo';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  p.id := 3;
+  p.name := 'Neo';
+  List.PushFront(p);
+  it := List.Front;
+  CheckTrue(it.Value.id = p.id);
+  CheckTrue(it.Value.name = p.name);
+  List.PopFront;
+  CheckTrue(List.Count = 2);
+  it := List.Front;
+  CheckTrue(it.Value.id = 2);
+  CheckTrue(it.Value.name = 'Leo');
+  List.PopFront;
+  CheckTrue(List.Count = 1);
+  it := List.Front;
+  CheckTrue(it.Value.id = 1);
+  CheckTrue(it.Value.name = 'Nick');
+  List.PopFront;
+  CheckTrue(List.Empty);
+end;
+
+procedure TsgForwardListTest._Reverse;
+const
+  N = 400;
+var
+  i: Integer;
+  it: TsgForwardList<TPerson>.TIterator;
+  p: TPerson;
+  pp: PPerson;
+  s: string;
+begin
+  CheckTrue(List.Count = 0);
+  for i := 0 to N do
+  begin
+    p.id := i;
+    p.name := IntToStr(i);
+    List.PushFront(p);
+  end;
+
+  i := 0;
+  for pp in List do
+  begin
+    CheckTrue(pp.id = i);
+    s := IntToStr(i);
+    CheckTrue(pp.name = s);
+    Inc(i);
+  end;
+  CheckTrue(i = N + 1);
+
+  it := List.Front;
+  for i := 0 to N do
+  begin
+    CheckTrue(it.Value.id = i);
+    CheckTrue(it.Value.name = IntToStr(i));
+    it.Next;
+  end;
+  List.Reverse;
+  it := List.Front;
+  for i := 0 to N do
+  begin
+    CheckTrue(it.Value.id = N - i);
+    CheckTrue(it.Value.name = IntToStr(N - i));
+    it.Next;
+  end;
+end;
+
+procedure TsgForwardListTest._Sort;
+const
+  N = 500;
+var
+  i, d: Integer;
+  it: TsgForwardList<TPerson>.TIterator;
+  p: TPerson;
+begin
+  CheckTrue(List.Count = 0);
+  for i := 0 to N do
+  begin
+    d := Random(100000);
+    p.id := d;
+    p.name := 'S' + IntToStr(d);
+    List.PushFront(p);
+  end;
+  DumpList;
+  log.SaveToFile('sort1.txt');
+  List.Sort(PersonIdCompare);
+  it := List.Front;
+  for i := 0 to N do
+  begin
+    if i = 0 then
+     d := it.Value.id
+    else
+    begin
+      CheckTrue(it.Value.id >= d);
+      d := it.Value.id;
+    end;
+    it.Next;
+  end;
+  DumpList;
+  log.SaveToFile('sort2.txt');
+end;
+
+procedure TsgForwardListTest._Eol;
+var
+  i: Integer;
+  it: TsgForwardList<TPerson>.TIterator;
+  p: TPerson;
+begin
+  CheckTrue(List.Count = 0);
+  it := List.Front;
+  CheckTrue(it.Eol);
+  for i := 0 to 9 do
+  begin
+    p.id := i;
+    p.name := IntToStr(i);
+    List.PushFront(p);
+  end;
+  it := List.Front;
+  i := 0;
+  while not it.Eol do
+  begin
+    CheckTrue(it.Value.id = i);
+    CheckTrue(it.Value.name = IntToStr(i));
+    it.Next;
+    Inc(i);
+  end;
+  CheckTrue(i = 10);
+end;
+
+{$EndRegion}
+
 {$Region 'TsgLinkedListTest'}
 
 procedure FreePerson(ptr: Pointer);
@@ -4049,6 +4391,7 @@ end;
 
 initialization
 
+  RegisterTest(TsgForwardListTest.Suite);
   RegisterTest(TSysCtxTest.Suite);
 
   // Oz.SGL.HandleManager

@@ -542,6 +542,11 @@ type
     // If there are no elements in the container, the behavior is undefined.
     // References and iterators to the erased element are invalidated.
     procedure PopFront; inline;
+    // Reverses the order of the elements in the container.
+    // No references or iterators become invalidated.
+    procedure Reverse; inline;
+    // Sorts the elements in ascending order. The order of equal elements is preserved.
+    procedure Sort(Compare: TListSortCompare); inline;
     // Get Delphi Enumerator
     function GetEnumerator: TEnumerator;
     // The number of elements in the container.
@@ -2626,6 +2631,16 @@ end;
 procedure TsgForwardList<T>.PopFront;
 begin
   FList.PopFront;
+end;
+
+procedure TsgForwardList<T>.Reverse;
+begin
+  FList.Reverse;
+end;
+
+procedure TsgForwardList<T>.Sort(Compare: TListSortCompare);
+begin
+  FList.Sort(Compare);
 end;
 
 function TsgForwardList<T>.GetEnumerator: TEnumerator;
