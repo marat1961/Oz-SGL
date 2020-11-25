@@ -460,9 +460,12 @@ type
     // Checks if the container has no elements.
     function Empty: Boolean; inline;
     // Returns the number of elements in the container.
-    function Count: Integer;
+    function GetCount: Integer;
     // Erases all elements from the container.
     procedure Clear;
+    // Returns a reference to the first element in the container.
+    // Calling front on an empty container is undefined.
+    function Front: PItem;
     // Prepends the the empty value to the beginning of the container.
     // No iterators or references are invalidated.
     function PushFront: PItem;
@@ -475,6 +478,76 @@ type
     procedure Reverse;
     // Sorts the elements in ascending order. The order of equal elements is preserved.
     procedure Sort(Compare: TListSortCompare);
+  end;
+
+{$EndRegion}
+
+{$Region 'TsgForwardList<T>: Generic Unidirectional Linked List'}
+
+  TsgForwardList<T> = record
+  type
+    PItem = ^TItem;
+    TItem = record
+      Link: TCustomForwardList.TItem;
+      Value: T;
+    end;
+    PValue = ^T;
+    TEnumerator = record
+    private
+      FEnumerator: TCustomForwardList.TEnumerator;
+      function GetCurrent: PValue; inline;
+    public
+      constructor From(const List: TCustomForwardList);
+      function MoveNext: Boolean; inline;
+      property Current: PValue read GetCurrent;
+    end;
+    TIterator = record
+    private
+      Item: PItem;
+      function GetValue: PValue;
+    public
+      // Go to the next node
+      procedure Next;
+      // Iterator at the end of the list.
+      function Eol: Boolean;
+      // Pointer to Value
+      property Value: PValue read GetValue;
+    end;
+  private
+    FList: TCustomForwardList;
+    function GetRegion: PSegmentedRegion; inline;
+    function GetCount: Integer; inline;
+  public
+    procedure Init(OnFree: TFreeProc);
+    procedure Free; inline;
+    // Erases all elements from the container. After this call, Count returns zero.
+    // Invalidates any references, pointers, or iterators referring to contained
+    // elements. Any past-the-end iterator remains valid.
+    procedure Clear; inline;
+    // Checks if the container has no elements, i.e. whether begin() == end().
+    function Empty: Boolean; inline;
+    // Returns a reference to the first element in the container.
+    function Front: TIterator; inline;
+    // Prepends the the empty value to the beginning of the container.
+    // No iterators or references are invalidated.
+    function PushFront: TIterator; overload; inline;
+    // Prepends the given element value to the beginning of the container.
+    // No iterators or references are invalidated.
+    procedure PushFront(const Value: T); overload; inline;
+    // Inserts empty value after Pos
+    function InsertAfter(Pos: TIterator): TIterator; overload; inline;
+    // Inserts value after Pos
+    function InsertAfter(Pos: TIterator; const Value: T): TIterator; overload; inline;
+    // Removes the first element of the container.
+    // If there are no elements in the container, the behavior is undefined.
+    // References and iterators to the erased element are invalidated.
+    procedure PopFront; inline;
+    // Get Delphi Enumerator
+    function GetEnumerator: TEnumerator;
+    // The number of elements in the container.
+    property Count: Integer read GetCount;
+    // Memory region
+    property Region: PSegmentedRegion read GetRegion;
   end;
 
 {$EndRegion}
@@ -582,6 +655,8 @@ type
     end;
   private
     FList: TCustomLinkedList;
+    function GetRegion: PSegmentedRegion; inline;
+    function GetCount: Integer; inline;
   public
     procedure Init(OnFree: TFreeProc);
     procedure Free; inline;
@@ -592,7 +667,6 @@ type
     // Checks if the container has no elements, i.e. whether begin() == end().
     function Empty: Boolean; inline;
     // Returns the number of elements in the container.
-    function Count: Integer; inline;
     // Returns a reference to the first element in the container.
     // Calling front on an empty container is undefined.
     function Front: TIterator; inline;
@@ -626,7 +700,10 @@ type
     procedure Sort(Compare: TListSortCompare); inline;
     // Get Delphi Enumerator
     function GetEnumerator: TEnumerator;
-    function Region: PSegmentedRegion;
+    // The number of elements in the container.
+    property Count: Integer read GetCount;
+    // Memory region
+    property Region: PSegmentedRegion read GetRegion;
   end;
 
 {$EndRegion}
@@ -2352,7 +2429,7 @@ begin
   Result := FLast = FHead;
 end;
 
-function TCustomForwardList.Count: Integer;
+function TCustomForwardList.GetCount: Integer;
 var
   p: PItem;
 begin
@@ -2370,6 +2447,11 @@ begin
   FRegion.Region.Clear;
   FHead := FRegion.Region.Alloc(FRegion.ItemSize);
   FLast := FHead;
+end;
+
+function TCustomForwardList.Front: PItem;
+begin
+  Result := FHead;
 end;
 
 function TCustomForwardList.PushFront: PItem;
@@ -2423,7 +2505,7 @@ var
   pa: TsgPointerArray;
   p, q: PItem;
 begin
-  n := Count;
+  n := GetCount;
   if n <= 1 then exit;
   pa := TsgPointerArray.From(n);
   try
@@ -2448,6 +2530,117 @@ begin
   finally
     pa.Free
   end;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgForwardList<T>.TEnumerator'}
+
+constructor TsgForwardList<T>.TEnumerator.From(const List: TCustomForwardList);
+begin
+  FEnumerator := TCustomForwardList.TEnumerator.From(List);
+end;
+
+function TsgForwardList<T>.TEnumerator.GetCurrent: PValue;
+begin
+  Result := @(PItem(FEnumerator.GetCurrent).Value);
+end;
+
+function TsgForwardList<T>.TEnumerator.MoveNext: Boolean;
+begin
+  Result := FEnumerator.MoveNext;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgForwardList<T>.TIterator.'}
+
+function TsgForwardList<T>.TIterator.GetValue: PValue;
+begin
+  Result := @Item.Value;
+end;
+
+procedure TsgForwardList<T>.TIterator.Next;
+begin
+  Item := PItem(Item.Link.next);
+end;
+
+function TsgForwardList<T>.TIterator.Eol: Boolean;
+begin
+  Result := (Item = nil) or (Item.Link.next = nil);
+end;
+
+{$EndRegion}
+
+{$Region 'TsgForwardList<T>'}
+
+procedure TsgForwardList<T>.Init(OnFree: TFreeProc);
+var
+  Meta: PsgItemMeta;
+begin
+  Meta := SysCtx.CreateMeta<T>(OnFree);
+  FList.Init(Meta^);
+end;
+
+procedure TsgForwardList<T>.Free;
+begin
+  FList.Free;
+end;
+
+procedure TsgForwardList<T>.Clear;
+begin
+  FList.Clear;
+end;
+
+function TsgForwardList<T>.Empty: Boolean;
+begin
+  Result := FList.Empty;
+end;
+
+function TsgForwardList<T>.Front: TIterator;
+begin
+  Result.Item := PItem(FList.Front);
+end;
+
+function TsgForwardList<T>.PushFront: TIterator;
+begin
+  Result.Item := PItem(FList.PushFront);
+end;
+
+procedure TsgForwardList<T>.PushFront(const Value: T);
+begin
+  PushFront.Value^ := Value;
+end;
+
+function TsgForwardList<T>.InsertAfter(Pos: TIterator): TIterator;
+begin
+  Result.Item := PItem(FList.InsertAfter(TCustomForwardList.PItem(Pos)));
+end;
+
+function TsgForwardList<T>.InsertAfter(Pos: TIterator; const Value: T): TIterator;
+begin
+  Result.Item := PItem(FList.InsertAfter(TCustomForwardList.PItem(Pos)));
+  Result.Item.Value := Value;
+end;
+
+procedure TsgForwardList<T>.PopFront;
+begin
+  FList.PopFront;
+end;
+
+function TsgForwardList<T>.GetEnumerator: TEnumerator;
+begin
+  Result := TEnumerator.From(FList);
+end;
+
+function TsgForwardList<T>.GetRegion: PSegmentedRegion;
+begin
+  Result := FList.FRegion;
+end;
+
+function TsgForwardList<T>.GetCount: Integer;
+begin
+  Result := FList.GetCount;
 end;
 
 {$EndRegion}
@@ -2709,12 +2902,6 @@ begin
   FList.Init(Meta^);
 end;
 
-function TsgLinkedList<T>.Insert(Pos: TIterator; const Value: T): TIterator;
-begin
-  Result.Item := PItem(FList.Insert(TCustomLinkedList.PItem(Pos)));
-  Result.Item.Value := Value;
-end;
-
 procedure TsgLinkedList<T>.Free;
 begin
   FList.Free;
@@ -2730,9 +2917,14 @@ begin
   Result := FList.Empty;
 end;
 
-function TsgLinkedList<T>.Count: Integer;
+function TsgLinkedList<T>.GetCount: Integer;
 begin
   Result := FList.Count;
+end;
+
+function TsgLinkedList<T>.GetRegion: PSegmentedRegion;
+begin
+  Result := FList.FRegion;
 end;
 
 function TsgLinkedList<T>.Front: TIterator;
@@ -2780,9 +2972,10 @@ begin
   FList.PopBack;
 end;
 
-function TsgLinkedList<T>.Region: PSegmentedRegion;
+function TsgLinkedList<T>.Insert(Pos: TIterator; const Value: T): TIterator;
 begin
-  Result := FList.FRegion;
+  Result.Item := PItem(FList.Insert(TCustomLinkedList.PItem(Pos)));
+  Result.Item.Value := Value;
 end;
 
 procedure TsgLinkedList<T>.Reverse;
