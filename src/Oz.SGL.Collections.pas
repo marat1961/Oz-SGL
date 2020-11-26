@@ -232,7 +232,7 @@ type
     end;
   private
     FRegion: PUnbrokenRegion;
-    FCount: Integer;
+    function GetCount: Integer; inline;
     procedure SetCount(NewCount: Integer);
     procedure CheckCapacity(NewCapacity: Integer); inline;
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
@@ -269,6 +269,7 @@ type
   private
     FListHelper: TsgListHelper; // FListHelper must be before FItems
     FItems: PItems; // FItems must be after FListHelper
+    function GetCount: Integer; inline;
     function GetItem(Index: Integer): T;
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
@@ -288,7 +289,7 @@ type
     function GetPtr(Index: Integer): PItem; inline;
     function IsEmpty: Boolean; inline;
     function GetEnumerator: TEnumerator; inline;
-    property Count: Integer read FListHelper.FCount write SetCount;
+    property Count: Integer read GetCount write SetCount;
     property Items[Index: Integer]: T read GetItem write SetItem; default;
     property List: PItems read FItems;
   end;
@@ -1092,8 +1093,6 @@ type
 
 {$Region 'Procedures and functions'}
 
-// Check the index entry into the range [0...Count - 1].
-procedure CheckIndex(Index, Count: Integer); inline;
 // Quick sort
 procedure QuickSort(List: PsgPointers; L, R: Integer; SCompare: TListSortCompareFunc);
 
@@ -1123,12 +1122,6 @@ begin
   temp := pointers[i];
   pointers[i] := pointers[j];
   pointers[j] := temp;
-end;
-
-procedure CheckIndex(Index, Count: Integer); inline;
-begin
-  if Cardinal(Index) >= Cardinal(Count) then
-    raise EsgError.Create(EsgError.ListIndexError, Index);
 end;
 
 procedure CheckCount(Count: Integer); inline;
@@ -1584,7 +1577,7 @@ end;
 function TsgListHelper.TEnumerator.MoveNext: Boolean;
 begin
   Inc(FIndex);
-  Result := FIndex < FValue.FCount;
+  Result := FIndex < FValue.GetCount;
 end;
 
 {$EndRegion}
@@ -1594,42 +1587,38 @@ end;
 procedure TsgListHelper.Init(const Meta: TsgItemMeta);
 begin
   FRegion := SysCtx.Pool.CreateUnbrokenRegion(Meta);
-  FCount := 0;
 end;
 
 procedure TsgListHelper.Free;
 begin
   FRegion.Free;
-  FCount := 0;
 end;
 
 procedure TsgListHelper.Clear;
 begin
-  // todo: Make a cleanup implementation without deleting and creating
-
+  FRegion.Clear;
 end;
 
 function TsgListHelper.GetPtr(Index: Cardinal): Pointer;
 begin
-  CheckIndex(Index, FCount);
+  CheckIndex(Index, GetCount);
   Result := @PByte(GetItems^)[Index * FRegion.Meta.ItemSize];
 end;
 
 function TsgListHelper.Add: Pointer;
+var idx: Integer;
 begin
-  if FRegion.Capacity <= FCount then
-    GetItems^ := FRegion.Region.IncreaseCapacity(FCount + 1);
-  FRegion.Region.Alloc(FRegion.Meta.ItemSize);
-  Result := @PByte(GetItems^)[Cardinal(FCount) * FRegion.Meta.ItemSize];
-  Inc(FCount);
+  idx := GetCount;
+  FRegion.AddItem;
+  Result := FRegion.GetItemPtr(idx);
 end;
 
 procedure TsgListHelper.SetCount(NewCount: Integer);
 begin
-  if NewCount <> FCount then
+  if NewCount <> GetCount then
   begin
     CheckCapacity(NewCount);
-    FCount := NewCount;
+    FRegion.Count := NewCount;
   end;
 end;
 
@@ -1640,20 +1629,8 @@ begin
 end;
 
 procedure TsgListHelper.Delete(Index: Integer);
-var
-  ItemSize, MemSize: Integer;
 begin
-  CheckIndex(Index, FCount);
-  Dec(FCount);
-  if Index < FCount then
-  begin
-    ItemSize := FRegion.Meta.ItemSize;
-    MemSize := (FCount - Index) * ItemSize;
-    System.Move(
-      PByte(GetItems^)[(Index + 1) * ItemSize],
-      PByte(GetItems^)[(Index) * ItemSize],
-      MemSize);
-  end;
+  FRegion.Delete(Index);
 end;
 
 procedure TsgListHelper.QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
@@ -1704,8 +1681,8 @@ end;
 
 procedure TsgListHelper.Sort(Compare: TListSortCompare);
 begin
-  if FCount > 1 then
-    QuickSort(Compare, 0, FCount - 1);
+  if GetCount > 1 then
+    QuickSort(Compare, 0, GetCount - 1);
 end;
 
 procedure TsgListHelper.Exchange(Index1, Index2: Integer);
@@ -1735,26 +1712,8 @@ begin
 end;
 
 procedure TsgListHelper.Insert(Index: Integer; const Value);
-var
-  Items: PPointer;
-  ItemSize, MemSize: Integer;
 begin
-  CheckIndex(Index, FCount + 1);
-  ItemSize := FRegion.Meta.ItemSize;
-  Items := GetItems;
-  if FRegion.Capacity <= FCount then
-    GetItems^ := FRegion.Region.IncreaseCapacity(FCount + 1);
-  FRegion.Region.Alloc(ItemSize);
-  if Index <> FCount then
-  begin
-    MemSize := (FCount - Index) * ItemSize;
-    System.Move(
-      PByte(Items^)[Index * ItemSize],
-      PByte(Items^)[(Index + 1) * ItemSize],
-      MemSize);
-  end;
-  FRegion.AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
-  Inc(FCount);
+  FRegion.Insert(Index, Value);
 end;
 
 function TsgListHelper.Remove(const Value): Integer;
@@ -1762,7 +1721,7 @@ var
   i, ItemSize: Integer;
 begin
   ItemSize := FRegion.Meta.ItemSize;
-  for i := 0 to FCount - 1 do
+  for i := 0 to GetCount - 1 do
     if Compare(PByte(GetItems^)[i * ItemSize], Byte(Value)) then
       exit(i);
   Result := -1;
@@ -1773,7 +1732,7 @@ var
   b, e: Integer;
 begin
   b := 0;
-  e := FCount - 1;
+  e := GetCount - 1;
   while b < e do
   begin
     Exchange(b, e);
@@ -1788,7 +1747,7 @@ var
   Dest, Src: Pointer;
 begin
   ItemSize := FRegion.Meta.ItemSize;
-  Cnt := Source.FCount;
+  Cnt := Source.GetCount;
   SetCount(Cnt);
   if Cnt = 0 then exit;
   Dest := Self.GetItems^;
@@ -1800,6 +1759,11 @@ begin
     Inc(PByte(Src), ItemSize);
     Dec(Cnt);
   end;
+end;
+
+function TsgListHelper.GetCount: Integer;
+begin
+  Result := FRegion.GetCount;
 end;
 
 function TsgListHelper.GetItems: PPointer;
@@ -1857,7 +1821,7 @@ end;
 
 function TsgList<T>.Add(const Value: T): Integer;
 begin
-  Result := FListHelper.FCount;
+  Result := FListHelper.GetCount;
   PItem(FListHelper.Add)^ := Value;
 end;
 
@@ -1901,6 +1865,11 @@ begin
   Result := FListHelper.GetPtr(Index);
 end;
 
+function TsgList<T>.GetCount: Integer;
+begin
+  Result := FListHelper.GetCount;
+end;
+
 function TsgList<T>.GetEnumerator: TEnumerator;
 begin
   Result := TEnumerator.From(FListHelper);
@@ -1908,13 +1877,13 @@ end;
 
 function TsgList<T>.GetItem(Index: Integer): T;
 begin
-  CheckIndex(Index, FListHelper.FCount);
+  CheckIndex(Index, FListHelper.GetCount);
   Result := FItems[Index];
 end;
 
 function TsgList<T>.IsEmpty: Boolean;
 begin
-  Result := FListHelper.FCount = 0;
+  Result := FListHelper.GetCount = 0;
 end;
 
 procedure TsgList<T>.SetCount(Value: Integer);

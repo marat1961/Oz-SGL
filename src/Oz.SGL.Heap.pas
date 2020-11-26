@@ -252,6 +252,7 @@ type
   private
     FRegion: TMemoryRegion;
     FCount: Integer;
+    procedure SetCount(NewCount: Integer);
     function GetRegion: PMemoryRegion; inline;
     function GetMeta: PsgItemMeta; inline;
   public
@@ -262,6 +263,12 @@ type
     procedure Clear; inline;
     // Add an empty element
     procedure AddItem;
+    // Insert an empty element
+    procedure Insert(Index: Integer; const Value);
+    // Delete element
+    procedure Delete(Index: Integer);
+    // Return number of elements
+    function GetCount: Integer; inline;
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
     // Increment pointer to an element
@@ -272,7 +279,7 @@ type
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FRegion.FCapacity;
-    property Count: Integer read FCount;
+    property Count: Integer read FCount write SetCount;
     property ItemSize: Cardinal read FRegion.FMeta.ItemSize;
   end;
 
@@ -397,6 +404,8 @@ type
 
 {$Region 'Procedures and functions'}
 
+// Check the index entry into the range [0...Count - 1].
+procedure CheckIndex(Index, Count: Integer); inline;
 // if not ok raise error
 procedure Check(ok: Boolean; const Msg: string = '');
 // raise fatal error
@@ -411,6 +420,12 @@ type
   PInterface = ^IInterface;
 
 {$Region 'Procedures and functions'}
+
+procedure CheckIndex(Index, Count: Integer); inline;
+begin
+  if Cardinal(Index) >= Cardinal(Count) then
+    raise EsgError.Create(EsgError.ListIndexError, Index);
+end;
 
 procedure Check(ok: Boolean; const Msg: string = '');
 begin
@@ -1009,6 +1024,46 @@ begin
     FRegion.GrowHeap(FCount);
 end;
 
+procedure TUnbrokenRegion.Insert(Index: Integer; const Value);
+var
+  Items: PPointer;
+  MemSize: Integer;
+begin
+  CheckIndex(Index, Count + 1);
+  AddItem;
+  if Index <> Count - 1 then
+  begin
+    MemSize := (Count - Index - 1) * ItemSize;
+    System.Move(
+      PByte(Items^)[Index * ItemSize],
+      PByte(Items^)[(Index + 1) * ItemSize],
+      MemSize);
+  end;
+  AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
+end;
+
+procedure TUnbrokenRegion.Delete(Index: Integer);
+var
+  ItemSize, MemSize: Integer;
+  Dest, Source: PByte;
+begin
+  CheckIndex(Index, FCount);
+  Dec(FCount);
+  if Index < FCount then
+  begin
+    ItemSize := FRegion.Meta.ItemSize;
+    MemSize := (FCount - Index) * ItemSize;
+    Source := FRegion.Heap.GetHeapRef + Index * ItemSize;
+    Dest := Source + Index * ItemSize;
+    System.Move(Source, Dest, MemSize);
+  end;
+end;
+
+function TUnbrokenRegion.GetCount: Integer;
+begin
+  Result := FCount;
+end;
+
 function TUnbrokenRegion.GetItemPtr(Index: Cardinal): Pointer;
 begin
   Result := FRegion.Heap.GetHeapRef + Index * FRegion.FMeta.ItemSize;
@@ -1023,6 +1078,11 @@ begin
     Result := Pointer(NativeUInt(Item) + FRegion.FMeta.ItemSize)
   else
     Result := nil;
+end;
+
+procedure TUnbrokenRegion.SetCount(NewCount: Integer);
+begin
+  raise EsgError.Create(EsgError.NotImplemented);
 end;
 
 function TUnbrokenRegion.GetMeta: PsgItemMeta;
