@@ -207,8 +207,6 @@ type
     meta: PsgItemMeta;
     region: TUnbrokenRegion;
     item: TsgItem;
-    Count: Integer;
-    List: Pointer;
     procedure SetUp; override;
     procedure TearDown; override;
     procedure Init<T>(var value: T);
@@ -1335,7 +1333,6 @@ end;
 
 procedure TUnbrokenRegionTest.SetUp;
 begin
-  Count := 0;
 end;
 
 procedure TUnbrokenRegionTest.TearDown;
@@ -1369,10 +1366,8 @@ var
   r: Pointer;
 begin
   // create
-  idx := Count;
-  if region.Capacity <= idx then
-    List := region.Region.IncreaseAndAlloc(idx);
-  Inc(Count);
+  idx := region.Count;
+  region.AddItem;
   // read
   r := region.GetItemPtr(idx);
   // update
@@ -1394,7 +1389,7 @@ begin
   idx := Add<T>(a);
   Get<T>(idx, b);
   CheckTrue(equals(@a, @b));
-  c := PMyArray(List)[idx];
+  c := PMyArray(region.GetItemPtr(0))[idx];
   CheckTrue(equals(@a, @c));
 end;
 
@@ -1402,9 +1397,8 @@ procedure TUnbrokenRegionTest._Clear<T>(var prm: TParam<T>);
 var
   i, idx: Integer;
 begin
-  CheckTrue(Count = 1);
+  CheckTrue(region.Count = 1);
   region.Clear;
-  Count := 0;
   for i := 0 to 0 do
   begin
     prm.update(@prm.a, i);
@@ -1412,7 +1406,7 @@ begin
     Get<T>(idx, prm.b);
     CheckTrue(prm.equals(@prm.a, @prm.b));
   end;
-  CheckTrue(Count = 1);
+  CheckTrue(region.Count = 1);
 end;
 
 procedure TUnbrokenRegionTest._AssignItems<T>;
@@ -1800,9 +1794,9 @@ begin
   idx := Add<string>(a);
   Get<string>(idx, b);
   CheckTrue(StringEquals(@a, @b));
-  c := PMyArray(List)[idx];
+  c := PMyArray(region.GetItemPtr(0))[idx];
   CheckTrue(StringEquals(@a, @c));
-  CheckTrue(Count = 1);
+  CheckTrue(region.Count = 1);
 //  region.Clear;
 //  idx := Add<string>(a);
 //  region.Free;
@@ -4391,7 +4385,10 @@ end;
 
 initialization
 
+  RegisterTest(TUnbrokenRegionTest.Suite);
+  RegisterTest(TSegmentedRegionTest.Suite);
   RegisterTest(TsgForwardListTest.Suite);
+  RegisterTest(TsgLinkedListTest.Suite);
   RegisterTest(TSysCtxTest.Suite);
 
   // Oz.SGL.HandleManager
@@ -4400,8 +4397,6 @@ initialization
   // Oz.SGL.Heap
   RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(TsgItemTest.Suite);
-  RegisterTest(TUnbrokenRegionTest.Suite);
-  RegisterTest(TSegmentedRegionTest.Suite);
   RegisterTest(THeapPoolTest.Suite);
 
   RegisterTest(TestTSharedRegion.Suite);
@@ -4414,7 +4409,6 @@ initialization
 
   RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgRecordListTest.Suite);
-  RegisterTest(TsgLinkedListTest.Suite);
   RegisterTest(TestTsgMap.Suite);
   RegisterTest(TestTsgSet.Suite);
 

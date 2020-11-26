@@ -232,8 +232,6 @@ type
     function IncreaseAndAlloc(NewCount: Integer): Pointer;
     // Allocate memory of a specified size and return its pointer
     function Alloc(Size: Cardinal): Pointer;
-    // Add an element and return a pointer to it
-    function AddItem(Item: Pointer): Pointer;
     // propeties
     property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FCapacity;
@@ -253,6 +251,7 @@ type
   TUnbrokenRegion = record
   private
     FRegion: TMemoryRegion;
+    FCount: Integer;
     function GetRegion: PMemoryRegion; inline;
     function GetMeta: PsgItemMeta; inline;
   public
@@ -261,10 +260,10 @@ type
     procedure Free; inline;
     // Erases all elements from the memory region.
     procedure Clear; inline;
+    // Add an empty element
+    procedure AddItem;
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
-    // Get index for pointer to an element
-    function GetItemIndex(Item: Pointer): Integer;
     // Increment pointer to an element
     function NextItem(Item: Pointer): Pointer;
     // Assign
@@ -273,6 +272,7 @@ type
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FRegion.FCapacity;
+    property Count: Integer read FCount;
     property ItemSize: Cardinal read FRegion.FMeta.ItemSize;
   end;
 
@@ -970,12 +970,6 @@ begin
     OutOfMemoryError;
 end;
 
-function TMemoryRegion.AddItem(Item: Pointer): Pointer;
-begin
-  Result := Alloc(ItemSize);
-  AssignItem(@FMeta, Result, Item);
-end;
-
 function TMemoryRegion.GetMeta: PsgItemMeta;
 begin
   Result := @FMeta;
@@ -988,16 +982,19 @@ end;
 procedure TUnbrokenRegion.Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
 begin
   FRegion.Init(Meta, BlockSize);
+  FCount := 0;
 end;
 
 procedure TUnbrokenRegion.Free;
 begin
   FRegion.Free;
+  FCount := 0;
 end;
 
 procedure TUnbrokenRegion.Clear;
 begin
   FRegion.Clear;
+  FCount := 0;
 end;
 
 function TUnbrokenRegion.GetRegion: PMemoryRegion;
@@ -1005,21 +1002,16 @@ begin
   Result := @FRegion;
 end;
 
-function TUnbrokenRegion.GetItemPtr(Index: Cardinal): Pointer;
-var
-  p: NativeUInt;
+procedure TUnbrokenRegion.AddItem;
 begin
-  p := NativeUInt(FRegion.Heap.GetHeapRef);
-  Result := Pointer(p + NativeUInt(Index * FRegion.FMeta.ItemSize));
+  Inc(FCount);
+  if Capacity <= FCount then
+    FRegion.GrowHeap(FCount);
 end;
 
-function TUnbrokenRegion.GetItemIndex(Item: Pointer): Integer;
-var
-  p: NativeUInt;
+function TUnbrokenRegion.GetItemPtr(Index: Cardinal): Pointer;
 begin
-  p := NativeUInt(FRegion.Heap.GetHeapRef);
-  FRegion.Heap.CheckPointer(Item, FRegion.FMeta.ItemSize);
-  Result := (NativeUInt(Item) - p) div FRegion.FMeta.ItemSize;
+  Result := FRegion.Heap.GetHeapRef + Index * FRegion.FMeta.ItemSize;
 end;
 
 function TUnbrokenRegion.NextItem(Item: Pointer): Pointer;
