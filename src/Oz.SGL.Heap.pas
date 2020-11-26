@@ -252,7 +252,6 @@ type
   private
     FRegion: TMemoryRegion;
     FCount: Integer;
-    procedure SetCount(NewCount: Integer);
     function GetRegion: PMemoryRegion; inline;
     function GetMeta: PsgItemMeta; inline;
   public
@@ -269,6 +268,8 @@ type
     procedure Delete(Index: Integer);
     // Return number of elements
     function GetCount: Integer; inline;
+    // Set number of elements
+    procedure SetCount(NewCount: Integer);
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
     // Increment pointer to an element
@@ -1017,6 +1018,16 @@ begin
   Result := @FRegion;
 end;
 
+procedure TUnbrokenRegion.SetCount(NewCount: Integer);
+begin
+  if NewCount <> FCount then
+  begin
+    if Capacity <= NewCount then
+      FRegion.GrowHeap(NewCount);
+    FCount := NewCount;
+  end;
+end;
+
 procedure TUnbrokenRegion.AddItem;
 begin
   Inc(FCount);
@@ -1066,6 +1077,7 @@ end;
 
 function TUnbrokenRegion.GetItemPtr(Index: Cardinal): Pointer;
 begin
+  CheckIndex(Index, FCount);
   Result := FRegion.Heap.GetHeapRef + Index * FRegion.FMeta.ItemSize;
 end;
 
@@ -1078,11 +1090,6 @@ begin
     Result := Pointer(NativeUInt(Item) + FRegion.FMeta.ItemSize)
   else
     Result := nil;
-end;
-
-procedure TUnbrokenRegion.SetCount(NewCount: Integer);
-begin
-  raise EsgError.Create(EsgError.NotImplemented);
 end;
 
 function TUnbrokenRegion.GetMeta: PsgItemMeta;

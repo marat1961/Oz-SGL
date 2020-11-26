@@ -383,7 +383,6 @@ type
   TestTsgList = class(TTestCase)
   public
     List: TsgList<TTestRecord>;
-    Meta: PsgItemMeta;
     procedure SetUp; override;
     procedure TearDown; override;
   published
@@ -2861,8 +2860,7 @@ end;
 
 procedure TestTsgList.SetUp;
 begin
-  Meta := SysCtx.CreateMeta<TTestRecord>;
-  List := TsgList<TTestRecord>.From(Meta^);
+  List := TsgList<TTestRecord>.From(64);
 end;
 
 procedure TestTsgList.TearDown;
@@ -3046,7 +3044,7 @@ var
 begin
   v.Init(25, 1);
   v.s := '123';
-  Source := TsgList<TTestRecord>.From(Meta^);
+  Source := TsgList<TTestRecord>.From(64);
   try
     Source.Add(v);
     for i := 1 to Cnt do
@@ -3061,7 +3059,7 @@ begin
     CheckTrue(p.s = '123');
     r := List.Items[0];
     CheckTrue(r.Equals(v));
-    FinalizeRecord(@r, Meta.TypeInfo);
+    FinalizeRecord(@r, TypeInfo(TTestRecord));
   finally
     Source.Free;
   end;
@@ -4385,6 +4383,8 @@ end;
 
 initialization
 
+  RegisterTest(TestTsgList.Suite);
+
   RegisterTest(TUnbrokenRegionTest.Suite);
   RegisterTest(TSegmentedRegionTest.Suite);
   RegisterTest(TsgForwardListTest.Suite);
@@ -4407,7 +4407,6 @@ initialization
   RegisterTest(TsgTupleTest.Suite);
   RegisterTest(TestTsgHashMap.Suite);
 
-  RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgRecordListTest.Suite);
   RegisterTest(TestTsgMap.Suite);
   RegisterTest(TestTsgSet.Suite);

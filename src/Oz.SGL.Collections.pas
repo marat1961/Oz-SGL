@@ -217,7 +217,6 @@ type
     PWords = array of Word;
     PCardinals = array of Cardinal;
     PUInt64s = array of UInt64;
-    function GetItems: PPointer; inline;
     function Compare(const Left, Right): Boolean;
   public type
     TEnumerator = record
@@ -232,9 +231,9 @@ type
     end;
   private
     FRegion: PUnbrokenRegion;
+    function GetItems: PByte; inline;
     function GetCount: Integer; inline;
     procedure SetCount(NewCount: Integer);
-    procedure CheckCapacity(NewCapacity: Integer); inline;
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
   public
     procedure Init(const Meta: TsgItemMeta);
@@ -267,14 +266,14 @@ type
       property Current: PItem read GetCurrent;
     end;
   private
-    FListHelper: TsgListHelper; // FListHelper must be before FItems
-    FItems: PItems; // FItems must be after FListHelper
+    FListHelper: TsgListHelper;
+    function GetItems: PItems; inline;
     function GetCount: Integer; inline;
     function GetItem(Index: Integer): T;
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
   public
-    constructor From(const Meta: TsgItemMeta);
+    constructor From(Capacity: Integer);
     procedure Free; inline;
     procedure Clear; inline;
     function Add(const Value: T): Integer; overload;
@@ -291,7 +290,7 @@ type
     function GetEnumerator: TEnumerator; inline;
     property Count: Integer read GetCount write SetCount;
     property Items[Index: Integer]: T read GetItem write SetItem; default;
-    property List: PItems read FItems;
+    property List: PItems read GetItems;
   end;
 
 {$EndRegion}
@@ -1601,8 +1600,7 @@ end;
 
 function TsgListHelper.GetPtr(Index: Cardinal): Pointer;
 begin
-  CheckIndex(Index, GetCount);
-  Result := @PByte(GetItems^)[Index * FRegion.Meta.ItemSize];
+  Result := FRegion.GetItemPtr(Index);
 end;
 
 function TsgListHelper.Add: Pointer;
@@ -1615,17 +1613,7 @@ end;
 
 procedure TsgListHelper.SetCount(NewCount: Integer);
 begin
-  if NewCount <> GetCount then
-  begin
-    CheckCapacity(NewCount);
-    FRegion.Count := NewCount;
-  end;
-end;
-
-procedure TsgListHelper.CheckCapacity(NewCapacity: Integer);
-begin
-  if FRegion.Capacity <= NewCapacity then
-    GetItems^ := FRegion.Region.IncreaseAndAlloc(NewCapacity);
+  FRegion.SetCount(NewCount);
 end;
 
 procedure TsgListHelper.Delete(Index: Integer);
@@ -1690,22 +1678,22 @@ var
   ItemSize: Integer;
   DTemp: PByte;
   PTemp: PByte;
-  Items: PPointer;
+  Items: Pointer;
   STemp: array [0..255] of Byte;
 begin
   ItemSize := FRegion.Meta.ItemSize;
   DTemp := nil;
   PTemp := @STemp[0];
-  Items := GetItems;
+  Items := FRegion.GetItemPtr(0);
   try
     if ItemSize > sizeof(STemp) then
     begin
       GetMem(DTemp, ItemSize);
       PTemp := DTemp;
     end;
-    Move(PByte(Items^)[Index1 * ItemSize], PTemp[0], ItemSize);
-    Move(PByte(Items^)[Index2 * ItemSize], PByte(Items^)[Index1 * ItemSize], ItemSize);
-    Move(PTemp[0], PByte(Items^)[Index2 * ItemSize], ItemSize);
+    Move(PByte(Items)[Index1 * ItemSize], PTemp[0], ItemSize);
+    Move(PByte(Items)[Index2 * ItemSize], PByte(Items)[Index1 * ItemSize], ItemSize);
+    Move(PTemp[0], PByte(Items)[Index2 * ItemSize], ItemSize);
   finally
     FreeMem(DTemp);
   end;
@@ -1718,11 +1706,10 @@ end;
 
 function TsgListHelper.Remove(const Value): Integer;
 var
-  i, ItemSize: Integer;
+  i: Integer;
 begin
-  ItemSize := FRegion.Meta.ItemSize;
   for i := 0 to GetCount - 1 do
-    if Compare(PByte(GetItems^)[i * ItemSize], Byte(Value)) then
+    if Compare(FRegion.GetItemPtr(i)^, Byte(Value)) then
       exit(i);
   Result := -1;
 end;
@@ -1750,8 +1737,8 @@ begin
   Cnt := Source.GetCount;
   SetCount(Cnt);
   if Cnt = 0 then exit;
-  Dest := Self.GetItems^;
-  Src := Source.GetItems^;
+  Dest := FRegion.GetItemPtr(0);
+  Src := Source.FRegion.GetItemPtr(0);
   while Cnt > 0 do
   begin
     FRegion.AssignItem(Dest, Src);
@@ -1766,9 +1753,9 @@ begin
   Result := FRegion.GetCount;
 end;
 
-function TsgListHelper.GetItems: PPointer;
+function TsgListHelper.GetItems: PByte;
 begin
-  Result := PPointer(PByte(@Self) + SizeOf(Self));
+  Result := FRegion.GetItemPtr(0);
 end;
 
 function TsgListHelper.Compare(const Left, Right): Boolean;
@@ -1799,9 +1786,12 @@ end;
 
 {$Region 'TsgList<T>'}
 
-constructor TsgList<T>.From(const Meta: TsgItemMeta);
+constructor TsgList<T>.From(Capacity: Integer);
+var
+  Meta: PsgItemMeta;
 begin
-  FListHelper.Init(Meta);
+  Meta := SysCtx.CreateMeta<T>;
+  FListHelper.Init(Meta^);
 end;
 
 procedure TsgList<T>.Free;
@@ -1878,7 +1868,12 @@ end;
 function TsgList<T>.GetItem(Index: Integer): T;
 begin
   CheckIndex(Index, FListHelper.GetCount);
-  Result := FItems[Index];
+  Result := GetItems[Index];
+end;
+
+function TsgList<T>.GetItems: PItems;
+begin
+  Result := PItems(FListHelper.GetItems);
 end;
 
 function TsgList<T>.IsEmpty: Boolean;
