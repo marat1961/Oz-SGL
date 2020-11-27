@@ -2873,6 +2873,7 @@ var
   i, j: Integer;
   a, b: TTestRecord;
   p: PTestRecord;
+  e: TsgList<TTestRecord>.TEnumerator;
 begin
   for i := 1 to ItemsCount do
   begin
@@ -2882,7 +2883,9 @@ begin
     CheckTrue(List.Count = i);
     // считать и проверить содержимое
     b := List.Items[i - 1];
+    if b.v <> i then
     CheckTrue(b.v = i);
+    if not a.Equals(b) then
     CheckTrue(a.Equals(b));
     // проверить все ранее добавленные значения
     for j := 1 to i do
@@ -2890,14 +2893,26 @@ begin
       a.Init(j, j + 1);
       a.e.tag := j;
       b := List.Items[j - 1];
+      if b.v <> j then
       CheckTrue(b.v = j);
+      if not a.Equals(b) then
       CheckTrue(a.Equals(b));
     end;
+  end;
+  i := 0;
+  e := List.GetEnumerator;
+  while e.MoveNext do
+  begin
+    p := e.Current;
+    Inc(i);
+    if (p <> nil) and (p.e.tag <> i) then
+    CheckTrue(p.e.tag = i);
   end;
   i := 0;
   for p in List do
   begin
     Inc(i);
+    if (p <> nil) and (p.e.tag <> i) then
     CheckTrue(p.e.tag = i);
   end;
   CheckTrue(i = ItemsCount);

@@ -1562,9 +1562,12 @@ end;
 
 {$Region 'TsgListHelper.TEnumerator'}
 
+var ListHelper: PsgListHelper = nil;
+
 constructor TsgListHelper.TEnumerator.From(const Value: TsgListHelper);
 begin
   FValue := @Value;
+  ListHelper := FValue;
   FIndex := -1;
 end;
 
@@ -1576,7 +1579,7 @@ end;
 function TsgListHelper.TEnumerator.MoveNext: Boolean;
 begin
   Inc(FIndex);
-  Result := FIndex < FValue.GetCount;
+  Result := Cardinal(FIndex) < Cardinal(FValue.GetCount);
 end;
 
 {$EndRegion}
@@ -1755,7 +1758,7 @@ end;
 
 function TsgListHelper.GetItems: PByte;
 begin
-  Result := FRegion.GetItemPtr(0);
+  Result := FRegion.GetItems;
 end;
 
 function TsgListHelper.Compare(const Left, Right): Boolean;

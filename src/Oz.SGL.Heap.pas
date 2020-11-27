@@ -261,7 +261,7 @@ type
     // Erases all elements from the memory region.
     procedure Clear; inline;
     // Add an empty element
-    procedure AddItem;
+    function AddItem: PByte;
     // Insert an empty element
     procedure Insert(Index: Integer; const Value);
     // Delete element
@@ -276,6 +276,8 @@ type
     function NextItem(Item: Pointer): Pointer;
     // Assign
     procedure AssignItem(Dest, Src: Pointer);
+    // Get a pointer to items
+    function GetItems: PByte; inline;
     // Propeties
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
@@ -1028,11 +1030,12 @@ begin
   end;
 end;
 
-procedure TUnbrokenRegion.AddItem;
+function TUnbrokenRegion.AddItem: PByte;
 begin
   Inc(FCount);
   if Capacity <= FCount then
     FRegion.GrowHeap(FCount);
+  Result := FRegion.Heap.Occupy(ItemSize);
 end;
 
 procedure TUnbrokenRegion.Insert(Index: Integer; const Value);
@@ -1073,6 +1076,11 @@ end;
 function TUnbrokenRegion.GetCount: Integer;
 begin
   Result := FCount;
+end;
+
+function TUnbrokenRegion.GetItems: PByte;
+begin
+  Result := FRegion.Heap.GetHeapRef;
 end;
 
 function TUnbrokenRegion.GetItemPtr(Index: Cardinal): Pointer;
