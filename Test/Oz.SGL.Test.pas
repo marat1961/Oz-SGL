@@ -2141,51 +2141,90 @@ procedure THeapPoolTest._MemSegment;
 const
   MemSize = 1024 * 4;
 var
-  mem: Pointer;
-  before, last, after, iv: PInteger;
-  s: PMemSegment;
-  bv, av, lv, cnt: Integer;
-  p, hr, fr, tr: PByte;
-  freeSize: NativeUInt;
-begin
-  s := TMemSegment.NewSegment(MemSize);
-  p := PByte(s);
-  before := PInteger(p - sizeof(Integer));
-  after := PInteger(p + MemSize);
-  last := PInteger(PByte(after) - sizeof(Integer));
-  bv := before^;
-  av := after^;
-  lv := last^;
+  s, s1: PMemSegment;
+  before, last, after: PInteger;
+  bv, av, lv: Integer;
 
-  hr := s.GetHeapRef;
-  freeSize := s.GetFreeSize;
-  Check(freeSize = MemSize - sizeof(TMemSegment));
-  Check(hr = p + sizeof(TMemSegment));
-  iv := PInteger(s.Occupy(4));
-  Check(s.GetFreeSize = freeSize - 4);
-  Check(iv^ = 0);
-  cnt := s.GetFreeSize div 4;
-  while cnt > 0 do
+  procedure FillSegment;
+  var
+    cnt: Cardinal;
+    iv: PInteger;
   begin
-    Check(cnt = s.GetFreeSize div 4);
-    iv := PInteger(s.Occupy(4));
-    Check(iv <> nil);
-    iv^ := 123456;
-    if cnt > 1 then
+    cnt := s.GetFreeSize div 4;
+    while cnt > 0 do
     begin
-      Check(s.GetFreeSize > 0);
-      Check(last^ = lv);
-    end
-    else
-    begin
-      Check(s.GetFreeSize = 0);
-      Check(last^ = 123456)
+      Check(cnt = s.GetFreeSize div 4);
+      iv := PInteger(s.Occupy(4));
+      Check(iv <> nil);
+      iv^ := 123456;
+      if cnt > 1 then
+      begin
+        Check(s.GetFreeSize > 0);
+        Check(last^ = lv);
+      end
+      else
+      begin
+        Check(s.GetFreeSize = 0);
+        Check(last^ = 123456)
+      end;
+      Check(bv = before^);
+      Check(av = after^);
+      Dec(cnt);
     end;
-    Check(bv = before^);
-    Check(av = after^);
-    Dec(cnt);
   end;
-  FreeMem(s);
+
+  procedure CheckSegment(FreeSize, SegmentSize: Cardinal);
+  var
+    p, hr: PByte;
+    iv: PInteger;
+  begin
+    p := PByte(s);
+    before := PInteger(p - sizeof(Integer));
+    after := PInteger(p + SegmentSize);
+    last := PInteger(PByte(after) - sizeof(Integer));
+    bv := before^;
+    av := after^;
+    lv := last^;
+
+    hr := s.GetHeapRef;
+
+    Check(hr = p + sizeof(TMemSegment));
+    Check(s.GetFreeSize = freeSize);
+    iv := PInteger(s.Occupy(4));
+    Check(s.GetFreeSize = freeSize - 4);
+    Check(iv^ = 0);
+  end;
+
+var
+  n, FreeSize, HeapSize: Cardinal;
+begin
+  HeapSize := MemSize;
+  s := TMemSegment.NewSegment(HeapSize);
+  try
+    FreeSize := HeapSize - sizeof(TMemSegment);
+    CheckSegment(FreeSize, HeapSize);
+    FillSegment;
+
+    HeapSize := HeapSize + MemSize;
+    TMemSegment.IncreaseHeapSize(s, HeapSize);
+    CheckSegment(MemSize, HeapSize);
+    FillSegment;
+
+    for n := 0 to 3 do
+    begin
+      s1 := TMemSegment.NewSegment(MemSize);
+      try
+        HeapSize := HeapSize + MemSize;
+        TMemSegment.IncreaseHeapSize(s, HeapSize);
+        CheckSegment(MemSize, HeapSize);
+        FillSegment;
+      finally
+        FreeMem(s1);
+      end;
+    end;
+  finally
+    FreeMem(s);
+  end;
 end;
 
 procedure THeapPoolTest._hMeta;
