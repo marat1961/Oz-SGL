@@ -2307,7 +2307,9 @@ begin
     q := nil;
     for i := 0 to ItemsCount - 1 do
     begin
-      p := r.Region.Alloc(sizeof(TListNode));
+      p := PListNode(r.AddItem);
+      b := PListNode(r.GetItemPtr(i));
+      Check(p = b);
       p.next := p;
       p.n := i + 1;
       if q <> nil then
@@ -4505,11 +4507,12 @@ end;
 
 initialization
 
-  RegisterTest(TestTsgList.Suite);
   RegisterTest(THeapPoolTest.Suite);
-
   RegisterTest(TUnbrokenRegionTest.Suite);
   RegisterTest(TSegmentedRegionTest.Suite);
+
+  RegisterTest(TestTsgList.Suite);
+
   RegisterTest(TsgForwardListTest.Suite);
   RegisterTest(TsgLinkedListTest.Suite);
   RegisterTest(TSysCtxTest.Suite);
