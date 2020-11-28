@@ -212,18 +212,14 @@ type
 
   PsgListHelper = ^TsgListHelper;
   TsgListHelper = record
-  strict private type
-    PBytes = array of Byte;
-    PWords = array of Word;
-    PCardinals = array of Cardinal;
-    PUInt64s = array of UInt64;
+  strict private
     function Compare(const Left, Right): Boolean;
   public type
     TEnumerator = record
     private
-      FValue: PsgListHelper;
       FIndex: Integer;
-      function GetCurrent: Pointer;
+      FList: PsgListHelper;
+      function GetCurrent: Pointer; inline;
     public
       constructor From(const Value: TsgListHelper);
       function MoveNext: Boolean;
@@ -239,7 +235,7 @@ type
     procedure Init(const Meta: TsgItemMeta);
     procedure Free;
     procedure Clear;
-    function GetPtr(Index: Cardinal): Pointer;
+    function GetPtr(Index: Integer): Pointer;
     function Add: Pointer;
     procedure Delete(Index: Integer);
     procedure Insert(Index: Integer; const Value);
@@ -1566,20 +1562,20 @@ var ListHelper: PsgListHelper = nil;
 
 constructor TsgListHelper.TEnumerator.From(const Value: TsgListHelper);
 begin
-  FValue := @Value;
-  ListHelper := FValue;
+  FList := @Value;
+  ListHelper := FList;
   FIndex := -1;
 end;
 
 function TsgListHelper.TEnumerator.GetCurrent: Pointer;
 begin
-  Result := FValue.GetPtr(FIndex);
+  Result := FList.GetPtr(FIndex);
 end;
 
 function TsgListHelper.TEnumerator.MoveNext: Boolean;
 begin
   Inc(FIndex);
-  Result := Cardinal(FIndex) < Cardinal(FValue.GetCount);
+  Result := Cardinal(FIndex) < Cardinal(FList.GetCount);
 end;
 
 {$EndRegion}
@@ -1601,7 +1597,10 @@ begin
   FRegion.Clear;
 end;
 
-function TsgListHelper.GetPtr(Index: Cardinal): Pointer;
+function TsgListHelper.GetPtr(Index: Integer): Pointer;
+var
+  r: PUnbrokenRegion;
+  p: Pointer;
 begin
   Result := FRegion.GetItemPtr(Index);
 end;

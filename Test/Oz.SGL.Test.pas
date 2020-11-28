@@ -299,6 +299,7 @@ type
     procedure SetUp; override;
     procedure TearDown; override;
   published
+    procedure _MemSegment;
     procedure _hMeta;
     procedure _CreateRegion;
     procedure _CreateUnbrokenRegion;
@@ -2134,6 +2135,57 @@ begin
   inherited;
   HeapPool.Free;
   HeapPool := nil;
+end;
+
+procedure THeapPoolTest._MemSegment;
+const
+  MemSize = 1024 * 4;
+var
+  mem: Pointer;
+  before, last, after, iv: PInteger;
+  s: PMemSegment;
+  bv, av, lv, cnt: Integer;
+  p, hr, fr, tr: PByte;
+  freeSize: NativeUInt;
+begin
+  s := TMemSegment.NewSegment(MemSize);
+  p := PByte(s);
+  before := PInteger(p - sizeof(Integer));
+  after := PInteger(p + MemSize);
+  last := PInteger(PByte(after) - sizeof(Integer));
+  bv := before^;
+  av := after^;
+  lv := last^;
+
+  hr := s.GetHeapRef;
+  freeSize := s.GetFreeSize;
+  Check(freeSize = MemSize - sizeof(TMemSegment));
+  Check(hr = p + sizeof(TMemSegment));
+  iv := PInteger(s.Occupy(4));
+  Check(s.GetFreeSize = freeSize - 4);
+  Check(iv^ = 0);
+  cnt := s.GetFreeSize div 4;
+  while cnt > 0 do
+  begin
+    Check(cnt = s.GetFreeSize div 4);
+    iv := PInteger(s.Occupy(4));
+    Check(iv <> nil);
+    iv^ := 123456;
+    if cnt > 1 then
+    begin
+      Check(s.GetFreeSize > 0);
+      Check(last^ = lv);
+    end
+    else
+    begin
+      Check(s.GetFreeSize = 0);
+      Check(last^ = 123456)
+    end;
+    Check(bv = before^);
+    Check(av = after^);
+    Dec(cnt);
+  end;
+  FreeMem(s);
 end;
 
 procedure THeapPoolTest._hMeta;
@@ -4399,6 +4451,7 @@ end;
 initialization
 
   RegisterTest(TestTsgList.Suite);
+  RegisterTest(THeapPoolTest.Suite);
 
   RegisterTest(TUnbrokenRegionTest.Suite);
   RegisterTest(TSegmentedRegionTest.Suite);
@@ -4412,7 +4465,6 @@ initialization
   // Oz.SGL.Heap
   RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(TsgItemTest.Suite);
-  RegisterTest(THeapPoolTest.Suite);
 
   RegisterTest(TestTSharedRegion.Suite);
   RegisterTest(TestTsgArray.Suite);

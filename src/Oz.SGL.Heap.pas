@@ -182,8 +182,10 @@ type
     TopMem: PByte;      // Reference to top memory
     FreePtr: PByte;     // Reference to free memory
     procedure CheckPointer(Ptr: Pointer; Size: Cardinal);
-  public
     procedure Init(HeapSize: Cardinal);
+  public
+    class function NewSegment(HeapSize: Cardinal): PMemSegment; static;
+    class procedure IncreaseHeapSize(var p: PMemSegment; NewHeapSize: Cardinal); static;
     // Allocate a piece of memory of the specified size
     function Occupy(Size: Cardinal): Pointer;
     // Return a reference to the beginning of the heap
@@ -232,6 +234,8 @@ type
     function IncreaseAndAlloc(NewCount: Integer): Pointer;
     // Allocate memory of a specified size and return its pointer
     function Alloc(Size: Cardinal): Pointer;
+    // Get a pointer to an element of an array of the specified type
+    function GetItemPtr(Index: Cardinal): Pointer; inline;
     // propeties
     property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FCapacity;
@@ -270,14 +274,14 @@ type
     function GetCount: Integer; inline;
     // Set number of elements
     procedure SetCount(NewCount: Integer);
+    // Get a pointer to items
+    function GetItems: PByte; inline;
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
     // Increment pointer to an element
     function NextItem(Item: Pointer): Pointer;
     // Assign
     procedure AssignItem(Dest, Src: Pointer);
-    // Get a pointer to items
-    function GetItems: PByte; inline;
     // Propeties
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
@@ -768,14 +772,14 @@ end;
 
 {$Region 'TMemSegment'}
 
-procedure NewSegment(var p: PMemSegment; HeapSize: Cardinal);
+class function TMemSegment.NewSegment(HeapSize: Cardinal): PMemSegment;
 begin
   // Create a new memory segment
-  GetMem(p, HeapSize);
-  p.Init(HeapSize);
+  GetMem(Result, HeapSize);
+  Result.Init(HeapSize);
 end;
 
-procedure IncreaseHeapSize(var p: PMemSegment; NewHeapSize: Cardinal);
+class procedure TMemSegment.IncreaseHeapSize(var p: PMemSegment; NewHeapSize: Cardinal);
 var
   Offset: NativeUInt;
 begin
@@ -949,14 +953,14 @@ begin
   NewHeapSize := BlockCount * BlockSize;
   if Heap = nil then
     // create a new segment
-    NewSegment(Heap, NewHeapSize)
+    Heap := TMemSegment.NewSegment(NewHeapSize)
   else if not FMeta.h.Segmented then
     // increase the size of the memory segment
-    IncreaseHeapSize(Heap, NewHeapSize)
+    TMemSegment.IncreaseHeapSize(Heap, NewHeapSize)
   else
   begin
     // create a new segment and place it at the beginning of the list
-    NewSegment(p, NewHeapSize);
+    p := TMemSegment.NewSegment(NewHeapSize);
     p.Next := Heap;
     Heap := p;
   end;
@@ -986,6 +990,11 @@ begin
   Result := Heap.Occupy(Size);
   if Result = nil then
     OutOfMemoryError;
+end;
+
+function TMemoryRegion.GetItemPtr(Index: Cardinal): Pointer;
+begin
+  Result := Heap.GetHeapRef + Index * FMeta.ItemSize;
 end;
 
 function TMemoryRegion.GetMeta: PsgItemMeta;
@@ -1086,7 +1095,7 @@ end;
 function TUnbrokenRegion.GetItemPtr(Index: Cardinal): Pointer;
 begin
   CheckIndex(Index, FCount);
-  Result := FRegion.Heap.GetHeapRef + Index * FRegion.FMeta.ItemSize;
+  Result := FRegion.GetItemPtr(Index);
 end;
 
 function TUnbrokenRegion.NextItem(Item: Pointer): Pointer;
