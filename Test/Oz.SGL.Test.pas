@@ -2145,6 +2145,20 @@ var
   before, last, after: PInteger;
   bv, av, lv: Integer;
 
+  procedure CheckOther;
+  var
+    p, hr: PByte;
+    freeSise, heapSize, occupiedSize: NativeUInt;
+  begin
+    p := PByte(s);
+    hr := s.GetHeapRef;
+    Check(p + sizeof(TMemSegment) = hr);
+    freeSise := s.GetFreeSize;
+    heapSize := s.GetHeapSize;
+    occupiedSize := s.GetOccupiedSize;
+    Check(freeSise + occupiedSize = heapSize - sizeof(TMemSegment));
+  end;
+
   procedure FillSegment;
   var
     cnt: Cardinal;
@@ -2170,6 +2184,7 @@ var
       Check(bv = before^);
       Check(av = after^);
       Dec(cnt);
+      CheckOther;
     end;
   end;
 
@@ -2185,14 +2200,15 @@ var
     bv := before^;
     av := after^;
     lv := last^;
+    CheckOther;
 
     hr := s.GetHeapRef;
-
     Check(hr = p + sizeof(TMemSegment));
     Check(s.GetFreeSize = freeSize);
     iv := PInteger(s.Occupy(4));
     Check(s.GetFreeSize = freeSize - 4);
     Check(iv^ = 0);
+    CheckOther;
   end;
 
 var
