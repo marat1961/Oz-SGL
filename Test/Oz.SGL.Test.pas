@@ -1797,9 +1797,9 @@ begin
   c := PMyArray(region.GetItemPtr(0))[idx];
   CheckTrue(StringEquals(@a, @c));
   CheckTrue(region.Count = 1);
-//  region.Clear;
-//  idx := Add<string>(a);
-//  region.Free;
+  region.Clear;
+  idx := Add<string>(a);
+  region.Free;
 end;
 
 procedure WideStringUpdate(p: Pointer; value: Integer);
@@ -4507,14 +4507,10 @@ end;
 
 initialization
 
-  RegisterTest(THeapPoolTest.Suite);
-  RegisterTest(TUnbrokenRegionTest.Suite);
-  RegisterTest(TSegmentedRegionTest.Suite);
-
   RegisterTest(TestTsgList.Suite);
+  RegisterTest(TsgLinkedListTest.Suite);
 
   RegisterTest(TsgForwardListTest.Suite);
-  RegisterTest(TsgLinkedListTest.Suite);
   RegisterTest(TSysCtxTest.Suite);
 
   // Oz.SGL.HandleManager
@@ -4523,7 +4519,9 @@ initialization
   // Oz.SGL.Heap
   RegisterTest(TsgMemoryManagerTest.Suite);
   RegisterTest(TsgItemTest.Suite);
-
+  RegisterTest(THeapPoolTest.Suite);
+  RegisterTest(TUnbrokenRegionTest.Suite);
+  RegisterTest(TSegmentedRegionTest.Suite);
   RegisterTest(TestTSharedRegion.Suite);
   RegisterTest(TestTsgArray.Suite);
 

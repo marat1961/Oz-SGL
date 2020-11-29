@@ -1049,36 +1049,34 @@ end;
 
 procedure TUnbrokenRegion.Insert(Index: Integer; const Value);
 var
-  Items: PPointer;
   MemSize: Integer;
+  Dest, Source: PByte;
 begin
   CheckIndex(Index, Count + 1);
   AddItem;
+  Source := GetItems + Index * ItemSize;
   if Index <> Count - 1 then
   begin
     MemSize := (Count - Index - 1) * ItemSize;
-    System.Move(
-      PByte(Items^)[Index * ItemSize],
-      PByte(Items^)[(Index + 1) * ItemSize],
-      MemSize);
+    Dest := Source + ItemSize;
+    System.Move(Source^, Dest^, MemSize);
   end;
-  AssignItem(@PByte(Items^)[Index * ItemSize], @Value);
+  FRegion.AssignItem(@FRegion.FMeta, Source, @Value);
 end;
 
 procedure TUnbrokenRegion.Delete(Index: Integer);
 var
-  ItemSize, MemSize: Integer;
+  MemSize: Integer;
   Dest, Source: PByte;
 begin
   CheckIndex(Index, FCount);
   Dec(FCount);
   if Index < FCount then
   begin
-    ItemSize := FRegion.Meta.ItemSize;
     MemSize := (FCount - Index) * ItemSize;
-    Source := FRegion.Heap.GetHeapRef + Index * ItemSize;
-    Dest := Source + Index * ItemSize;
-    System.Move(Source, Dest, MemSize);
+    Dest := GetItems + Index * ItemSize;
+    Source := Dest + ItemSize;
+    System.Move(Source^, Dest^, MemSize);
   end;
 end;
 

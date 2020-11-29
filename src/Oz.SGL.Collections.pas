@@ -1606,11 +1606,8 @@ begin
 end;
 
 function TsgListHelper.Add: Pointer;
-var idx: Integer;
 begin
-  idx := GetCount;
-  FRegion.AddItem;
-  Result := FRegion.GetItemPtr(idx);
+  Result := FRegion.AddItem;
 end;
 
 procedure TsgListHelper.SetCount(NewCount: Integer);
