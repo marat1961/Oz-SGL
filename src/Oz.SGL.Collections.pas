@@ -221,7 +221,7 @@ type
       FList: PsgListHelper;
       function GetCurrent: Pointer; inline;
     public
-      constructor From(const Value: TsgListHelper);
+      constructor From(Value: PsgListHelper);
       function MoveNext: Boolean;
       property Current: Pointer read GetCurrent;
     end;
@@ -251,16 +251,6 @@ type
     TItems = array [0 .. High(Word)] of T;
     PItems = ^TItems;
     PItem = ^T;
-  public type
-    TEnumerator = record
-    private
-      FEnumerator: TsgListHelper.TEnumerator;
-      function GetCurrent: PItem; inline;
-    public
-      constructor From(const Value: TsgListHelper);
-      function MoveNext: Boolean; inline;
-      property Current: PItem read GetCurrent;
-    end;
   private
     FListHelper: TsgListHelper;
     function GetItems: PItems; inline;
@@ -283,7 +273,7 @@ type
     procedure Assign(Source: TsgList<T>); inline;
     function GetPtr(Index: Integer): PItem; inline;
     function IsEmpty: Boolean; inline;
-    function GetEnumerator: TEnumerator; inline;
+    function GetEnumerator: TsgListHelper.TEnumerator; inline;
     property Count: Integer read GetCount write SetCount;
     property Items[Index: Integer]: T read GetItem write SetItem; default;
     property List: PItems read GetItems;
@@ -1560,10 +1550,9 @@ end;
 
 var ListHelper: PsgListHelper = nil;
 
-constructor TsgListHelper.TEnumerator.From(const Value: TsgListHelper);
+constructor TsgListHelper.TEnumerator.From(Value: PsgListHelper);
 begin
-  FList := @Value;
-  ListHelper := FList;
+  FList := Value;
   FIndex := -1;
 end;
 
@@ -1598,9 +1587,6 @@ begin
 end;
 
 function TsgListHelper.GetPtr(Index: Integer): Pointer;
-var
-  r: PUnbrokenRegion;
-  p: Pointer;
 begin
   Result := FRegion.GetItemPtr(Index);
 end;
@@ -1730,19 +1716,19 @@ end;
 procedure TsgListHelper.Assign(const Source: TsgListHelper);
 var
   Cnt, ItemSize: Integer;
-  Dest, Src: Pointer;
+  Dest, Src: PByte;
 begin
-  ItemSize := FRegion.Meta.ItemSize;
   Cnt := Source.GetCount;
+  ItemSize := FRegion.ItemSize;
   SetCount(Cnt);
   if Cnt = 0 then exit;
-  Dest := FRegion.GetItemPtr(0);
-  Src := Source.FRegion.GetItemPtr(0);
+  Dest := FRegion.GetItems;
+  Src := Source.FRegion.GetItems;
   while Cnt > 0 do
   begin
     FRegion.AssignItem(Dest, Src);
-    Inc(PByte(Dest), ItemSize);
-    Inc(PByte(Src), ItemSize);
+    Inc(Dest, ItemSize);
+    Inc(Src, ItemSize);
     Dec(Cnt);
   end;
 end;
@@ -1760,25 +1746,6 @@ end;
 function TsgListHelper.Compare(const Left, Right): Boolean;
 begin
   Result := CompareMem(@Left, @Right, FRegion.Meta.ItemSize)
-end;
-
-{$EndRegion}
-
-{$Region 'TsgList<T>.TEnumerator'}
-
-constructor TsgList<T>.TEnumerator.From(const Value: TsgListHelper);
-begin
-  FEnumerator := TsgListHelper.TEnumerator.From(Value);
-end;
-
-function TsgList<T>.TEnumerator.GetCurrent: PItem;
-begin
-  Result := PItem(FEnumerator.GetCurrent);
-end;
-
-function TsgList<T>.TEnumerator.MoveNext: Boolean;
-begin
-  Result := FEnumerator.MoveNext;
 end;
 
 {$EndRegion}
@@ -1859,9 +1826,9 @@ begin
   Result := FListHelper.GetCount;
 end;
 
-function TsgList<T>.GetEnumerator: TEnumerator;
+function TsgList<T>.GetEnumerator: TsgListHelper.TEnumerator;
 begin
-  Result := TEnumerator.From(FListHelper);
+  Result := TsgListHelper.TEnumerator.From(@FListHelper);
 end;
 
 function TsgList<T>.GetItem(Index: Integer): T;

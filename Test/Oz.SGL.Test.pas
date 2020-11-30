@@ -1799,6 +1799,7 @@ begin
   CheckTrue(region.Count = 1);
   region.Clear;
   idx := Add<string>(a);
+  CheckTrue(idx = 0);
   region.Free;
 end;
 
@@ -2982,7 +2983,7 @@ var
   i, j: Integer;
   a, b: TTestRecord;
   p: PTestRecord;
-  e: TsgList<TTestRecord>.TEnumerator;
+  e: TsgListHelper.TEnumerator;
 begin
   for i := 1 to ItemsCount do
   begin
@@ -2990,13 +2991,13 @@ begin
     a.e.tag := i;
     List.Add(a);
     CheckTrue(List.Count = i);
-    // считать и проверить содержимое
+    // read and check the content
     b := List.Items[i - 1];
     if b.v <> i then
     CheckTrue(b.v = i);
     if not a.Equals(b) then
     CheckTrue(a.Equals(b));
-    // проверить все ранее добавленные значения
+    // check all previously added values
     for j := 1 to i do
     begin
       a.Init(j, j + 1);
@@ -3177,6 +3178,9 @@ begin
       n.s := IntToStr(i);
       Source.Add(n);
     end;
+//    System.CopyRecord(@r, @n, TypeInfo(TTestRecord));
+//    Source.FListHelper.FRegion.AssignItem(@r, @n);
+    CheckTrue(r.Equals(n));
     List.Assign(Source);
     CheckTrue(List.Count = Cnt + 1);
     p := Source.GetPtr(0);
@@ -4196,10 +4200,10 @@ var
 begin
   for i := 0 to 10000 do
   begin
-    // добавляем
+    // insert
     GenPair(i, pair);
     FMap.Insert(pair);
-    // ищем
+    // find
     it := FMap.Find(pair.Key);
     CheckTrue(it <> FMap.Ends);
     r.Key := it.GetKey^;
