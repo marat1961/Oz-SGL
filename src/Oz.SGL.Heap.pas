@@ -34,6 +34,7 @@ type
   TFreeProc = procedure(p: Pointer);
   TEqualsFunc = function(a, b: Pointer): Boolean;
   THashProc = function(const Value): Cardinal;
+  TPredicateFunc = function(const p: Pointer): Boolean;
 
 {$EndRegion}
 
@@ -184,18 +185,18 @@ type
     procedure CheckPointer(Ptr: Pointer; Size: Cardinal);
     procedure Init(HeapSize: Cardinal);
   public
-    class function NewSegment(HeapSize: Cardinal): PMemSegment; static;
-    class procedure IncreaseHeapSize(var p: PMemSegment; NewHeapSize: Cardinal); static;
+    class procedure NewSegment(var s: PMemSegment; HeapSize: Cardinal); static;
+    class procedure IncreaseHeapSize(var s: PMemSegment; NewHeapSize: Cardinal); static;
     // Allocate a piece of memory of the specified size
     function Occupy(Size: Cardinal): Pointer;
     // Return a reference to the beginning of the heap
     function GetHeapRef: PByte; inline;
     // Return the size of free memory
-    function GetFreeSize: NativeUInt; inline;
+    function GetFreeSize: Cardinal; inline;
     // Return the size of the memory segment
-    function GetHeapSize: NativeUInt; inline;
+    function GetHeapSize: Cardinal; inline;
     // Return the occupied size:
-    function GetOccupiedSize: NativeUInt; inline;
+    function GetOccupiedSize: Cardinal; inline;
   end;
 
 {$EndRegion}
@@ -204,6 +205,8 @@ type
 
   PMemoryRegion = ^TMemoryRegion;
   TMemoryRegion = record
+  const
+    SeedValue = 1234979;
   type
     TSwapProc = procedure(A, B: Pointer) of object;
   private
@@ -214,6 +217,7 @@ type
     // procedural types
     FSwapItems: TSwapProc;
     FCompareItems: TCompareProc;
+    FSeed: Integer;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
     function GetOccupiedCount(p: PMemSegment): Integer;
@@ -223,7 +227,7 @@ type
     function GetMeta: PsgItemMeta;
   public
     // Segmented region provides immutable pointer addresses
-    procedure Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
+    procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free;
     // Erases all elements from the memory region.
@@ -253,13 +257,16 @@ type
 
   PUnbrokenRegion = ^TUnbrokenRegion;
   TUnbrokenRegion = record
+  const
+    SeedValue = 1234979;
   private
     FRegion: TMemoryRegion;
     FCount: Integer;
+    FSeed: Integer;
     function GetRegion: PMemoryRegion; inline;
     function GetMeta: PsgItemMeta; inline;
   public
-    procedure Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
+    procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free; inline;
     // Erases all elements from the memory region.
@@ -280,7 +287,9 @@ type
     function GetItemPtr(Index: Cardinal): Pointer;
     // Increment pointer to an element
     function NextItem(Item: Pointer): Pointer;
-    // Assign
+    // Copy items from region
+    procedure CopyFrom(const Region: PUnbrokenRegion; Index, Cnt: Integer);
+    // Assign item
     procedure AssignItem(Dest, Src: Pointer);
     // Propeties
     property Region: PMemoryRegion read GetRegion;
@@ -301,7 +310,7 @@ type
     function GetMeta: PsgItemMeta; inline;
     function GetRegion: PMemoryRegion; inline;
   public
-    procedure Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
+    procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal);
     // Free the region
     procedure Free; inline;
     // Add item
@@ -362,14 +371,14 @@ type
     FRealesed: TRegionItems;
     FBlockSize: Word;
     // Occupy region
-    function FindOrCreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
+    function FindOrCreateRegion(Meta: PsgItemMeta): PMemoryRegion;
   public
     constructor Create(BlockSize: Word = 8 * 1024);
     destructor Destroy; override;
     // Create a continuous region (e.g. memory for arrays)
-    function CreateUnbrokenRegion(Meta: TsgItemMeta): PUnbrokenRegion;
+    function CreateUnbrokenRegion(Meta: PsgItemMeta): PUnbrokenRegion;
     // Create a segmented region (for elements with a fixed address)
-    function CreateRegion(Meta: TsgItemMeta): PSegmentedRegion;
+    function CreateRegion(Meta: PsgItemMeta): PSegmentedRegion;
     // Release the region
     procedure Release(r: PMemoryRegion);
   end;
@@ -390,9 +399,9 @@ type
     constructor Create;
     destructor Destroy; override;
     // Create a continuous region (e.g. memory for arrays)
-    function CreateUnbrokenRegion(Meta: TsgItemMeta): PUnbrokenRegion; inline;
+    function CreateUnbrokenRegion(Meta: PsgItemMeta): PUnbrokenRegion; inline;
     // Create a segmented region (for elements with a fixed address)
-    function CreateRegion(Meta: TsgItemMeta): PSegmentedRegion; inline;
+    function CreateRegion(Meta: PsgItemMeta): PSegmentedRegion; inline;
     // Release the region
     procedure Release(r: PMemoryRegion); inline;
     // Clear main memory pool
@@ -772,24 +781,24 @@ end;
 
 {$Region 'TMemSegment'}
 
-class function TMemSegment.NewSegment(HeapSize: Cardinal): PMemSegment;
+class procedure TMemSegment.NewSegment(var s: PMemSegment; HeapSize: Cardinal);
 begin
   // Create a new memory segment
-  GetMem(Result, HeapSize);
-  Result.Init(HeapSize);
+  GetMem(s, HeapSize);
+  s.Init(HeapSize);
 end;
 
-class procedure TMemSegment.IncreaseHeapSize(var p: PMemSegment; NewHeapSize: Cardinal);
+class procedure TMemSegment.IncreaseHeapSize(var s: PMemSegment; NewHeapSize: Cardinal);
 var
   Offset: NativeUInt;
 begin
-  Check((p <> nil) and (NewHeapSize > p.GetHeapSize), 'IncreaseHeapSize error');
-  Offset := NativeUInt(p.FreePtr) - NativeUInt(p);
-  ReallocMem(p, NewHeapSize);
+  Check((s <> nil) and (NewHeapSize > s.GetHeapSize), 'IncreaseHeapSize error');
+  Offset := NativeUInt(s.FreePtr) - NativeUInt(s);
+  ReallocMem(s, NewHeapSize);
   // Increase memory segment size
-  p.FreePtr := PByte(p) + Offset;
-  p.TopMem := PByte(p) + NewHeapSize;
-  FillChar(p.FreePtr^, p.GetFreeSize, 0);
+  s.FreePtr := PByte(s) + Offset;
+  s.TopMem := PByte(s) + NewHeapSize;
+  FillChar(s.FreePtr^, s.GetFreeSize, 0);
 end;
 
 procedure TMemSegment.Init(HeapSize: Cardinal);
@@ -823,7 +832,7 @@ begin
   Check(InRange(NativeUInt(Ptr), lo, NativeUInt(TopMem)));
 end;
 
-function TMemSegment.GetFreeSize: NativeUInt;
+function TMemSegment.GetFreeSize: Cardinal;
 begin
 {$IFDEF DEBUG}
   Assert(NativeUInt(TopMem) >= NativeUInt(FreePtr));
@@ -836,7 +845,7 @@ begin
   Result := PByte(@Self) + sizeof(TMemSegment);
 end;
 
-function TMemSegment.GetHeapSize: NativeUInt;
+function TMemSegment.GetHeapSize: Cardinal;
 begin
 {$IFDEF DEBUG}
   Assert(NativeUInt(TopMem) >= NativeUInt(@Self));
@@ -844,7 +853,7 @@ begin
   Result := TopMem - PByte(@Self);
 end;
 
-function TMemSegment.GetOccupiedSize: NativeUInt;
+function TMemSegment.GetOccupiedSize: Cardinal;
 begin
 {$IFDEF DEBUG}
   Assert(NativeUInt(FreePtr) >= NativeUInt(GetHeapRef));
@@ -856,18 +865,19 @@ end;
 
 {$Region 'TMemoryRegion'}
 
-procedure TMemoryRegion.Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
+procedure TMemoryRegion.Init(Meta: PsgItemMeta; BlockSize: Cardinal);
 begin
   FillChar(Self, sizeof(TMemoryRegion), 0);
-  Self.FMeta := Meta;
+  Self.FMeta := Meta^;
   Self.BlockSize := BlockSize;
   Self.FCapacity := 0;
   Self.Heap := nil;
+  FSeed := SeedValue;
 end;
 
 function TMemoryRegion.Valid: Boolean;
 begin
-  Result := FMeta.h.Valid;
+  Result := FMeta.h.Valid and (FSeed = SeedValue);
 end;
 
 procedure TMemoryRegion.Clear;
@@ -946,23 +956,23 @@ end;
 procedure TMemoryRegion.GrowHeap(NewCount: Integer);
 var
   BlockCount, Size, NewHeapSize: Cardinal;
-  p: PMemSegment;
+  s: PMemSegment;
 begin
   Size := Grow(NewCount) * Integer(FMeta.ItemSize);
   BlockCount := (Size + sizeof(TMemoryRegion)) div BlockSize + 1;
   NewHeapSize := BlockCount * BlockSize;
   if Heap = nil then
     // create a new segment
-    Heap := TMemSegment.NewSegment(NewHeapSize)
+    TMemSegment.NewSegment(Heap, NewHeapSize)
   else if not FMeta.h.Segmented then
     // increase the size of the memory segment
     TMemSegment.IncreaseHeapSize(Heap, NewHeapSize)
   else
   begin
     // create a new segment and place it at the beginning of the list
-    p := TMemSegment.NewSegment(NewHeapSize);
-    p.Next := Heap;
-    Heap := p;
+    TMemSegment.NewSegment(s, NewHeapSize);
+    s.Next := Heap;
+    Heap := s;
   end;
   FCapacity := (Heap.GetHeapSize - sizeof(TMemSegment)) div FMeta.ItemSize;
 end;
@@ -1006,10 +1016,11 @@ end;
 
 {$Region 'TUnbrokenRegion'}
 
-procedure TUnbrokenRegion.Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
+procedure TUnbrokenRegion.Init(Meta: PsgItemMeta; BlockSize: Cardinal);
 begin
   FRegion.Init(Meta, BlockSize);
   FCount := 0;
+  FSeed := SeedValue;
 end;
 
 procedure TUnbrokenRegion.Free;
@@ -1080,6 +1091,20 @@ begin
   end;
 end;
 
+procedure TUnbrokenRegion.CopyFrom(const Region: PUnbrokenRegion;
+  Index, Cnt: Integer);
+var
+  Dest, Value: PByte;
+begin
+  while Cnt > 0 do
+  begin
+    Value := Region.GetItemPtr(Index);
+    Dest := AddItem;
+    FRegion.AssignItem(@FRegion.FMeta, Dest, Value);
+    Dec(Cnt);
+  end;
+end;
+
 function TUnbrokenRegion.GetCount: Integer;
 begin
   Result := FCount;
@@ -1121,7 +1146,7 @@ end;
 
 {$Region 'TSegmentedRegion'}
 
-procedure TSegmentedRegion.Init(const Meta: TsgItemMeta; BlockSize: Cardinal);
+procedure TSegmentedRegion.Init(Meta: PsgItemMeta; BlockSize: Cardinal);
 begin
   FRegion.Init(Meta, BlockSize);
 end;
@@ -1203,7 +1228,7 @@ begin
   inherited Create;
   FBlockSize := BlockSize;
   New(FRegions);
-  FRegions.Init(TsgContext.MemoryRegionMeta, BlockSize);
+  FRegions.Init(@TsgContext.MemoryRegionMeta, BlockSize);
   FRealesed.Init;
 end;
 
@@ -1218,19 +1243,19 @@ begin
   inherited;
 end;
 
-function THeapPool.CreateUnbrokenRegion(Meta: TsgItemMeta): PUnbrokenRegion;
+function THeapPool.CreateUnbrokenRegion(Meta: PsgItemMeta): PUnbrokenRegion;
 begin
   Meta.h.SetSegmented(False);
   Result := PUnbrokenRegion(FindOrCreateRegion(Meta));
 end;
 
-function THeapPool.CreateRegion(Meta: TsgItemMeta): PSegmentedRegion;
+function THeapPool.CreateRegion(Meta: PsgItemMeta): PSegmentedRegion;
 begin
   Meta.h.SetSegmented(True);
   Result := PSegmentedRegion(FindOrCreateRegion(Meta));
 end;
 
-function THeapPool.FindOrCreateRegion(const Meta: TsgItemMeta): PMemoryRegion;
+function THeapPool.FindOrCreateRegion(Meta: PsgItemMeta): PMemoryRegion;
 var
   p: PRegionItem;
 begin
@@ -1429,12 +1454,12 @@ begin
     TRemoveAction.HoldValue, FreeRegion);
 end;
 
-function TsgContext.CreateRegion(Meta: TsgItemMeta): PSegmentedRegion;
+function TsgContext.CreateRegion(Meta: PsgItemMeta): PSegmentedRegion;
 begin
   Result := FHeapPool.CreateRegion(Meta);
 end;
 
-function TsgContext.CreateUnbrokenRegion(Meta: TsgItemMeta): PUnbrokenRegion;
+function TsgContext.CreateUnbrokenRegion(Meta: PsgItemMeta): PUnbrokenRegion;
 begin
   Result := FHeapPool.CreateUnbrokenRegion(Meta);
 end;

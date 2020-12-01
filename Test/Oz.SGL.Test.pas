@@ -1292,7 +1292,7 @@ var
 begin
   value := 45;
   meta := SysCtx.CreateMeta<Integer>;
-  region.Init(meta^, 1024);
+  region.Init(meta, 1024);
   item.Init(region.Region^, value);
 end;
 
@@ -1343,7 +1343,7 @@ end;
 procedure TUnbrokenRegionTest.Init<T>(var value: T);
 begin
   meta := SysCtx.CreateMeta<T>;
-  region.Init(meta^, 1024);
+  region.Init(meta, 1024);
   item.Init(region.Region^, value);
 end;
 
@@ -1876,7 +1876,7 @@ end;
 procedure TSegmentedRegionTest.Init<T>(var value: T);
 begin
   meta := SysCtx.CreateMeta<T>;
-  region.Init(meta^, 1024);
+  region.Init(meta, 1024);
   item.Init(region.Region^, value);
 end;
 
@@ -1897,7 +1897,7 @@ end;
 procedure TsgItemTest.InitItem<T>(var value: T);
 begin
   meta := SysCtx.CreateMeta<T>;
-  region.Init(meta^, 1024);
+  region.Init(meta, 1024);
   item.Init(region, value);
 end;
 
@@ -2216,7 +2216,7 @@ var
   n, FreeSize, HeapSize: Cardinal;
 begin
   HeapSize := MemSize;
-  s := TMemSegment.NewSegment(HeapSize);
+  TMemSegment.NewSegment(s, HeapSize);
   try
     FreeSize := HeapSize - sizeof(TMemSegment);
     CheckSegment(FreeSize, HeapSize);
@@ -2229,7 +2229,7 @@ begin
 
     for n := 0 to 3 do
     begin
-      s1 := TMemSegment.NewSegment(MemSize);
+      TMemSegment.NewSegment(s1, MemSize);
       try
         HeapSize := HeapSize + MemSize;
         TMemSegment.IncreaseHeapSize(s, HeapSize);
@@ -2278,7 +2278,7 @@ var
   meta: PsgItemMeta;
 begin
   meta := SysCtx.CreateMeta<TListNode>;
-  r := HeapPool.CreateRegion(meta^);
+  r := HeapPool.CreateRegion(meta);
   try
     head := nil;
     for i := 1 to ItemsCount do
@@ -2303,7 +2303,7 @@ var
   meta: PsgItemMeta;
 begin
   meta := SysCtx.CreateMeta<TListNode>;
-  r := HeapPool.CreateUnbrokenRegion(meta^);
+  r := HeapPool.CreateUnbrokenRegion(meta);
   try
     q := nil;
     for i := 0 to ItemsCount - 1 do
@@ -2783,7 +2783,7 @@ end;
 procedure TestTSharedRegion.SetUp;
 begin
   Meta := SysCtx.CreateMeta<TTestRecord>;
-  Region.Init(Meta^, 5000);
+  Region.Init(Meta, 5000);
 end;
 
 procedure TestTSharedRegion.TearDown;
@@ -2835,7 +2835,7 @@ end;
 procedure TestTsgArray.SetUp;
 begin
   Meta := SysCtx.CreateMeta<TTestRecord>;
-  Region.Init(Meta^, 5000);
+  Region.Init(Meta, 5000);
 end;
 
 procedure TestTsgArray.TearDown;
@@ -3165,8 +3165,10 @@ var
   Source: TsgList<TTestRecord>;
   v, r, n: TTestRecord;
   p: PTestRecord;
-  i: Integer;
+  i, k: Integer;
 begin
+  k := List.Count;
+  CheckTrue(k = 0);
   v.Init(25, 1);
   v.s := '123';
   Source := TsgList<TTestRecord>.From(64);
@@ -3178,9 +3180,10 @@ begin
       n.s := IntToStr(i);
       Source.Add(n);
     end;
-//    System.CopyRecord(@r, @n, TypeInfo(TTestRecord));
-//    Source.FListHelper.FRegion.AssignItem(@r, @n);
+    System.CopyRecord(@r, @n, TypeInfo(TTestRecord));
     CheckTrue(r.Equals(n));
+    k := List.Count;
+    CheckTrue(k = 0);
     List.Assign(Source);
     CheckTrue(List.Count = Cnt + 1);
     p := Source.GetPtr(0);
