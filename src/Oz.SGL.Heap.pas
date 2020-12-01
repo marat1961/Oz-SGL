@@ -205,19 +205,17 @@ type
 
   PMemoryRegion = ^TMemoryRegion;
   TMemoryRegion = record
-  const
-    SeedValue = 1234979;
   type
     TSwapProc = procedure(A, B: Pointer) of object;
   private
     Heap: PMemSegment;
     BlockSize: Cardinal;
     FCapacity: Integer;
+    FCount: Integer;
     FMeta: TsgItemMeta;
     // procedural types
     FSwapItems: TSwapProc;
     FCompareItems: TCompareProc;
-    FSeed: Integer;
     procedure GrowHeap(NewCount: Integer);
     function Grow(NewCount: Integer): Integer;
     function GetOccupiedCount(p: PMemSegment): Integer;
@@ -257,12 +255,8 @@ type
 
   PUnbrokenRegion = ^TUnbrokenRegion;
   TUnbrokenRegion = record
-  const
-    SeedValue = 1234979;
   private
     FRegion: TMemoryRegion;
-    FCount: Integer;
-    FSeed: Integer;
     function GetRegion: PMemoryRegion; inline;
     function GetMeta: PsgItemMeta; inline;
   public
@@ -295,7 +289,7 @@ type
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FRegion.FCapacity;
-    property Count: Integer read FCount write SetCount;
+    property Count: Integer read FRegion.FCount write SetCount;
     property ItemSize: Cardinal read FRegion.FMeta.ItemSize;
   end;
 
@@ -871,13 +865,14 @@ begin
   Self.FMeta := Meta^;
   Self.BlockSize := BlockSize;
   Self.FCapacity := 0;
+  Self.FCount := 0;
   Self.Heap := nil;
-  FSeed := SeedValue;
 end;
 
-function TMemoryRegion.Valid: Boolean;
+procedure TMemoryRegion.Free;
 begin
-  Result := FMeta.h.Valid and (FSeed = SeedValue);
+  FreeHeap(Heap);
+  FCount := 0;
 end;
 
 procedure TMemoryRegion.Clear;
@@ -890,11 +885,12 @@ begin
   FreeHeap(Heap.Next);
   // Determine the size of free memory
   Heap.Init(Heap.GetHeapSize);
+  FCount := 0;
 end;
 
-procedure TMemoryRegion.Free;
+function TMemoryRegion.Valid: Boolean;
 begin
-  FreeHeap(Heap);
+  Result := FMeta.h.Valid;
 end;
 
 procedure TMemoryRegion.FreeHeap(var Heap: PMemSegment);
@@ -1019,20 +1015,16 @@ end;
 procedure TUnbrokenRegion.Init(Meta: PsgItemMeta; BlockSize: Cardinal);
 begin
   FRegion.Init(Meta, BlockSize);
-  FCount := 0;
-  FSeed := SeedValue;
 end;
 
 procedure TUnbrokenRegion.Free;
 begin
   FRegion.Free;
-  FCount := 0;
 end;
 
 procedure TUnbrokenRegion.Clear;
 begin
   FRegion.Clear;
-  FCount := 0;
 end;
 
 function TUnbrokenRegion.GetRegion: PMemoryRegion;
@@ -1042,19 +1034,19 @@ end;
 
 procedure TUnbrokenRegion.SetCount(NewCount: Integer);
 begin
-  if NewCount <> FCount then
+  if NewCount <> FRegion.FCount then
   begin
     if Capacity <= NewCount then
       FRegion.GrowHeap(NewCount);
-    FCount := NewCount;
+    FRegion.FCount := NewCount;
   end;
 end;
 
 function TUnbrokenRegion.AddItem: PByte;
 begin
-  Inc(FCount);
-  if Capacity <= FCount then
-    FRegion.GrowHeap(FCount);
+  Inc(FRegion.FCount);
+  if Capacity <= FRegion.FCount then
+    FRegion.GrowHeap(FRegion.FCount);
   Result := FRegion.Heap.Occupy(ItemSize);
 end;
 
@@ -1080,11 +1072,11 @@ var
   MemSize: Integer;
   Dest, Source: PByte;
 begin
-  CheckIndex(Index, FCount);
-  Dec(FCount);
-  if Index < FCount then
+  CheckIndex(Index, FRegion.FCount);
+  Dec(FRegion.FCount);
+  if Index < FRegion.FCount then
   begin
-    MemSize := (FCount - Index) * ItemSize;
+    MemSize := (FRegion.FCount - Index) * ItemSize;
     Dest := GetItems + Index * ItemSize;
     Source := Dest + ItemSize;
     System.Move(Source^, Dest^, MemSize);
@@ -1107,7 +1099,7 @@ end;
 
 function TUnbrokenRegion.GetCount: Integer;
 begin
-  Result := FCount;
+  Result := FRegion.FCount;
 end;
 
 function TUnbrokenRegion.GetItems: PByte;
@@ -1117,7 +1109,7 @@ end;
 
 function TUnbrokenRegion.GetItemPtr(Index: Cardinal): Pointer;
 begin
-  CheckIndex(Index, FCount);
+  CheckIndex(Index, FRegion.FCount);
   Result := FRegion.GetItemPtr(Index);
 end;
 
@@ -1246,12 +1238,14 @@ end;
 function THeapPool.CreateUnbrokenRegion(Meta: PsgItemMeta): PUnbrokenRegion;
 begin
   Meta.h.SetSegmented(False);
+  Assert(sizeof(TUnbrokenRegion) = sizeof(TMemoryRegion));
   Result := PUnbrokenRegion(FindOrCreateRegion(Meta));
 end;
 
 function THeapPool.CreateRegion(Meta: PsgItemMeta): PSegmentedRegion;
 begin
   Meta.h.SetSegmented(True);
+  Assert(sizeof(TSegmentedRegion) = sizeof(TMemoryRegion));
   Result := PSegmentedRegion(FindOrCreateRegion(Meta));
 end;
 

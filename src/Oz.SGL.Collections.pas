@@ -228,7 +228,7 @@ type
   private
     FRegion: PUnbrokenRegion;
     function GetItems: PByte; inline;
-    function GetCount: Integer; //inline;
+    function GetCount: Integer; inline;
     procedure SetCount(NewCount: Integer);
     procedure QuickSort(Compare: TListSortCompareFunc; L, R: Integer);
   public
@@ -254,7 +254,7 @@ type
   private
     FListHelper: TsgListHelper;
     function GetItems: PItems; inline;
-    function GetCount: Integer; //inline;
+    function GetCount: Integer; inline;
     function GetItem(Index: Integer): T;
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
