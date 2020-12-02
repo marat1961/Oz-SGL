@@ -3763,14 +3763,13 @@ begin
   end;
 end;
 
-var
-  iii: Integer;
 procedure TsgLinkedListTest._Clear;
 var
   p: TPerson;
-  i: Integer;
+  i, n: Integer;
 begin
-  CheckTrue(List.Region.Region.Meta.ItemSize = sizeof(TPerson));
+  n := sizeof(TsgForwardList<TPerson>.TItem);
+  CheckTrue(n = sizeof(TCustomForwardList.TItem) + sizeof(TPerson));
   CheckTrue(List.Count = 0);
   p.id := 1;
   p.name := 'p1';
@@ -3789,9 +3788,6 @@ begin
   for i := 1 to ItemsCount do
   begin
     p.id := i;
-    if i = 1021 then
-      iii := 0;
-    iii := i;
     p.name := 'p' + IntToStr(i);
     if Odd(i) then
       List.PushBack(p)

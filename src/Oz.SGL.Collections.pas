@@ -2837,7 +2837,7 @@ procedure TsgLinkedList<T>.Init(OnFree: TFreeProc);
 var
   Meta: PsgItemMeta;
 begin
-  Meta := SysCtx.CreateMeta<T>(OnFree);
+  Meta := SysCtx.CreateMeta<TItem>(OnFree);
   FList.Init(Meta);
 end;
 
