@@ -432,14 +432,14 @@ type
       FItem: PItem;
       function GetCurrent: PItem;
     public
-      constructor From(const List: TCustomForwardList);
+      constructor From(List: PCustomForwardList);
       function MoveNext: Boolean;
       property Current: PItem read GetCurrent;
     end;
   private
-    FRegion: PSegmentedRegion;
     FHead: PItem;
     FLast: PItem;
+    FRegion: PSegmentedRegion;
   public
     procedure Init(Meta: PsgItemMeta);
     procedure Free;
@@ -483,15 +483,15 @@ type
       FEnumerator: TCustomForwardList.TEnumerator;
       function GetCurrent: PValue; inline;
     public
-      constructor From(const List: TCustomForwardList);
+      constructor From(List: PCustomForwardList);
       function MoveNext: Boolean; inline;
       property Current: PValue read GetCurrent;
     end;
     TIterator = record
     private
-      Item: PItem;
       function GetValue: PValue;
     public
+      Item: PItem;
       // Go to the next node
       procedure Next;
       // Iterator at the end of the list.
@@ -2318,7 +2318,7 @@ end;
 
 {$Region 'TCustomForwardList.TEnumerator'}
 
-constructor TCustomForwardList.TEnumerator.From(const List: TCustomForwardList);
+constructor TCustomForwardList.TEnumerator.From(List: PCustomForwardList);
 begin
   FItem := PItem(@List.FHead);
 end;
@@ -2462,7 +2462,7 @@ end;
 
 {$Region 'TsgForwardList<T>.TEnumerator'}
 
-constructor TsgForwardList<T>.TEnumerator.From(const List: TCustomForwardList);
+constructor TsgForwardList<T>.TEnumerator.From(List: PCustomForwardList);
 begin
   FEnumerator := TCustomForwardList.TEnumerator.From(List);
 end;
@@ -2504,7 +2504,7 @@ procedure TsgForwardList<T>.Init(OnFree: TFreeProc);
 var
   Meta: PsgItemMeta;
 begin
-  Meta := SysCtx.CreateMeta<T>(OnFree);
+  Meta := SysCtx.CreateMeta<TItem>(OnFree);
   FList.Init(Meta);
 end;
 
@@ -2534,8 +2534,11 @@ begin
 end;
 
 procedure TsgForwardList<T>.PushFront(const Value: T);
+var
+  it: TIterator;
 begin
-  PushFront.Value^ := Value;
+  it := PushFront;
+  it.Value^ := Value;
 end;
 
 function TsgForwardList<T>.InsertAfter(Pos: TIterator): TIterator;
@@ -2566,7 +2569,7 @@ end;
 
 function TsgForwardList<T>.GetEnumerator: TEnumerator;
 begin
-  Result := TEnumerator.From(FList);
+  Result := TEnumerator.From(@FList);
 end;
 
 function TsgForwardList<T>.GetRegion: PSegmentedRegion;

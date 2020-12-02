@@ -3418,9 +3418,10 @@ end;
 procedure TsgForwardListTest._Clear;
 var
   p: TPerson;
-  i: Integer;
+  i, n: Integer;
 begin
-  CheckTrue(List.Region.Region.Meta.ItemSize = sizeof(TPerson));
+  n := sizeof(TsgForwardList<TPerson>.TItem);
+  CheckTrue(n = sizeof(TCustomForwardList.TItem) + sizeof(TPerson));
   CheckTrue(List.Count = 0);
   p.id := 1;
   p.name := 'p1';
@@ -3460,15 +3461,43 @@ procedure TsgForwardListTest._Count;
 var
   p: TPerson;
   i: Integer;
+  it: TsgForwardList<TPerson>.TIterator;
+  its: array [0..5] of TsgForwardList<TPerson>.TIterator;
+  v: PPerson;
+  n: Integer;
 begin
+  n := sizeof(TsgForwardList<TPerson>.TItem);
+  CheckTrue(n = sizeof(TCustomForwardList.TItem) + sizeof(TPerson));
   CheckTrue(List.Count = 0);
-  p.id := 1;
+  p.id := 0;
   p.name := 'Nick';
-  List.PushFront(p);
+  it := List.PushFront;
+  it.Value^ := p;
   CheckTrue(List.Count = 1);
+  its[0] := it;
   for i := 1 to 5 do
-    List.PushFront(p);
+  begin
+    p.id := i;
+    p.name := 'id_' + IntToStr(i);
+    it := List.PushFront;
+    it.Value^ := p;
+    its[i] := it;
+    v := it.Value;
+    CheckTrue(v.id = p.id);
+    CheckTrue(v.name = p.name);
+  end;
   CheckTrue(List.Count = 6);
+  it := List.Front;
+  for i := 5 downto 0 do
+  begin
+    v := it.Value;
+    CheckTrue(v.id = i);
+    if i = 0 then
+      CheckTrue(v.name = 'Nick')
+    else
+      CheckTrue(v.name = 'id_' + IntToStr(i));
+    it.Next;
+  end;
 end;
 
 procedure TsgForwardListTest._Front;
@@ -3734,6 +3763,8 @@ begin
   end;
 end;
 
+var
+  iii: Integer;
 procedure TsgLinkedListTest._Clear;
 var
   p: TPerson;
@@ -3758,6 +3789,9 @@ begin
   for i := 1 to ItemsCount do
   begin
     p.id := i;
+    if i = 1021 then
+      iii := 0;
+    iii := i;
     p.name := 'p' + IntToStr(i);
     if Odd(i) then
       List.PushBack(p)
@@ -4514,10 +4548,10 @@ end;
 
 initialization
 
-  RegisterTest(TestTsgList.Suite);
-  RegisterTest(TsgLinkedListTest.Suite);
-
   RegisterTest(TsgForwardListTest.Suite);
+  RegisterTest(TestTsgList.Suite);
+
+  RegisterTest(TsgLinkedListTest.Suite);
   RegisterTest(TSysCtxTest.Suite);
 
   // Oz.SGL.HandleManager
