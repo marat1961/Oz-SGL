@@ -3635,7 +3635,12 @@ begin
   begin
     p.id := i;
     p.name := IntToStr(i);
-    List.PushFront(p);
+    if i = 0 then
+      it := List.PushFront
+    else
+      it := List.InsertAfter(it);
+    it.Value^ := p;
+    CheckTrue(List.Count = i + 1);
   end;
 
   i := 0;
