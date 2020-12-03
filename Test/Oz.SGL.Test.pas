@@ -541,6 +541,17 @@ begin
   Result := TIter(a).Value.id - TIter(b).Value.id;
 end;
 
+function PersonIdCompare1(a, b: Pointer): Integer;
+type
+  PItem = TsgForwardList<TPerson>.PItem;
+var
+  pa, pb: PItem;
+begin
+  pa := PItem(a);
+  pb := PItem(b);
+  Result := pa.Value.id - pb.Value.id;
+end;
+
 function PersonCompare(a, b: Pointer): Integer;
 begin
   Result := CompareText(PPerson(a).name, PPerson(b).name);
@@ -3672,7 +3683,7 @@ end;
 
 procedure TsgForwardListTest._Sort;
 const
-  N = 500;
+  N = 800;
 var
   i, d: Integer;
   it: TsgForwardList<TPerson>.TIterator;
@@ -3688,12 +3699,12 @@ begin
   end;
   DumpList;
   log.SaveToFile('sort1.txt');
-  List.Sort(PersonIdCompare);
+  List.Sort(PersonIdCompare1);
   it := List.Front;
   for i := 0 to N do
   begin
     if i = 0 then
-     d := it.Value.id
+      d := it.Value.id
     else
     begin
       CheckTrue(it.Value.id >= d);
@@ -3706,6 +3717,8 @@ begin
 end;
 
 procedure TsgForwardListTest._Eol;
+const
+  N = 500;
 var
   i: Integer;
   it: TsgForwardList<TPerson>.TIterator;
@@ -3714,22 +3727,22 @@ begin
   CheckTrue(List.Count = 0);
   it := List.Front;
   CheckTrue(it.Eol);
-  for i := 0 to 9 do
+  for i := 0 to N do
   begin
     p.id := i;
     p.name := IntToStr(i);
     List.PushFront(p);
   end;
   it := List.Front;
-  i := 0;
+  i := N;
   while not it.Eol do
   begin
     CheckTrue(it.Value.id = i);
     CheckTrue(it.Value.name = IntToStr(i));
     it.Next;
-    Inc(i);
+    Dec(i);
   end;
-  CheckTrue(i = 10);
+  CheckTrue(i = -1);
 end;
 
 {$EndRegion}
