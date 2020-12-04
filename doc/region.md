@@ -65,21 +65,21 @@ Metadata contains the size and set of Boolean flags and seed in a packed record.
 hMeta = record
   TypeKind     5 System.TTypeKind 0...22
   Reserved     1
-  ManagedType  1 Boolean -- controlled type
-  HasWeakRef   1 Boolean -- type contains weak links
+  ManagedType  1 Boolean -- Controlled type
+  HasWeakRef   1 Boolean -- Type contains weak links
                8
-  RangeCheck   1 Boolean -- check index or pointer validity
+  RangeCheck   1 Boolean -- Check index or pointer validity
   Notification 1 Boolean -- Notification when performing operations 
-  Owned        1 Boolean -- objects belong to the region
-  AtDeletion   2 TAtDeletion 0...2 Clear
+  Owned        1 Boolean -- Objects belong to the region
+  RemoveAction 2 TRemoveAction 0...2 -- Removal behavior from the collection
 end;
 ```
-Removal behavior from the collection
-AtDeletion -- What to do when removing from a collection:
-- do nothing
-- clear the element value;
-- clear the element value and allow reuse;
-- hold the element value.
+A constant value is placed in the **seed** field and used to indicate if this structure is valid.
 
-Clear - clear the value and place it to the reuse list
-HoldValue - hold and store item value
+Removal behavior from the collection
+```
+TRemoveAction = (
+  HoldValue = 0,  // Hold the item value
+  Clear = 1,      // Clear the item value
+  Reuse = 2);     // Clear the item value and allow reuse
+```
