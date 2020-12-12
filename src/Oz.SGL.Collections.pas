@@ -34,6 +34,20 @@ type
 
 {$EndRegion}
 
+{$Region 'TObjectHeap'}
+
+  TObjectHeap<T> = record
+  type
+    PItem = ^T;
+  var
+    region: TSegmentedRegion;
+  public
+    constructor From(BlockSize: Cardinal);
+    function Get(Clear: Boolean): PItem;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgArray<T>: Generic Array with memory allocation from a shared memory region'}
 
   TMemoryDescriptor = record
@@ -1167,6 +1181,23 @@ begin
     ShortSort(L, R)
   else
     Sort(L, R);
+end;
+
+{$EndRegion}
+
+{$Region 'TObjectHeap'}
+
+constructor TObjectHeap<T>.From(BlockSize: Cardinal);
+var
+  meta: PsgItemMeta;
+begin
+  meta := SysCtx.CreateMeta<T>;
+  region.Init(meta, BlockSize);
+end;
+
+function TObjectHeap<T>.Get(Clear: Boolean): PItem;
+begin
+  Result := region.AddItem;
 end;
 
 {$EndRegion}

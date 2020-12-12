@@ -1057,10 +1057,10 @@ var
 begin
   CheckIndex(Index, Count + 1);
   AddItem;
-  Source := GetItems + Index * ItemSize;
+  Source := GetItems + Cardinal(Index) * ItemSize;
   if Index <> Count - 1 then
   begin
-    MemSize := (Count - Index - 1) * ItemSize;
+    MemSize := Cardinal(Count - Index - 1) * ItemSize;
     Dest := Source + ItemSize;
     System.Move(Source^, Dest^, MemSize);
   end;
@@ -1076,8 +1076,8 @@ begin
   Dec(FRegion.FCount);
   if Index < FRegion.FCount then
   begin
-    MemSize := (FRegion.FCount - Index) * ItemSize;
-    Dest := GetItems + Index * ItemSize;
+    MemSize := Cardinal(FRegion.FCount - Index) * ItemSize;
+    Dest := GetItems + Cardinal(Index) * ItemSize;
     Source := Dest + ItemSize;
     System.Move(Source^, Dest^, MemSize);
   end;
