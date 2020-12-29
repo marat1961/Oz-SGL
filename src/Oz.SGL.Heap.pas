@@ -260,7 +260,8 @@ type
     function GetRegion: PMemoryRegion; inline;
     function GetMeta: PsgItemMeta; inline;
   public
-    procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal);
+    procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal = 8192); overload;
+    procedure InitWithCount(Meta: PsgItemMeta; Count: Cardinal); overload;
     // Free the region
     procedure Free; inline;
     // Erases all elements from the memory region.
@@ -1017,6 +1018,15 @@ end;
 procedure TUnbrokenRegion.Init(Meta: PsgItemMeta; BlockSize: Cardinal);
 begin
   FRegion.Init(Meta, BlockSize);
+end;
+
+procedure TUnbrokenRegion.InitWithCount(Meta: PsgItemMeta; Count: Cardinal);
+var
+  BlockSize: Cardinal;
+begin
+  BlockSize := Meta.ItemSize * Count + 1;
+  FRegion.Init(Meta, BlockSize);
+  SetCount(Count);
 end;
 
 procedure TUnbrokenRegion.Free;
