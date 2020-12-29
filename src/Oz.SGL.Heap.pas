@@ -285,6 +285,8 @@ type
     procedure CopyFrom(const Region: PUnbrokenRegion; Index, Cnt: Integer);
     // Assign item
     procedure AssignItem(Dest, Src: Pointer);
+    // Exchange items
+    procedure Exchange(Index1, Index2: Integer);
     // Propeties
     property Region: PMemoryRegion read GetRegion;
     property Meta: PsgItemMeta read GetMeta;
@@ -1080,6 +1082,32 @@ begin
     Dest := GetItems + Cardinal(Index) * ItemSize;
     Source := Dest + ItemSize;
     System.Move(Source^, Dest^, MemSize);
+  end;
+end;
+
+procedure TUnbrokenRegion.Exchange(Index1, Index2: Integer);
+var
+  ItemSize: Integer;
+  DTemp: PByte;
+  PTemp: PByte;
+  Items: Pointer;
+  STemp: array [0..255] of Byte;
+begin
+  ItemSize := FRegion.Meta.ItemSize;
+  DTemp := nil;
+  PTemp := @STemp[0];
+  Items := FRegion.GetItemPtr(0);
+  try
+    if ItemSize > sizeof(STemp) then
+    begin
+      GetMem(DTemp, ItemSize);
+      PTemp := DTemp;
+    end;
+    Move(PByte(Items)[Index1 * ItemSize], PTemp[0], ItemSize);
+    Move(PByte(Items)[Index2 * ItemSize], PByte(Items)[Index1 * ItemSize], ItemSize);
+    Move(PTemp[0], PByte(Items)[Index2 * ItemSize], ItemSize);
+  finally
+    FreeMem(DTemp);
   end;
 end;
 
