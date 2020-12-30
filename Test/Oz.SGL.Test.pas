@@ -4562,11 +4562,7 @@ end;
 
 initialization
 
-  RegisterTest(TsgForwardListTest.Suite);
-  RegisterTest(TestTsgList.Suite);
-
-  RegisterTest(TsgLinkedListTest.Suite);
-  RegisterTest(TSysCtxTest.Suite);
+  RegisterTest(TestTsgHashMap.Suite);
 
   // Oz.SGL.HandleManager
   RegisterTest(TsgHandleManagerTest.Suite);
@@ -4579,11 +4575,14 @@ initialization
   RegisterTest(TSegmentedRegionTest.Suite);
   RegisterTest(TestTSharedRegion.Suite);
   RegisterTest(TestTsgArray.Suite);
+  RegisterTest(TSysCtxTest.Suite);
 
   // Oz.SGL.Collections
   RegisterTest(TsgTupleMetaTest.Suite);
   RegisterTest(TsgTupleTest.Suite);
-  RegisterTest(TestTsgHashMap.Suite);
+  RegisterTest(TsgForwardListTest.Suite);
+  RegisterTest(TestTsgList.Suite);
+  RegisterTest(TsgLinkedListTest.Suite);
 
   RegisterTest(TsgRecordListTest.Suite);
   RegisterTest(TestTsgMap.Suite);

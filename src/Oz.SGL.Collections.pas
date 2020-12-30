@@ -746,11 +746,10 @@ type
     FEntries: PUnbrokenRegion;
     FCollisions: PSegmentedRegion;
     FPair: TsgTupleMeta;
-    FCount: Integer;
     FHash: THashProc;
     FEquals: TEqualsFunc;
-    // Set entry table size
-    procedure SetEntriesLength(ExpectedSize: Integer);
+    // Get a prime number for the expected number of items
+    function GetEntries(ExpectedSize: Integer): Integer;
   public
     constructor From(const PairMeta: TsgTupleMeta; ExpectedSize: Integer;
       HashKey: THashProc; Equals: TEqualsFunc);
@@ -3040,35 +3039,34 @@ constructor TsgCustomHashMap.From(const PairMeta: TsgTupleMeta; ExpectedSize: In
   HashKey: THashProc; Equals: TEqualsFunc);
 var
   EntryMeta, CollisionMeta: PsgItemMeta;
+  TabSize: Integer;
 begin
   EntryMeta := SysCtx.CreateMeta<TEntry>;
   FEntries := SysCtx.CreateUnbrokenRegion(EntryMeta);
+  TabSize := GetEntries(ExpectedSize);
+  FEntries.Count := TabSize;
+  Assert(FEntries.Count = TabSize);
   FPair := PairMeta;
   FHash := HashKey;
   FEquals := Equals;
   CollisionMeta := SysCtx.CreateMeta<TCollision>;
   CollisionMeta.ItemSize := sizeof(TCollision) + FPair.Size;
   FCollisions := SysCtx.CreateRegion(CollisionMeta);
-  SetEntriesLength(ExpectedSize);
 end;
 
-procedure TsgCustomHashMap.SetEntriesLength(ExpectedSize: Integer);
-var
-  TabSize: Integer;
+function TsgCustomHashMap.GetEntries(ExpectedSize: Integer): Integer;
 begin
   // the size of the entry table must be a prime number
   if ExpectedSize < 1000 then
-    TabSize := 307
+    Result := 307
   else if ExpectedSize < 3000 then
-    TabSize := 1103
+    Result := 1103
   else if ExpectedSize < 10000 then
-    TabSize := 2903
+    Result := 2903
   else if ExpectedSize < 30000 then
-    TabSize := 19477
+    Result := 19477
   else
-    TabSize := 32469;
-  FEntries.Region.IncreaseAndAlloc(TabSize);
-  FCount := TabSize;
+    Result := 32469;
 end;
 
 procedure TsgCustomHashMap.Free;
@@ -3089,7 +3087,7 @@ var
   eidx: Cardinal;
   p: PCollision;
 begin
-  eidx := FHash(key^) mod Cardinal(FCount);
+  eidx := FHash(key^) mod Cardinal(FEntries.Count);
   p := PCollision(FEntries.GetItemPtr(eidx));
   while p <> nil do
   begin
@@ -3110,7 +3108,7 @@ var
   p, n: PCollision;
   pt: PsgTupleElementMeta;
 begin
-  eidx := FHash(pair^) mod Cardinal(FCount);
+  eidx := FHash(pair^) mod Cardinal(FEntries.Count);
   entry := FEntries.GetItemPtr(eidx);
   p := entry.root;
   while p <> nil do
@@ -3140,7 +3138,7 @@ end;
 
 function TsgCustomHashMap.Ends: TIterator;
 begin
-  Result.Init(FPair, PCollision(FEntries.GetItemPtr(FCount - 1)));
+  Result.Init(FPair, PCollision(FEntries.GetItemPtr(FEntries.Count - 1)));
 end;
 
 {$EndRegion}
