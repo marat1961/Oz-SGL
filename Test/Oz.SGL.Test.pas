@@ -472,11 +472,13 @@ type
 
 {$Region 'TestTsgHashMap'}
 
+type
+  THashMapPair = TsgPair<TVector, Integer>;
+  PHashMapPair = ^THashMapPair;
+  TIter = TsgHashMapIterator<TVector, Integer>;
+
   // Test methods for class TsgHashMap
   TestTsgHashMap = class(TTestCase)
-  type
-    THashMapPair = TsgPair<TVector, Integer>;
-    TIter = TsgHashMapIterator<TVector, Integer>;
   strict private
     FMap: TsgHashMap<TVector, Integer>;
   public
@@ -4243,22 +4245,29 @@ begin
   pair.Value := i;
 end;
 
+var
+  rr: PHashMapPair;
+
 procedure TestTsgHashMap.TestInsert;
 var
   i: Integer;
   pair, r: THashMapPair;
-  it: TsgHashMapIterator<TVector, Integer>;
+  a, b: TsgHashMapIterator<TVector, Integer>;
 begin
   for i := 0 to 10000 do
   begin
     // insert
     GenPair(i, pair);
-    FMap.Insert(pair);
+    rr := @pair;
+    a := FMap.Insert(pair);
+    CheckTrue(a <> FMap.Ends);
+    r.Key := a.GetKey^;
+    r.Value := a.GetValue^;
     // find
-    it := FMap.Find(pair.Key);
-    CheckTrue(it <> FMap.Ends);
-    r.Key := it.GetKey^;
-    r.Value := it.GetValue^;
+    b := FMap.Find(pair.Key);
+    CheckTrue(b <> FMap.Ends);
+    r.Key := b.GetKey^;
+    r.Value := b.GetValue^;
     CheckTrue(r.Key.Equals(pair.Key));
     CheckTrue(r.Value = i);
   end;
@@ -4529,12 +4538,9 @@ var
   Size, xs, ys, zs: NativeInt;
 begin
   Size := Trunc(Power(High(NativeInt), 1.0 / 3.0)) - 1;
-  x := Abs(x) / Eps;
-  y := Abs(y) / Eps;
-  z := Abs(z) / Eps;
-  xs := Trunc(FMod(x, Size));
-  ys := Trunc(FMod(y, Size));
-  zs := Trunc(FMod(z, Size));
+  xs := Trunc(FMod(Abs(x) / Eps, Size));
+  ys := Trunc(FMod(Abs(y) / Eps, Size));
+  zs := Trunc(FMod(Abs(z) / Eps, Size));
   Result := (zs * Size + ys) * Size + xs;
 end;
 
