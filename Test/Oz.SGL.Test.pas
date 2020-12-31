@@ -4236,39 +4236,41 @@ end;
 procedure TestTsgHashMap.GenPair(i: Integer; var pair: THashMapPair);
 begin
   case i mod 5 of
-    0: pair.Key := TVector.From(i, i + 1, i * 2);
-    1: pair.Key := TVector.From(-i, i - 1, i);
-    2: pair.Key := TVector.From(i + 20, i, -i);
-    3: pair.Key := TVector.From(-i - 20, -i, i);
-    4: pair.Key := TVector.From(i, i, i);
+    0: pair.Key := TVector.From(i, i + 0, 0);
+    1: pair.Key := TVector.From(i, i + 1, i);
+    2: pair.Key := TVector.From(i, i + 2, i * 2);
+    3: pair.Key := TVector.From(i, i + 3, i * 3);
+    4: pair.Key := TVector.From(i, i + 4, i * 4);
   end;
   pair.Value := i;
 end;
 
-var
-  rr: PHashMapPair;
-
 procedure TestTsgHashMap.TestInsert;
 var
   i: Integer;
-  pair, r: THashMapPair;
+  pair, t, r: THashMapPair;
   a, b: TsgHashMapIterator<TVector, Integer>;
+  sa, sb, ai, bi: Integer;
 begin
   for i := 0 to 10000 do
   begin
     // insert
     GenPair(i, pair);
-    rr := @pair;
+    t := pair;
+
     a := FMap.Insert(pair);
     CheckTrue(a <> FMap.Ends);
     r.Key := a.GetKey^;
     r.Value := a.GetValue^;
+    CheckTrue(r.Key.Equals(t.Key));
+    CheckTrue(r.Value = i);
+
     // find
     b := FMap.Find(pair.Key);
     CheckTrue(b <> FMap.Ends);
     r.Key := b.GetKey^;
     r.Value := b.GetValue^;
-    CheckTrue(r.Key.Equals(pair.Key));
+    CheckTrue(r.Key.Equals(t.Key));
     CheckTrue(r.Value = i);
   end;
 end;
@@ -4277,12 +4279,12 @@ procedure TestTsgHashMap.TestFind;
 var
   i, j: Integer;
   it: TsgHashMapIterator<TVector, Integer>;
-  pos: TVector;
+  pair: THashMapPair;
 begin
   TestInsert;
   i := 500;
-  pos := TVector.From(i, i + 1, i * 2);
-  it := FMap.Find(pos);
+  GenPair(i, pair);
+  it := FMap.Find(pair.key);
   CheckTrue(it <> FMap.Ends);
   j := it.GetValue^;
   CheckTrue(i = j);

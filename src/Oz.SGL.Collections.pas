@@ -3004,7 +3004,7 @@ end;
 
 function TsgCustomHashMap.TCollision.GetPairRef: Pointer;
 begin
-  Result := PByte(@Next) + sizeof(Pointer);
+  Result := PByte(@Self) + sizeof(Pointer);
 end;
 
 {$EndRegion}
@@ -3024,7 +3024,7 @@ end;
 
 function TsgCustomHashMap.TIterator.GetValue: Pointer;
 begin
-  Result := PByte(ptr) + meta.Get(1).Offset;
+  Result := PByte(ptr) + sizeof(Pointer) + meta.Get(1).Offset;
 end;
 
 procedure TsgCustomHashMap.TIterator.Next;
