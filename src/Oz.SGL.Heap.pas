@@ -128,7 +128,9 @@ type
     function Valid: Boolean; inline;
     // property
     property TypeKind: System.TTypeKind read GetTypeKind;
+    // Has managed type
     property ManagedType: Boolean read GetManagedType;
+    // Has weak reference
     property HasWeakRef: Boolean read GetHasWeakRef;
     property Segmented: Boolean read GetSegmented write SetSegmented;
     property RangeCheck: Boolean read GetRangeCheck write SetRangeCheck;

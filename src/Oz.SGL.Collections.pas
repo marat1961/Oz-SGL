@@ -130,10 +130,15 @@ type
   type
     TsgTeMetaList = TsgArray<TsgTupleElementMeta>;
     PsgTeMetaList = ^TsgTeMetaList;
+    TAssignTuple = procedure(Dest, Value: Pointer) of object;
   private
     FSize: Cardinal;
     FElements: TsgTeMetaList;
     FOnFree: TFreeProc;
+    FAssignTuple: TAssignTuple;
+    procedure AssignTuple(Dest, Value: Pointer);
+    procedure MoveTuple(Dest, Value: Pointer);
+    procedure CheckManaged;
     // Add tuple element
     procedure AddElement(meta: PsgTupleElementMeta; Allign: Boolean);
     procedure AddTe<T>(Allign: Boolean);
@@ -155,7 +160,7 @@ type
     // Return a reference to the meta element of the tuple
     function Get(Index: Cardinal): PsgTupleElementMeta; inline;
     // Assign tuple
-    procedure Assign(Dest, Value: Pointer);
+    property Assign: TAssignTuple read FAssignTuple;
     // Memory size
     property Size: Cardinal read FSize;
     // Number of elements
@@ -738,7 +743,7 @@ type
     private
       ptr: PCollision;
       meta: PsgTupleMeta;
-      procedure Init(const meta: TsgTupleMeta; p: PCollision);
+      procedure Init(meta: PsgTupleMeta; p: PCollision);
     public
       procedure Next; inline;
       function GetKey: Pointer; inline;
@@ -747,13 +752,13 @@ type
   private
     FEntries: PUnbrokenRegion;
     FCollisions: PSegmentedRegion;
-    FPair: TsgTupleMeta;
+    FPair: PsgTupleMeta;
     FHash: THashProc;
     FEquals: TEqualsFunc;
     // Get a prime number for the expected number of items
     function GetEntries(ExpectedSize: Integer): Integer;
   public
-    constructor From(const PairMeta: TsgTupleMeta; ExpectedSize: Integer;
+    constructor From(PairMeta: PsgTupleMeta; ExpectedSize: Integer;
       HashKey: THashProc; Equals: TEqualsFunc);
     procedure Free;
     // Already initialized
@@ -1052,6 +1057,9 @@ type
     function CreateMeta<T>(OnFree: TFreeProc = nil): PsgItemMeta; overload;
     function CreateMeta<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
       OnFree: TFreeProc = nil): PsgItemMeta; overload;
+
+    // Сreate metadata for tuple
+    function CreateTupleMeta: PsgTupleMeta;
 
     // Сreate TArray<TsgTupleElementMeta>
     procedure CreateTeMetas(Count: Cardinal;
@@ -1359,7 +1367,7 @@ end;
 
 procedure TsgTupleMeta.Init(Count: Cardinal; OnFree: TFreeProc);
 begin
-  FSize := 0;
+  FillChar(Self, sizeof(TsgTupleMeta), 0);
   SysCtx.CreateTeMetas(Count, FElements);
   FOnFree := OnFree;
 end;
@@ -1369,7 +1377,7 @@ begin
   Result := FElements.GetItem(Index);
 end;
 
-procedure TsgTupleMeta.Assign(Dest, Value: Pointer);
+procedure TsgTupleMeta.AssignTuple(Dest, Value: Pointer);
 var
   i: Integer;
   e: PsgTupleElementMeta;
@@ -1378,6 +1386,28 @@ begin
   begin
     e := FElements.GetItem(i);
     e.Assign(e.Meta, PByte(Dest) + e.Offset, PByte(Value) + e.Offset);
+  end;
+end;
+
+procedure TsgTupleMeta.MoveTuple(Dest, Value: Pointer);
+begin
+  Move(Value^, Dest^, Size);
+end;
+
+procedure TsgTupleMeta.CheckManaged;
+var
+  i: Integer;
+  e: PsgTupleElementMeta;
+begin
+  FAssignTuple := MoveTuple;
+  for i := 0 to FElements.Count - 1 do
+  begin
+    e := FElements.GetItem(i);
+    if e.meta.h.ManagedType or e.meta.h.HasWeakRef then
+    begin
+      FAssignTuple := AssignTuple;
+      exit;
+    end;
   end;
 end;
 
@@ -1399,6 +1429,7 @@ begin
   te.Init<T>;
   te.FOffset := FSize;
   FSize := te.NextTupleOffset(Allign);
+  CheckManaged;
 end;
 
 procedure TsgTupleMeta.MakePair<T1, T2>(OnFree: TFreeProc; Allign: Boolean);
@@ -1406,6 +1437,7 @@ begin
   Init(2, OnFree);
   AddTe<T1>(Allign);
   AddTe<T2>(Allign);
+  CheckManaged;
 end;
 
 procedure TsgTupleMeta.MakeTrio<T1, T2, T3>(OnFree: TFreeProc; Allign: Boolean);
@@ -1414,6 +1446,7 @@ begin
   AddTe<T1>(Allign);
   AddTe<T2>(Allign);
   AddTe<T3>(Allign);
+  CheckManaged;
 end;
 
 procedure TsgTupleMeta.MakeQuad<T1, T2, T3, T4>(OnFree: TFreeProc; Allign: Boolean);
@@ -1423,6 +1456,7 @@ begin
   AddTe<T2>(Allign);
   AddTe<T3>(Allign);
   AddTe<T4>(Allign);
+  CheckManaged;
 end;
 
 procedure TsgTupleMeta.Cat(const Tuple: TsgTupleMeta; OnFree: TFreeProc;
@@ -1433,11 +1467,13 @@ begin
   FOnFree := OnFree;
   for i := 0 to Tuple.Count - 1 do
     AddElement(Tuple.Get(i), Allign);
+  CheckManaged;
 end;
 
 procedure TsgTupleMeta.Add<T>(OnFree: TFreeProc; Allign: Boolean);
 begin
   AddTe<T>(Allign);
+  CheckManaged;
 end;
 
 procedure TsgTupleMeta.Insert<T>(OnFree: TFreeProc; Allign: Boolean);
@@ -1454,6 +1490,7 @@ begin
     te.Offset := FSize;
     FSize := te.NextTupleOffset(Allign);
   end;
+  CheckManaged;
 end;
 
 {$EndRegion}
@@ -3025,10 +3062,10 @@ end;
 
 {$Region 'TsgCustomHashMap.TIterator'}
 
-procedure TsgCustomHashMap.TIterator.Init(const meta: TsgTupleMeta; p: PCollision);
+procedure TsgCustomHashMap.TIterator.Init(meta: PsgTupleMeta; p: PCollision);
 begin
   Self.ptr := p;
-  Self.meta := @meta;
+  Self.meta := meta;
 end;
 
 function TsgCustomHashMap.TIterator.GetKey: Pointer;
@@ -3049,7 +3086,7 @@ end;
 
 {$Region 'TsgCustomHashMap'}
 
-constructor TsgCustomHashMap.From(const PairMeta: TsgTupleMeta; ExpectedSize: Integer;
+constructor TsgCustomHashMap.From(PairMeta: PsgTupleMeta; ExpectedSize: Integer;
   HashKey: THashProc; Equals: TEqualsFunc);
 var
   EntryMeta, CollisionMeta: PsgItemMeta;
@@ -3158,10 +3195,11 @@ end;
 constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer;
   HashKey: THashProc; Equals: TEqualsFunc; FreePair: TFreeProc);
 var
-  PairMeta: TsgTupleMeta;
+  meta: PsgTupleMeta;
 begin
-  PairMeta.MakePair<Key, T>(FreePair);
-  FMap := TsgCustomHashMap.From(PairMeta, ExpectedSize, HashKey, Equals);
+  meta := SysCtx.CreateTupleMeta;
+  meta.MakePair<Key, T>(FreePair);
+  FMap := TsgCustomHashMap.From(meta, ExpectedSize, HashKey, Equals);
 end;
 
 procedure TsgHashMap<Key, T>.Free;
@@ -3917,6 +3955,11 @@ function TsgSystemContext.CreateMeta<T>(Flags: TRegionFlagSet;
 begin
   Result := PsgItemMeta(FMetaList[rItemMeta].List.Add);
   Result.Init<T>(Flags, RemoveAction, OnFree);
+end;
+
+function TsgSystemContext.CreateTupleMeta: PsgTupleMeta;
+begin
+  Result := PsgTupleMeta(FMetaList[rTupleMeta].List.Add);
 end;
 
 procedure TsgSystemContext.CreateTeMetas(Count: Cardinal;
