@@ -4250,7 +4250,6 @@ var
   i: Integer;
   pair, t, r: THashMapPair;
   a, b: TsgHashMapIterator<TVector, Integer>;
-  sa, sb, ai, bi: Integer;
 begin
   for i := 0 to 10000 do
   begin

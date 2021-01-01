@@ -154,6 +154,8 @@ type
     procedure Insert<T>(OnFree: TFreeProc = nil; Allign: Boolean = True);
     // Return a reference to the meta element of the tuple
     function Get(Index: Cardinal): PsgTupleElementMeta; inline;
+    // Assign tuple
+    procedure Assign(Dest, Value: Pointer);
     // Memory size
     property Size: Cardinal read FSize;
     // Number of elements
@@ -1365,6 +1367,18 @@ end;
 function TsgTupleMeta.Get(Index: Cardinal): PsgTupleElementMeta;
 begin
   Result := FElements.GetItem(Index);
+end;
+
+procedure TsgTupleMeta.Assign(Dest, Value: Pointer);
+var
+  i: Integer;
+  e: PsgTupleElementMeta;
+begin
+  for i := 0 to FElements.Count - 1 do
+  begin
+    e := FElements.GetItem(i);
+    e.Assign(e.Meta, PByte(Dest) + e.Offset, PByte(Value) + e.Offset);
+  end;
 end;
 
 procedure TsgTupleMeta.AddElement(meta: PsgTupleElementMeta; Allign: Boolean);
@@ -3106,7 +3120,6 @@ var
   eidx: Integer;
   entry: pEntry;
   p, n: PCollision;
-  pt: PsgTupleElementMeta;
 begin
   eidx := FHash(pair^) mod Cardinal(FEntries.Count);
   entry := FEntries.GetItemPtr(eidx);
@@ -3123,10 +3136,7 @@ begin
   // Insert collision at the beginning of the list
   n := FCollisions.Region.Alloc(FCollisions.Meta.ItemSize);
   n.Next := entry.root;
-  pt := FPair.Get(0);
-  pt.Assign(pt.Meta, n.GetPairRef, pair);
-  pt := FPair.Get(1);
-  pt.Assign(pt.Meta, PByte(n.GetPairRef) + pt.Offset, PByte(pair) + pt.Offset);
+  FPair.Assign(n.GetPairRef, pair);
   entry.root := n;
   Result.Init(FPair, n);
 end;
