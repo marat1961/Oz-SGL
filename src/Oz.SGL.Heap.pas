@@ -308,6 +308,8 @@ type
     FRegion: TMemoryRegion;
     function GetMeta: PsgItemMeta; inline;
     function GetRegion: PMemoryRegion; inline;
+    function GetCapacity: Integer;
+    function GetCount: Integer;
   public
     procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal);
     // Free the region
@@ -318,10 +320,19 @@ type
     procedure Dispose(Items: Pointer; Count: Cardinal);
     // Assign
     procedure AssignItem(Dest, Src: Pointer);
+    // Get a pointer to an element of an array of the specified type
+    function GetItemPtr(Index: Cardinal): Pointer;
+    // Get a pointer to next element
+    function GetNext(ptr: Pointer): Pointer;
     // Propeties
     property Region: PMemoryRegion read GetRegion;
+    // metadata
     property Meta: PsgItemMeta read GetMeta;
-    property Capacity: Integer read FRegion.FCapacity;
+    // capacity
+    property Capacity: Integer read GetCapacity;
+    // number of elements
+    property Count: Integer read GetCount;
+    // item size
     property ItemSize: Cardinal read FRegion.FMeta.ItemSize;
   end;
 
@@ -1190,7 +1201,10 @@ end;
 
 function TSegmentedRegion.AddItem: Pointer;
 begin
-  Result := FRegion.Alloc(ItemSize);
+  Inc(FRegion.FCount);
+  if FRegion.Capacity <= FRegion.FCount then
+    FRegion.GrowHeap(FRegion.FCount);
+  Result := FRegion.Heap.Occupy(ItemSize);
 end;
 
 function TSegmentedRegion.GetRegion: PMemoryRegion;
@@ -1198,9 +1212,36 @@ begin
   Result := @FRegion;
 end;
 
+function TSegmentedRegion.GetCapacity: Integer;
+begin
+  Result := FRegion.Capacity;
+end;
+
+function TSegmentedRegion.GetCount: Integer;
+begin
+  Result := FRegion.FCount;
+end;
+
 procedure TSegmentedRegion.Dispose(Items: Pointer; Count: Cardinal);
 begin
 
+end;
+
+function TSegmentedRegion.GetItemPtr(Index: Cardinal): Pointer;
+var
+  n: Cardinal;
+  s: PMemSegment;
+begin
+  s := FRegion.Heap;
+  while s <> nil do
+  begin
+    n := FRegion.GetOccupiedCount(s);
+    if Index < n then
+      exit(s.GetHeapRef + Index * FRegion.FMeta.ItemSize);
+    Dec(Index, n);
+    s := s.Next;
+  end;
+  Result := nil;
 end;
 
 function TSegmentedRegion.GetMeta: PsgItemMeta;

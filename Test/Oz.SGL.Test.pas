@@ -480,26 +480,28 @@ type
   // Test methods for class TsgHashMap
   TestTsgHashMap = class(TTestCase)
   strict private
-    FMap: TsgHashMap<TVector, Integer>;
+    Map: TsgHashMap<TVector, Integer>;
   public
     procedure SetUp; override;
     procedure TearDown; override;
-    procedure GenPair(i: Integer; var pair: THashMapPair);
+    procedure GenPair(i: Integer; var pair: TsgPair<TVector, Integer>);
   published
     procedure TestInsert;
     procedure TestFind;
-    procedure TestIterator;
+    procedure TestPairIterator;
+    procedure TestKeyIterator;
+    procedure TestValuesIterator;
   end;
 
 {$EndRegion}
 
 {$Region 'TestTsgMap'}
 
-  TMapPair = TsgPair<TPerson, Integer>;
-  PMapPair = ^TMapPair;
-
   // Test methods for class TsgMap
   TestTsgMap = class(TTestCase)
+  type
+    TMapPair = TsgPair<TPerson, Integer>;
+    PMapPair = ^TMapPair;
   strict private
     FMap: TsgMap<TPerson, Integer>;
     nn: Integer;
@@ -4225,15 +4227,15 @@ var
 begin
   Hash := VectorHash;
   Equals := VectorEquals;
-  FMap := TsgHashMap<TVector, Integer>.From(300, Hash, Equals, nil);
+  Map := TsgHashMap<TVector, Integer>.From(300, Hash, Equals, nil);
 end;
 
 procedure TestTsgHashMap.TearDown;
 begin
-  FMap.Free;
+  Map.Free;
 end;
 
-procedure TestTsgHashMap.GenPair(i: Integer; var pair: THashMapPair);
+procedure TestTsgHashMap.GenPair(i: Integer; var pair: TsgPair<TVector, Integer>);
 begin
   case i mod 5 of
     0: pair.Key := TVector.From(i, i + 0, 0);
@@ -4248,27 +4250,26 @@ end;
 procedure TestTsgHashMap.TestInsert;
 var
   i: Integer;
-  pair, t, r: THashMapPair;
-  a, b: TsgHashMapIterator<TVector, Integer>;
+  pair, t, r: TsgPair<TVector, Integer>;
+  a, b: TsgHashMap<TVector, Integer>.PMapPair;
 begin
   for i := 0 to 10000 do
   begin
     // insert
     GenPair(i, pair);
     t := pair;
-
-    a := FMap.Insert(pair);
-    CheckTrue(a <> FMap.Ends);
-    r.Key := a.GetKey^;
-    r.Value := a.GetValue^;
+    a := Map.Insert(pair);
+    CheckTrue(a <> nil);
+    r.Key := a.Key;
+    r.Value := a.Value;
     CheckTrue(r.Key.Equals(t.Key));
     CheckTrue(r.Value = i);
 
     // find
-    b := FMap.Find(pair.Key);
-    CheckTrue(b <> FMap.Ends);
-    r.Key := b.GetKey^;
-    r.Value := b.GetValue^;
+    b := Map.Find(pair.Key);
+    CheckTrue(b <> nil);
+    r.Key := b.Key;
+    r.Value := b.Value;
     CheckTrue(r.Key.Equals(t.Key));
     CheckTrue(r.Value = i);
   end;
@@ -4277,39 +4278,56 @@ end;
 procedure TestTsgHashMap.TestFind;
 var
   i, j: Integer;
-  it: TsgHashMapIterator<TVector, Integer>;
+  r: TsgHashMap<TVector, Integer>.PMapPair;
   pair: THashMapPair;
 begin
   TestInsert;
   i := 500;
   GenPair(i, pair);
-  it := FMap.Find(pair.key);
-  CheckTrue(it <> FMap.Ends);
-  j := it.GetValue^;
+  r := Map.Find(pair.key);
+  CheckTrue(r <> nil);
+  j := r.Value;
   CheckTrue(i = j);
 end;
 
-procedure TestTsgHashMap.TestIterator;
+procedure TestTsgHashMap.TestPairIterator;
 var
   i: Integer;
-  pair, r: THashMapPair;
-  it: TIter;
+  pair, t, r: THashMapPair;
+  a, b: TsgHashMap<TVector, Integer>.PMapPair;
+  it: TsgHashMapIterator<TVector, Integer>;
+  key: TVector;
+  value: Integer;
 begin
-  TestInsert;
-  it := FMap.Begins;
-  i := 0;
-  while it <> FMap.Ends do
+  for i := 0 to 100 do
   begin
-    r.Key := it.GetKey^;
-    r.Value := it.GetValue^;
     GenPair(i, pair);
-    CheckTrue(SameValue(pair.Key.X, r.Key.X));
-    CheckTrue(SameValue(pair.Key.Y, r.Key.Y));
-    CheckTrue(SameValue(pair.Key.Z, r.Key.Z));
-    CheckTrue(pair.Value = r.Value);
+    t := pair;
+    a := Map.Insert(pair);
+    CheckTrue(a <> nil);
+    r.Key := a.Key;
+    r.Value := a.Value;
+    CheckTrue(r.Key.Equals(t.Key));
+    CheckTrue(r.Value = i);
+  end;
+  i := 0;
+  it := Map.Begins;
+  while it <> Map.Ends do
+  begin
+    key := it.GetKey^;
+    value := it.GetValue^;
     it.Next;
     Inc(i);
   end;
+  CheckTrue(101 = i);
+end;
+
+procedure TestTsgHashMap.TestKeyIterator;
+begin
+end;
+
+procedure TestTsgHashMap.TestValuesIterator;
+begin
 end;
 
 {$EndRegion}
