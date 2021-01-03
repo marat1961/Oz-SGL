@@ -322,8 +322,6 @@ type
     procedure AssignItem(Dest, Src: Pointer);
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer;
-    // Get a pointer to next element
-    function GetNext(ptr: Pointer): Pointer;
     // Propeties
     property Region: PMemoryRegion read GetRegion;
     // metadata

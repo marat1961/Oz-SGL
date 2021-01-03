@@ -4299,7 +4299,7 @@ var
   key: TVector;
   value: Integer;
 begin
-  for i := 0 to 100 do
+  for i := 0 to 10000 do
   begin
     GenPair(i, pair);
     t := pair;
@@ -4319,7 +4319,7 @@ begin
     it.Next;
     Inc(i);
   end;
-  CheckTrue(101 = i);
+  CheckTrue(10001 = i);
 end;
 
 procedure TestTsgHashMap.TestKeyIterator;
