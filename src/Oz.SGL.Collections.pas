@@ -2023,7 +2023,7 @@ end;
 
 function TsgPointerList.TEnumerator.GetCurrent: Pointer;
 begin
-  Result := FPointers.Get(FIndex);
+  Result := PPointer(FPointers.Get(FIndex))^;
 end;
 
 function TsgPointerList.TEnumerator.MoveNext: Boolean;
@@ -2057,7 +2057,7 @@ end;
 function TsgPointerList.First: Pointer;
 begin
   if Count > 0 then
-    Result := FListRegion.GetItemPtr(0)
+    Result := Get(0)
   else
     Result := nil;
 end;
@@ -2065,7 +2065,7 @@ end;
 function TsgPointerList.Last: Pointer;
 begin
   if Count > 0 then
-    Result := FListRegion.GetItemPtr(Count - 1)
+    Result := Get(Count - 1)
   else
     Result := nil;
 end;
@@ -2074,7 +2074,7 @@ function TsgPointerList.NextAfter(prev: Pointer): Pointer;
 begin
   if prev = nil then
     Result := nil
-  else if prev = FListRegion.GetItemPtr(Count - 1) then
+  else if prev = Get(Count - 1) then
     Result := nil
   else
     Result := Pointer(NativeUInt(prev) + NativeUInt(FItemsRegion.ItemSize));
@@ -2090,12 +2090,9 @@ begin
 end;
 
 function TsgPointerList.Add: Pointer;
-var
-  ptr: PPointer;
 begin
   Result := FItemsRegion.AddItem;
-  ptr := PPointer(FListRegion.AddItem);
-  ptr^ := Result;
+  PPointer(FListRegion.AddItem)^ := Result;
 end;
 
 function TsgPointerList.Add(Item: Pointer): Integer;
@@ -2122,11 +2119,8 @@ begin
 end;
 
 procedure TsgPointerList.Delete(Index: Integer);
-var
-  Item: Pointer;
 begin
-  Item := FListRegion.GetItemPtr(Index);
-  FItemsRegion.Dispose(Item, 1);
+  FItemsRegion.Dispose(Get(Index), 1);
   FListRegion.Delete(Index);
 end;
 
@@ -2138,14 +2132,14 @@ end;
 function TsgPointerList.IndexOf(Item: Pointer): Integer;
 var
   i: Integer;
-  P: PPointer;
+  p: PPointer;
 begin
+  p := PPointer(FListRegion.GetItems);
   for i := 0 to Count - 1 do
   begin
-    P := FListRegion.GetItemPtr(i);
-    if P^ = Item then
+    if p^ = Item then
       exit(i);
-    Inc(P);
+    Inc(p);
   end;
   Result := -1;
 end;
@@ -2179,17 +2173,14 @@ begin
   Result := FListRegion.GetItemPtr(Index);
 end;
 
+procedure TsgPointerList.Put(Index: Integer; Item: Pointer);
+begin
+  FItemsRegion.AssignItem(Get(Index), Item);
+end;
+
 function TsgPointerList.GetCount: Integer;
 begin
   Result := FListRegion.GetCount;
-end;
-
-procedure TsgPointerList.Put(Index: Integer; Item: Pointer);
-var
-  dest: Pointer;
-begin
-  dest := FListRegion.GetItemPtr(Index);
-  FItemsRegion.AssignItem(dest, Item);
 end;
 
 function TsgPointerList.GetEnumerator: TEnumerator;
@@ -2327,7 +2318,7 @@ end;
 
 function TsgRecordList<T>.Get(Index: Integer): PItem;
 begin
-  Result := PItem(FList.Get(Index));
+  Result := PItem(FList.Get(Index)^);
 end;
 
 function TsgRecordList<T>.GetEnumerator: TEnumerator;
