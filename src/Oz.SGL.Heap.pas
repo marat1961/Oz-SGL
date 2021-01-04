@@ -286,9 +286,9 @@ type
     function NextItem(Item: Pointer): Pointer;
     // Copy items from region
     procedure CopyFrom(const Region: PUnbrokenRegion; Index, Cnt: Integer);
-    // Assign item
+    // Assign element
     procedure AssignItem(Dest, Src: Pointer);
-    // Exchange items
+    // Exchange elements
     procedure Exchange(Index1, Index2: Integer);
     // Propeties
     property Region: PMemoryRegion read GetRegion;

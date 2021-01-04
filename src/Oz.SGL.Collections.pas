@@ -359,16 +359,14 @@ type
       property Current: Pointer read GetCurrent;
     end;
   private
-    FList: PsgPointers;
-    FCount: Integer;
     // region for pointers
     FListRegion: PUnbrokenRegion;
     // region for items
     FItemsRegion: PSegmentedRegion;
     function Get(Index: Integer): Pointer;
     procedure Put(Index: Integer; Item: Pointer);
-    procedure CheckCapacity(NewCapacity: Integer);
     procedure SetCount(NewCount: Integer);
+    function GetCount: Integer;
   public
     constructor From(Meta: PsgItemMeta);
     procedure Free;
@@ -380,10 +378,12 @@ type
     function Add(Item: Pointer): Integer; overload;
     // Add an empty record and return its pointer
     function Add: Pointer; overload;
+    // Insert element
     procedure Insert(Index: Integer; Item: Pointer);
+    // Delete element
     procedure Delete(Index: Integer);
+    // Exchange elements
     procedure Exchange(Index1, Index2: Integer);
-    function Extract(Item: Pointer): Pointer;
     function IndexOf(Item: Pointer): Integer;
     procedure Sort(Compare: TListSortCompare);
     procedure Reverse;
@@ -391,7 +391,7 @@ type
     procedure RemoveBy(F: TItemFunc);
     function IsEmpty: Boolean; inline;
     function GetEnumerator: TEnumerator;
-    property Count: Integer read FCount write SetCount;
+    property Count: Integer read GetCount write SetCount;
     property Items[Index: Integer]: Pointer read Get write Put;
   end;
 
@@ -415,6 +415,7 @@ type
     FList: TsgPointerList;
     function Get(Index: Integer): PItem; inline;
     procedure Put(Index: Integer; Item: PItem);
+    function GetCount: Integer; inline;
     procedure SetCount(Value: Integer);
   public
     constructor From(OnFree: TFreeProc);
@@ -425,14 +426,13 @@ type
     function Add: PItem; overload; inline;
     procedure Delete(Index: Integer); inline;
     procedure Exchange(Index1, Index2: Integer); inline;
-    function Extract(Item: PItem): PItem;
     function IndexOf(Item: PItem): Integer; inline;
     procedure Assign(const Source: TsgRecordList<T>);
     procedure Sort(Compare: TListSortCompare); inline;
     procedure Reverse; inline;
     function IsEmpty: Boolean; inline;
     function GetEnumerator: TEnumerator;
-    property Count: Integer read FList.FCount write SetCount;
+    property Count: Integer read GetCount write SetCount;
     property Items[Index: Integer]: PItem read Get write Put;
     property List: TsgPointerList read FList;
   end;
@@ -2029,7 +2029,7 @@ end;
 function TsgPointerList.TEnumerator.MoveNext: Boolean;
 begin
   Inc(FIndex);
-  Result := FIndex < FPointers.FCount;
+  Result := FIndex < FPointers.Count;
 end;
 
 {$EndRegion}
@@ -2038,16 +2038,12 @@ end;
 
 constructor TsgPointerList.From(Meta: PsgItemMeta);
 begin
-  FList := nil;
-  FCount := 0;
   FListRegion := SysCtx.CreateUnbrokenRegion(@SysCtx.PointerMeta);
   FItemsRegion := SysCtx.CreateRegion(Meta);
 end;
 
 procedure TsgPointerList.Free;
 begin
-  FList := nil;
-  FCount := 0;
   FItemsRegion.Free;
   FListRegion.Free;
 end;
@@ -2056,13 +2052,12 @@ procedure TsgPointerList.Clear;
 begin
   FItemsRegion.Region.Clear;
   FListRegion.Region.Clear;
-  FCount := 0;
 end;
 
 function TsgPointerList.First: Pointer;
 begin
   if Count > 0 then
-    Result := FList[0]
+    Result := FListRegion.GetItemPtr(0)
   else
     Result := nil;
 end;
@@ -2070,7 +2065,7 @@ end;
 function TsgPointerList.Last: Pointer;
 begin
   if Count > 0 then
-    Result := FList[Count - 1]
+    Result := FListRegion.GetItemPtr(Count - 1)
   else
     Result := nil;
 end;
@@ -2079,7 +2074,7 @@ function TsgPointerList.NextAfter(prev: Pointer): Pointer;
 begin
   if prev = nil then
     Result := nil
-  else if prev = FList[Count - 1] then
+  else if prev = FListRegion.GetItemPtr(Count - 1) then
     Result := nil
   else
     Result := Pointer(NativeUInt(prev) + NativeUInt(FItemsRegion.ItemSize));
@@ -2096,95 +2091,60 @@ end;
 
 function TsgPointerList.Add: Pointer;
 var
-  Index: Integer;
+  ptr: PPointer;
 begin
-  Index := FCount;
-  CheckCapacity(Index);
-  Inc(FCount);
-  Result := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
-  FList[Index] := Result;
+  Result := FItemsRegion.AddItem;
+  ptr := PPointer(FListRegion.AddItem);
+  ptr^ := Result;
 end;
 
 function TsgPointerList.Add(Item: Pointer): Integer;
 var
   p: Pointer;
 begin
-  Check(Item <> nil);
-  Result := FCount;
-  CheckCapacity(Result);
-  Inc(FCount);
-  p := FItemsRegion.Region.Alloc(FItemsRegion.ItemSize);
+  Result := FListRegion.Count;
+  p := Add;
   FItemsRegion.AssignItem(p, Item);
-  FList[Result] := p;
 end;
 
 procedure TsgPointerList.Insert(Index: Integer; Item: Pointer);
 var
-  MemSize: Integer;
-  Dest: Pointer;
+  dest: Pointer;
 begin
-  if Index = FCount then
+  if Index = Count then
     Add(Item)
   else
   begin
-    CheckIndex(Index, FCount + 1);
-    Check(Item <> nil);
-    CheckCapacity(FCount);
-    MemSize := (FCount - Index) * SizeOf(Pointer);
-    Dest := FList[Index];
-    System.Move(Dest^, FList[Index + 1], MemSize);
-    FItemsRegion.AssignItem(Dest, Item);
-    Inc(FCount);
+    dest := FItemsRegion.AddItem;
+    FItemsRegion.AssignItem(dest, Item);
+    FListRegion.Insert(Index, dest);
   end;
 end;
 
 procedure TsgPointerList.Delete(Index: Integer);
 var
-  MemSize: Integer;
+  Item: Pointer;
 begin
-  CheckIndex(Index, FCount);
-  Dec(FCount);
-  if Index < FCount then
-  begin
-    MemSize := (FCount - Index) * SizeOf(Pointer);
-    System.Move(FList[Index + 1], FList[Index], MemSize);
-  end;
+  Item := FListRegion.GetItemPtr(Index);
+  FItemsRegion.Dispose(Item, 1);
+  FListRegion.Delete(Index);
 end;
 
 procedure TsgPointerList.Exchange(Index1, Index2: Integer);
-var
-  temp: Pointer;
 begin
-  CheckIndex(Index1, FCount);
-  CheckIndex(Index2, FCount);
-  temp := FList[Index1];
-  FList[Index1] := FList[Index2];
-  FList[Index2] := temp;
-end;
-
-function TsgPointerList.Extract(Item: Pointer): Pointer;
-var
-  i: Integer;
-begin
-  Result := nil;
-  i := IndexOf(Item);
-  if i >= 0 then
-  begin
-    Result := Item;
-    FList[i] := nil;
-    Delete(i);
-  end;
+  FListRegion.Exchange(Index1, Index2);
 end;
 
 function TsgPointerList.IndexOf(Item: Pointer): Integer;
 var
+  i: Integer;
   P: PPointer;
 begin
-  P := Pointer(FList);
-  for Result := 0 to FCount - 1 do
+  for i := 0 to Count - 1 do
   begin
+    P := FListRegion.GetItemPtr(i);
     if P^ = Item then
-      exit;
+      exit(i);
     Inc(P);
   end;
   Result := -1;
@@ -2193,7 +2153,7 @@ end;
 procedure TsgPointerList.Sort(Compare: TListSortCompare);
 begin
   if Count > 1 then
-    QuickSort(FList, 0, Count - 1,
+    QuickSort(PsgPointers(FListRegion.GetItems), 0, Count - 1,
       function(Item1, Item2: Pointer): Integer
       begin
         Result := Compare(Item1, Item2);
@@ -2216,15 +2176,20 @@ end;
 
 function TsgPointerList.Get(Index: Integer): Pointer;
 begin
-  CheckIndex(Index, FCount);
-  Result := FList[Index];
+  Result := FListRegion.GetItemPtr(Index);
+end;
+
+function TsgPointerList.GetCount: Integer;
+begin
+  Result := FListRegion.GetCount;
 end;
 
 procedure TsgPointerList.Put(Index: Integer; Item: Pointer);
+var
+  dest: Pointer;
 begin
-  CheckIndex(Index, FCount);
-  if Item <> FList[Index] then
-    FList[Index] := Item;
+  dest := FListRegion.GetItemPtr(Index);
+  FItemsRegion.AssignItem(dest, Item);
 end;
 
 function TsgPointerList.GetEnumerator: TEnumerator;
@@ -2232,19 +2197,9 @@ begin
   Result := TEnumerator.From(Self);
 end;
 
-procedure TsgPointerList.CheckCapacity(NewCapacity: Integer);
-begin
-  if FListRegion.Capacity <= NewCapacity then
-    FList := FListRegion.Region.IncreaseAndAlloc(NewCapacity);
-end;
-
 procedure TsgPointerList.SetCount(NewCount: Integer);
 begin
-  CheckCount(NewCount);
-  if NewCount > FCount then
-    raise EsgError.CreateFmt(
-      'Not allowed to increase the number of elements (%d)', [Count]);
-  FCount := NewCount;
+  FListRegion.SetCount(NewCount);
 end;
 
 function TsgPointerList.TraverseBy(F: TItemFunc): Pointer;
@@ -2282,7 +2237,7 @@ end;
 
 function TsgPointerList.IsEmpty: Boolean;
 begin
-  Result := FCount = 0;
+  Result := Count = 0;
 end;
 
 {$EndRegion}
@@ -2346,11 +2301,6 @@ begin
   FList.Exchange(Index1, Index2);
 end;
 
-function TsgRecordList<T>.Extract(Item: PItem): PItem;
-begin
-  Result := FList.Extract(Item);
-end;
-
 function TsgRecordList<T>.IndexOf(Item: PItem): Integer;
 begin
   Result := FList.IndexOf(Item);
@@ -2388,6 +2338,11 @@ end;
 procedure TsgRecordList<T>.Put(Index: Integer; Item: PItem);
 begin
   FList.Put(Index, Item);
+end;
+
+function TsgRecordList<T>.GetCount: Integer;
+begin
+  Result := FList.GetCount;
 end;
 
 procedure TsgRecordList<T>.SetCount(Value: Integer);

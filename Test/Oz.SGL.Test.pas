@@ -412,7 +412,6 @@ type
     procedure _Add;
     procedure _Delete;
     procedure _Exchange;
-    procedure _Extract;
     procedure _IndexOf;
     procedure _Sort;
     procedure _Reverse;
@@ -3222,8 +3221,7 @@ end;
 
 procedure TsgRecordListTest.TearDown;
 begin
-  List.Clear;
-  SysCtx.ClearHeapPool;
+  List.Free;
 end;
 
 procedure TsgRecordListTest._Add0;
@@ -3332,18 +3330,6 @@ begin
   CheckTrue(r.Equals(d));
   r := List.Items[j]^;
   CheckTrue(r.Equals(b));
-end;
-
-procedure TsgRecordListTest._Extract;
-var
-  p, r: PTestRecord;
-begin
-  _Add0;
-  CheckTrue(List.Count = ItemsCount);
-  p := List.Items[20];
-  r := List.Extract(p);
-  CheckTrue(List.Count = ItemsCount - 1);
-  CheckTrue(r = p);
 end;
 
 procedure TsgRecordListTest._IndexOf;
@@ -4587,6 +4573,10 @@ end;
 
 initialization
 
+  RegisterTest(TsgRecordListTest.Suite);
+  RegisterTest(TestTsgMap.Suite);
+  RegisterTest(TestTsgSet.Suite);
+
   RegisterTest(TestTsgHashMap.Suite);
 
   // Oz.SGL.HandleManager
@@ -4608,10 +4598,6 @@ initialization
   RegisterTest(TsgForwardListTest.Suite);
   RegisterTest(TestTsgList.Suite);
   RegisterTest(TsgLinkedListTest.Suite);
-
-  RegisterTest(TsgRecordListTest.Suite);
-  RegisterTest(TestTsgMap.Suite);
-  RegisterTest(TestTsgSet.Suite);
 
 end.
 
