@@ -433,7 +433,7 @@ type
     function IsEmpty: Boolean; inline;
     function GetEnumerator: TEnumerator;
     property Count: Integer read GetCount write SetCount;
-    property Items[Index: Integer]: PItem read Get write Put;
+    property Items[Index: Integer]: PItem read Get write Put; default;
     property List: TsgPointerList read FList;
   end;
 
