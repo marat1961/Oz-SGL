@@ -263,14 +263,20 @@ var
   idx: Integer;
   n: PNode;
 begin
+{$IFDEF DEBUG}
   Assert(FCount < GuardNode - 1);
+{$ENDIF}
   idx := FAvail;
+{$IFDEF DEBUG}
   Assert(idx < GuardNode);
+{$ENDIF}
   n := MoveNode(idx, FAvail, FUsed);
   n.counter := n.counter + 1;
   if n.counter = 0 then
     n.counter := 1;
+{$IFDEF DEBUG}
   Assert(not n.active);
+{$ENDIF}
   n.active := True;
   n.ptr := ptr;
   Inc(FCount);
@@ -282,8 +288,10 @@ var
   n: PNode;
 begin
   n := @FNodes[handle.Index];
+{$IFDEF DEBUG}
   Assert(n.active);
   Assert(n.counter = handle.counter);
+{$ENDIF}
   n.ptr := ptr;
 end;
 
@@ -292,8 +300,10 @@ var
   n: PNode;
 begin
   n := MoveNode(handle.Index, FUsed, FAvail);
+{$IFDEF DEBUG}
   Assert(n.active);
   Assert(n.counter = handle.counter);
+{$ENDIF}
   n.active := False;
   Dec(FCount);
 end;

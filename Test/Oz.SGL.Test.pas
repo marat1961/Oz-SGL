@@ -892,7 +892,7 @@ begin
     p := Pointer(m.Count);
     m.Add(p);
     Inc(i);
-    Assert(i = m.Count);
+    CheckTrue(i = m.Count);
   end;
   m.Traversal(Visit);
 end;

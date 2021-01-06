@@ -3048,7 +3048,6 @@ begin
   FEntries := SysCtx.CreateUnbrokenRegion(EntryMeta);
   TabSize := GetEntries(ExpectedSize);
   FEntries.Count := TabSize;
-  Assert(FEntries.Count = TabSize);
   FPair := PairMeta;
   FHash := HashKey;
   FEquals := Equals;
@@ -3748,11 +3747,10 @@ procedure TSharedRegion.Realloc(var descr: TMemoryDescriptor; Count: Cardinal);
 var
   p: Pointer;
 begin
-  p := FHandleManager.Get(descr.h);
-  Assert(p = descr.Items);
+  FHandleManager.Get(descr.h);
   p := FMemoryManager.Realloc(descr.Items, descr.Count * ItemSize, Count * ItemSize);
   if p = nil then
-    EsgError.Create('TSharedRegion.Realloc: not enough memory');
+    EsgError.Create(EsgError.NotEnoughMemory);
   descr.Items := p;
   descr.Count := Count;
 end;
@@ -3819,7 +3817,7 @@ begin
       vtChar, vtWideChar:
         v := Char(Arg.VChar);
       else
-        raise EsgError.Create('print: unsupported parameter type');
+        raise EsgError.Create(EsgError.InvalidParameters);
     end;
     s := s + v;
   end;

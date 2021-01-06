@@ -43,22 +43,28 @@ type
   EsgError = class(Exception)
   const
     NotImplemented = 0;
-    ListIndexError = 1;
-    ListCountError = 2;
-    CapacityError = 3;
-    IncompatibleDataType = 4;
-    NotEnoughMemory = 5;
-    ErrorMax = 5;
+    InvalidParameters = 1;
+    ListIndexError = 2;
+    ListCountError = 3;
+    CapacityError = 4;
+    IncompatibleDataType = 5;
+    NotEnoughMemory = 6;
+    InvalidSize = 7;
+    InvalidPointer = 8;
+    ErrorMax = 8;
   private type
     TErrorMessages = array [0..ErrorMax] of string;
   private const
     ErrorMessages: TErrorMessages = (
       'Not implemented',
+      'Invalid parameters',
       'List index error (%d)',
       'List count error (%d)',
       'List capacity error (%d)',
       'Incompatible data type',
-      'NotEnoughMemory');
+      'Not enough memory',
+      'Alloc: Invalid Size',
+      'Dealloc: Invalid Pointer');
   public
     constructor Create(ErrNo: Integer); overload;
     constructor Create(ErrNo, IntParam: Integer); overload;
@@ -749,7 +755,7 @@ begin
   else
   begin
     case ItemSize of
-      0: raise EsgError.Create('impossible');
+      0: raise EsgError.Create(EsgError.InvalidParameters);
       1: Self.AssignItem := Assign1;
       2: Self.AssignItem := Assign2;
       4: Self.AssignItem := Assign4;
@@ -1317,14 +1323,18 @@ end;
 function THeapPool.CreateUnbrokenRegion(Meta: PsgItemMeta): PUnbrokenRegion;
 begin
   Meta.h.SetSegmented(False);
+{$IFDEF DEBUG}
   Assert(sizeof(TUnbrokenRegion) = sizeof(TMemoryRegion));
+{$ENDIF}
   Result := PUnbrokenRegion(FindOrCreateRegion(Meta));
 end;
 
 function THeapPool.CreateRegion(Meta: PsgItemMeta): PSegmentedRegion;
 begin
   Meta.h.SetSegmented(True);
+{$IFDEF DEBUG}
   Assert(sizeof(TSegmentedRegion) = sizeof(TMemoryRegion));
+{$ENDIF}
   Result := PSegmentedRegion(FindOrCreateRegion(Meta));
 end;
 
@@ -1354,7 +1364,8 @@ end;
 
 procedure TsgMemoryManager.Init(Heap: Pointer; HeapSize: Cardinal);
 begin
-  Assert(Heap <> nil);
+  if Heap = nil then
+    raise EsgError.Create(EsgError.InvalidParameters);
   Avail := Heap;
   Avail^.Next := nil;
   HeapSize := (HeapSize + 3) and not 3;
@@ -1367,11 +1378,13 @@ function TsgMemoryManager.Alloc(Size: Cardinal): Pointer;
 var
   p, q: PsgFreeBlock;
 begin
+{$IFDEF DEBUG}
   Assert(Avail <> nil);
+{$ENDIF}
   // Align block size to 4 bytes.
   Size := (Size + 3) and not 3;
   if Size = 0 then
-    raise EsgError.Create('Alloc: Invalid size');
+    raise EsgError.Create(EsgError.InvalidSize);
   p := PsgFreeBlock(@Avail);
   repeat
     q := p^.Next;
@@ -1402,7 +1415,7 @@ begin
   OldSize := (OldSize + 3) and not 3;
   Size := (Size + 3) and not 3;
   if (OldSize >= Size) or (Size mod MinSize <> 0) then
-    raise EsgError.Create('Alloc: Invalid size');
+    raise EsgError.Create(EsgError.InvalidSize);
   n := nil;
   // look for a block with the address Ptr + OldSize in the free memory list
   r := PsgFreeBlock(NativeUInt(Ptr) + OldSize);
@@ -1500,7 +1513,7 @@ begin
   if (Ptr = nil) or
      (NativeUInt(Ptr) < NativeUInt(Heap)) or
      (NativeUInt(Ptr) > NativeUInt(TopMemory)) then
-    raise EsgError.Create('Dealloc: Invalid Pointer');
+    raise EsgError.Create(EsgError.InvalidPointer);
   FreeMem(Ptr, Size);
 end;
 
