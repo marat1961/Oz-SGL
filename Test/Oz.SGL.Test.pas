@@ -4237,7 +4237,7 @@ procedure TestTsgHashMap.TestInsert;
 var
   i: Integer;
   pair, t, r: TsgPair<TVector, Integer>;
-  a, b: TsgHashMap<TVector, Integer>.PMapPair;
+  a, b: TsgHashMap<TVector, Integer>.PPair;
 begin
   for i := 0 to 10000 do
   begin
@@ -4264,7 +4264,7 @@ end;
 procedure TestTsgHashMap.TestFind;
 var
   i, j: Integer;
-  r: TsgHashMap<TVector, Integer>.PMapPair;
+  r: TsgHashMap<TVector, Integer>.PPair;
   pair: THashMapPair;
 begin
   TestInsert;
@@ -4280,7 +4280,7 @@ procedure TestTsgHashMap.TestPairIterator;
 var
   i: Integer;
   pair, t, r: THashMapPair;
-  a, b: TsgHashMap<TVector, Integer>.PMapPair;
+  a, b, p: TsgHashMap<TVector, Integer>.PPair;
   it: TsgHashMapIterator<TVector, Integer>;
   key: TVector;
   value: Integer;
@@ -4300,8 +4300,11 @@ begin
   it := Map.Begins;
   while it <> Map.Ends do
   begin
+    p := it.GetPair;
     key := it.GetKey^;
     value := it.GetValue^;
+    CheckTrue(key.Equals(p.Key));
+    CheckTrue(value = p.Value);
     it.Next;
     Inc(i);
   end;

@@ -789,6 +789,8 @@ type
   type
     PItem = ^T;
     PKey = ^Key;
+    TPair = TsgPair<Key, T>;
+    PPair = ^TPair;
   private
     it: TsgCustomHashMap.TIterator;
   public
@@ -797,6 +799,7 @@ type
     class operator NotEqual(
       const a, b: TsgHashMapIterator<Key, T>): Boolean; inline;
     procedure Next;
+    function GetPair: PPair; inline;
     function GetKey: PKey; inline;
     function GetValue: PItem; inline;
   end;
@@ -804,8 +807,8 @@ type
   // Has constant lookup time using memory pool
   TsgHashMap<Key, T> = record
   type
-    TMapPair = TsgPair<Key, T>;
-    PMapPair = ^TMapPair;
+    TPair = TsgPair<Key, T>;
+    PPair = ^TPair;
   private
     FMap: TsgCustomHashMap;
   public
@@ -813,10 +816,10 @@ type
       HashKey: THashProc; Equals: TEqualsFunc; FreePair: TFreeProc);
     procedure Free; inline;
     // Finds an element with key equivalent to key.
-    function Find(const k: Key): PMapPair; inline;
+    function Find(const k: Key): PPair; inline;
     // Inserts element into the container, if the container doesn't already
     // contain an element with an equivalent key.
-    function Insert(const pair: TsgPair<Key, T>): PMapPair; inline;
+    function Insert(const pair: TsgPair<Key, T>): PPair; inline;
     // Return the iterator to the beginning
     function Begins: TsgHashMapIterator<Key, T>; inline;
     // Next to the last one.
@@ -2990,6 +2993,11 @@ begin
   it.Next;
 end;
 
+function TsgHashMapIterator<Key, T>.GetPair: PPair;
+begin
+  Result := PPair(it.GetKey);
+end;
+
 function TsgHashMapIterator<Key, T>.GetKey: PKey;
 begin
   Result := PKey(it.GetKey);
@@ -3155,14 +3163,14 @@ begin
   FMap.Free;
 end;
 
-function TsgHashMap<Key, T>.Find(const k: Key): PMapPair;
+function TsgHashMap<Key, T>.Find(const k: Key): PPair;
 begin
-  Result := PMapPair(FMap.Find(@k));
+  Result := PPair(FMap.Find(@k));
 end;
 
-function TsgHashMap<Key, T>.Insert(const pair: TsgPair<Key, T>): PMapPair;
+function TsgHashMap<Key, T>.Insert(const pair: TsgPair<Key, T>): PPair;
 begin
-  Result := PMapPair(FMap.Insert(@pair));
+  Result := PPair(FMap.Insert(@pair));
 end;
 
 function TsgHashMap<Key, T>.Begins: TsgHashMapIterator<Key, T>;
