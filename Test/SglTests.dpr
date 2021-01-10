@@ -26,6 +26,7 @@ uses
   Oz.SGL.Heap in '..\src\Oz.SGL.Heap.pas',
   Oz.SGL.Collections in '..\src\Oz.SGL.Collections.pas',
   Oz.SGL.HandleManager in '..\src\Oz.SGL.HandleManager.pas',
+  Oz.SGL.Hash in '..\src\Oz.SGL.Hash.pas',
   Oz.SGL.Test in 'Oz.SGL.Test.pas';
 
 {$R *.RES}

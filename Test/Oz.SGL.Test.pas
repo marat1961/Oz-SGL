@@ -4196,7 +4196,7 @@ end;
 
 {$Region 'TestTsgHashMap'}
 
-function VectorHash(const Value): Cardinal;
+function VectorHash(const Value; Size: Cardinal): Cardinal;
 begin
   Result := TVector(Value).Hash;
 end;
