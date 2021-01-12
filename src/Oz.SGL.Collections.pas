@@ -3097,7 +3097,7 @@ var
   eidx: Cardinal;
   p: PCollision;
 begin
-  eidx := FHash(key^, FPair.Get(0).GetItemSize) mod Cardinal(FEntries.Count);
+  eidx := FHash(key, FPair.Get(0).GetItemSize) mod Cardinal(FEntries.Count);
   p := PCollision(FEntries.GetItemPtr(eidx));
   while p <> nil do
   begin
@@ -3117,7 +3117,7 @@ var
   entry: pEntry;
   p, n: PCollision;
 begin
-  eidx := FHash(pair^, FPair.Get(0).GetItemSize) mod Cardinal(FEntries.Count);
+  eidx := FHash(pair, FPair.Get(0).GetItemSize) mod Cardinal(FEntries.Count);
   entry := FEntries.GetItemPtr(eidx);
   p := entry.root;
   while p <> nil do

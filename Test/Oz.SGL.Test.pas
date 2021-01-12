@@ -4196,9 +4196,9 @@ end;
 
 {$Region 'TestTsgHashMap'}
 
-function VectorHash(const Value; Size: Cardinal): Cardinal;
+function VectorHash(const Value: PByte; Size: Cardinal): Cardinal;
 begin
-  Result := TVector(Value).Hash;
+  Result := PVector(Value)^.Hash;
 end;
 
 function VectorEquals(A, B: Pointer): Boolean;
