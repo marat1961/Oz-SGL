@@ -720,13 +720,27 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgHasher: GetHash and Equals operation'}
+
+  PsgHasher = ^TsgHasher;
+  TsgHasher = record
+  public type
+    TKeyHash = function(k: Pointer): Cardinal;
+    TKeyEquals = function(a, b: Pointer): Boolean;
+  private
+    FGetHash: TKeyHash;
+    FEquals: TKeyEquals;
+  public
+    property GetHash: TKeyHash read FGetHash;
+    property Equals: TKeyEquals read FEquals;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgCustomHashMap: Untyped Unordered dictionary'}
 
   PsgCustomHashMap = ^TsgCustomHashMap;
   TsgCustomHashMap = record
-  public type
-    TKeyHash = function(k: Pointer): Cardinal;
-    TKeyEquals = function(a, b: Pointer): Boolean;
   private type
     // Collision list element
     PCollision = ^TCollision;
@@ -759,7 +773,9 @@ type
     function GetEntries(ExpectedSize: Integer): Integer;
   public
     constructor From(PairMeta: PsgTupleMeta; ExpectedSize: Integer;
-      HashKey: THashProc; Equals: TEqualsFunc);
+      HashKey: THashProc; Equals: TEqualsFunc); overload;
+    constructor From(PairMeta: PsgTupleMeta; ExpectedSize: Integer;
+      Hasher: PsgHasher); overload;
     procedure Free;
     // Already initialized
     function Valid: Boolean; inline;
@@ -813,7 +829,8 @@ type
     FMap: TsgCustomHashMap;
   public
     constructor From(ExpectedSize: Integer;
-      HashKey: THashProc; Equals: TEqualsFunc; FreePair: TFreeProc);
+      HashKey: THashProc; Equals: TEqualsFunc; FreePair: TFreeProc); overload;
+    constructor From(ExpectedSize: Integer; Hasher: PsgHasher = nil); overload;
     procedure Free; inline;
     // Finds an element with key equivalent to key.
     function Find(const k: Key): PPair; inline;
@@ -3064,6 +3081,12 @@ begin
   FCollisions := SysCtx.CreateRegion(CollisionMeta);
 end;
 
+constructor TsgCustomHashMap.From(PairMeta: PsgTupleMeta; ExpectedSize: Integer;
+  Hasher: PsgHasher);
+begin
+
+end;
+
 function TsgCustomHashMap.GetEntries(ExpectedSize: Integer): Integer;
 begin
   // the size of the entry table must be a prime number
@@ -3156,6 +3179,15 @@ begin
   meta := SysCtx.CreateTupleMeta;
   meta.MakePair<Key, T>(FreePair);
   FMap := TsgCustomHashMap.From(meta, ExpectedSize, HashKey, Equals);
+end;
+
+constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer; Hasher: PsgHasher);
+var
+  meta: PsgTupleMeta;
+begin
+  meta := SysCtx.CreateTupleMeta;
+  meta.MakePair<Key, T>(nil);
+  FMap := TsgCustomHashMap.From(meta, ExpectedSize, Hasher);
 end;
 
 procedure TsgHashMap<Key, T>.Free;
