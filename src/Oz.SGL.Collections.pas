@@ -781,8 +781,11 @@ type
     function Valid: Boolean; inline;
     // Find item by key
     function Find(key: Pointer): Pointer;
-    // Insert pair
+    // Inserts element into the container, if the container doesn't already
+    // contain an element with an equivalent key.
     function Insert(pair: Pointer): Pointer;
+    // Insert an element or assigns to the current element if the key already exists
+    function InsertOrAssign(pair: Pointer): Pointer;
     // Return the iterator to the beginning
     function Begins: TIterator;
     // Next to the last one.
@@ -837,6 +840,8 @@ type
     // Inserts element into the container, if the container doesn't already
     // contain an element with an equivalent key.
     function Insert(const pair: TsgPair<Key, T>): PPair; inline;
+    // Insert an element or assigns to the current element if the key already exists
+    function InsertOrAssign(const pair: TsgPair<Key, T>): PPair; inline;
     // Return the iterator to the beginning
     function Begins: TsgHashMapIterator<Key, T>; inline;
     // Next to the last one.
@@ -3157,6 +3162,32 @@ begin
   Result := n.GetPairRef;
 end;
 
+function TsgCustomHashMap.InsertOrAssign(pair: Pointer): Pointer;
+var
+  eidx: Integer;
+  entry: pEntry;
+  p, n: PCollision;
+begin
+  eidx := FHash(pair, FPair.Get(0).GetItemSize) mod Cardinal(FEntries.Count);
+  entry := FEntries.GetItemPtr(eidx);
+  p := entry.root;
+  while p <> nil do
+  begin
+    if FEquals(@pair, p.GetPairRef) then
+    begin
+      FPair.Assign(p.GetPairRef, pair);
+      exit(p.GetPairRef);
+    end;
+    p := p.Next;
+  end;
+  // Insert collision at the beginning of the list
+  n := FCollisions.AddItem;
+  n.Next := entry.root;
+  FPair.Assign(n.GetPairRef, pair);
+  entry.root := n;
+  Result := n.GetPairRef;
+end;
+
 function TsgCustomHashMap.Begins: TIterator;
 begin
   Result.Init(@Self, 0);
@@ -3203,6 +3234,11 @@ end;
 function TsgHashMap<Key, T>.Insert(const pair: TsgPair<Key, T>): PPair;
 begin
   Result := PPair(FMap.Insert(@pair));
+end;
+
+function TsgHashMap<Key, T>.InsertOrAssign(const pair: TsgPair<Key, T>): PPair;
+begin
+  Result := PPair(FMap.InsertOrAssign(@pair));
 end;
 
 function TsgHashMap<Key, T>.Begins: TsgHashMapIterator<Key, T>;
@@ -3856,6 +3892,8 @@ begin
         v := string(Arg.VUnicodeString);
       vtChar, vtWideChar:
         v := Char(Arg.VChar);
+      vtAnsiString:
+        v := string(Arg.VString);
       else
         raise EsgError.Create(EsgError.InvalidParameters);
     end;
