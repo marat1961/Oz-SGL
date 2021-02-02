@@ -486,6 +486,7 @@ type
     procedure GenPair(i: Integer; var pair: TsgPair<TVector, Integer>);
   published
     procedure TestInsert;
+    procedure TestInsertOrUpdate;
     procedure TestFind;
     procedure TestPairIterator;
     procedure TestKeyIterator;
@@ -4258,6 +4259,47 @@ begin
     r.Value := b.Value;
     CheckTrue(r.Key.Equals(t.Key));
     CheckTrue(r.Value = i);
+  end;
+end;
+
+procedure TestTsgHashMap.TestInsertOrUpdate;
+var
+  i: Integer;
+  pair, t, r: TsgPair<TVector, Integer>;
+  a, b: TsgHashMap<TVector, Integer>.PPair;
+begin
+  for i := 0 to 100 do
+  begin
+    // insert
+    GenPair(i, pair);
+    t := pair;
+    a := Map.InsertOrAssign(pair);
+    CheckTrue(a <> nil);
+    r.Key := a.Key;
+    r.Value := a.Value;
+    CheckTrue(r.Key.Equals(t.Key));
+    CheckTrue(r.Value = i);
+
+    // find
+    b := Map.Find(pair.Key);
+    CheckTrue(b <> nil);
+    r.Key := b.Key;
+    r.Value := b.Value;
+    CheckTrue(r.Key.Equals(t.Key));
+    CheckTrue(r.Value = i);
+  end;
+  for i := 0 to 100 do
+  begin
+    // insert
+    GenPair(i, pair);
+    pair.Value := i + 100;
+    t := pair;
+    a := Map.InsertOrAssign(pair);
+    CheckTrue(a <> nil);
+    r.Key := a.Key;
+    r.Value := a.Value;
+    CheckTrue(r.Key.Equals(t.Key));
+    CheckTrue(r.Value = i + 100);
   end;
 end;
 
