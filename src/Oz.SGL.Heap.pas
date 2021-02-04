@@ -898,7 +898,7 @@ begin
   FCount := 0;
   if FTemporary <> nil then
   begin
-    FreeMem(FTemporary);
+    FreeItem(@FMeta, FTemporary);
     FTemporary := nil;
   end;
 end;
@@ -1039,7 +1039,10 @@ end;
 function TMemoryRegion.GetTemporary: Pointer;
 begin
   if FTemporary = nil then
+  begin
     FTemporary := AllocMem(ItemSize);
+    FillChar(FTemporary^, ItemSize, 0);
+  end;
   Result := FTemporary;
 end;
 
