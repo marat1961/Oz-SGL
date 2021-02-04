@@ -485,6 +485,7 @@ type
     procedure TearDown; override;
     procedure GenPair(i: Integer; var pair: TsgPair<TVector, Integer>);
   published
+    procedure TestTemporaryPair;
     procedure TestInsert;
     procedure TestInsertOrUpdate;
     procedure TestFind;
@@ -4232,6 +4233,18 @@ begin
     4: pair.Key := TVector.From(i, i + 4, i * 4);
   end;
   pair.Value := i;
+end;
+
+procedure TestTsgHashMap.TestTemporaryPair;
+var
+  pair, a: TsgHashMap<TVector, Integer>.PPair;
+begin
+  pair := Map.GetTemporaryPair;
+  GenPair(1, pair^);
+  a := Map.Insert(pair^);
+  CheckTrue(a <> nil);
+  CheckTrue(pair.Key.Equals(a.Key));
+  CheckTrue(pair.Value = a.Value);
 end;
 
 procedure TestTsgHashMap.TestInsert;

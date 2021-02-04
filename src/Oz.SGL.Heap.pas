@@ -221,6 +221,7 @@ type
     FCapacity: Integer;
     FCount: Integer;
     FMeta: TsgItemMeta;
+    FTemporary: Pointer;
     // procedural types
     FSwapItems: TSwapProc;
     FCompareItems: TCompareProc;
@@ -246,6 +247,8 @@ type
     function Alloc(Size: Cardinal): Pointer;
     // Get a pointer to an element of an array of the specified type
     function GetItemPtr(Index: Cardinal): Pointer; inline;
+    // Return a temporary variable
+    function GetTemporary: Pointer;
     // propeties
     property Meta: PsgItemMeta read GetMeta;
     property Capacity: Integer read FCapacity;
@@ -893,6 +896,11 @@ procedure TMemoryRegion.Free;
 begin
   FreeHeap(Heap);
   FCount := 0;
+  if FTemporary <> nil then
+  begin
+    FreeMem(FTemporary);
+    FTemporary := nil;
+  end;
 end;
 
 procedure TMemoryRegion.Clear;
@@ -1026,6 +1034,13 @@ end;
 function TMemoryRegion.GetMeta: PsgItemMeta;
 begin
   Result := @FMeta;
+end;
+
+function TMemoryRegion.GetTemporary: Pointer;
+begin
+  if FTemporary = nil then
+    FTemporary := AllocMem(ItemSize);
+  Result := FTemporary;
 end;
 
 {$EndRegion}
@@ -1333,7 +1348,7 @@ function THeapPool.CreateRegion(Meta: PsgItemMeta): PSegmentedRegion;
 begin
   Meta.h.SetSegmented(True);
 {$IFDEF DEBUG}
-  Assert(sizeof(TSegmentedRegion) = sizeof(TMemoryRegion));
+  Assert(sizeof(TSegmentedRegion) = sizeof(TMemoryRegion), '');
 {$ENDIF}
   Result := PSegmentedRegion(FindOrCreateRegion(Meta));
 end;

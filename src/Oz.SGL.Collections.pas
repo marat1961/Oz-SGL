@@ -741,6 +741,8 @@ type
 
   PsgCustomHashMap = ^TsgCustomHashMap;
   TsgCustomHashMap = record
+  type
+    TAssignPair = reference to procedure(pair: Pointer);
   private type
     // Collision list element
     PCollision = ^TCollision;
@@ -786,6 +788,8 @@ type
     function Insert(pair: Pointer): Pointer;
     // Insert an element or assigns to the current element if the key already exists
     function InsertOrAssign(pair: Pointer): Pointer;
+    // Return a temporary variable
+    function GetTemporaryPair: Pointer; inline;
     // Return the iterator to the beginning
     function Begins: TIterator;
     // Next to the last one.
@@ -842,6 +846,8 @@ type
     function Insert(const pair: TsgPair<Key, T>): PPair; inline;
     // Insert an element or assigns to the current element if the key already exists
     function InsertOrAssign(const pair: TsgPair<Key, T>): PPair; inline;
+    // Return a temporary variable
+    function GetTemporaryPair: PPair; inline;
     // Return the iterator to the beginning
     function Begins: TsgHashMapIterator<Key, T>; inline;
     // Next to the last one.
@@ -3188,6 +3194,11 @@ begin
   Result := n.GetPairRef;
 end;
 
+function TsgCustomHashMap.GetTemporaryPair: Pointer;
+begin
+  Result := FCollisions.Region.GetTemporary;
+end;
+
 function TsgCustomHashMap.Begins: TIterator;
 begin
   Result.Init(@Self, 0);
@@ -3219,6 +3230,11 @@ begin
   meta := SysCtx.CreateTupleMeta;
   meta.MakePair<Key, T>(nil);
   FMap := TsgCustomHashMap.From(meta, ExpectedSize, Hasher);
+end;
+
+function TsgHashMap<Key, T>.GetTemporaryPair: PPair;
+begin
+  Result := PPair(FMap.GetTemporaryPair);
 end;
 
 procedure TsgHashMap<Key, T>.Free;
