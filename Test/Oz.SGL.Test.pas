@@ -4215,7 +4215,7 @@ var
 begin
   Hash := VectorHash;
   Equals := VectorEquals;
-  Map := TsgHashMap<TVector, Integer>.From(300, Hash, Equals, nil);
+  Map := TsgHashMap<TVector, Integer>.From(300, nil, nil);
 end;
 
 procedure TestTsgHashMap.TearDown;
