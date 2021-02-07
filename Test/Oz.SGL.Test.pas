@@ -26,6 +26,7 @@ uses
   System.UITypes,
   System.Classes,
   System.Math,
+  System.Generics.Defaults,
   System.Diagnostics,
   TestFramework,
 
@@ -480,11 +481,13 @@ type
   TestTsgHashMap = class(TTestCase)
   strict private
     Map: TsgHashMap<TVector, Integer>;
+    function Hash<TKey>(const Key: TKey): Integer;
   public
     procedure SetUp; override;
     procedure TearDown; override;
     procedure GenPair(i: Integer; var pair: TsgPair<TVector, Integer>);
   published
+    procedure TestHash;
     procedure TestTemporaryPair;
     procedure TestInsert;
     procedure TestInsertOrUpdate;
@@ -4209,18 +4212,32 @@ begin
 end;
 
 procedure TestTsgHashMap.SetUp;
-var
-  Hash: THashProc;
-  Equals: TEqualsFunc;
+//var
+//  Hash: THashProc;
+//  Equals: TEqualsFunc;
 begin
-  Hash := VectorHash;
-  Equals := VectorEquals;
+//  Hash := VectorHash;
+//  Equals := VectorEquals;
   Map := TsgHashMap<TVector, Integer>.From(300, nil, nil);
 end;
 
 procedure TestTsgHashMap.TearDown;
 begin
   Map.Free;
+end;
+
+procedure TestTsgHashMap.TestHash;
+begin
+
+end;
+
+function TestTsgHashMap.Hash<TKey>(const Key: TKey): Integer;
+const
+  PositiveMask = not Integer($80000000);
+var
+  FComparer: IEqualityComparer<TKey>;
+begin
+  Result := PositiveMask and ((PositiveMask and FComparer.GetHashCode(Key)) + 1);
 end;
 
 procedure TestTsgHashMap.GenPair(i: Integer; var pair: TsgPair<TVector, Integer>);

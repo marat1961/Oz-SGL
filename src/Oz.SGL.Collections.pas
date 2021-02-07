@@ -21,8 +21,8 @@ interface
 {$Region 'Uses'}
 
 uses
-  System.Classes, System.SysUtils, System.Math, System.Generics.Defaults,
-  Oz.SGL.Heap, Oz.SGL.HandleManager;
+  System.Classes, System.SysUtils, System.Math,
+  Oz.SGL.Heap, Oz.SGL.HandleManager, Oz.SGL.Hash;
 
 {$EndRegion}
 
@@ -720,19 +720,6 @@ type
 
 {$EndRegion}
 
-{$Region 'TsgHasher: GetHash and Equals operation'}
-
-  TsgHasher = class
-  private
-    FComparer: Pointer;
-  public
-    class function Create(m: TsgItemMeta): TsgHasher;
-    function Equals(a, b: Pointer): Boolean;
-    function GetHash(k: Pointer): Integer;
-  end;
-
-{$EndRegion}
-
 {$Region 'TsgCustomHashMap: Untyped Unordered dictionary'}
 
   PsgCustomHashMap = ^TsgCustomHashMap;
@@ -769,7 +756,7 @@ type
     // Get a prime number for the expected number of items
     function GetEntries(ExpectedSize: Integer): Integer;
   public
-    constructor From(PairMeta: PsgTupleMeta; ExpectedSize: Integer; Hasher: TsgHasher);
+    constructor From(PairMeta: PsgTupleMeta; ExpectedSize: Integer; Hasher: PsgHasher);
     procedure Free;
     // Already initialized
     function Valid: Boolean; inline;
@@ -827,7 +814,7 @@ type
   private
     FMap: TsgCustomHashMap;
   public
-    constructor From(ExpectedSize: Integer; Hasher: TsgHasher; FreePair: TFreeProc = nil);
+    constructor From(ExpectedSize: Integer; Hasher: PsgHasher; FreePair: TFreeProc = nil);
     procedure Free; inline;
     // Finds an element with key equivalent to key.
     function Find(const k: Key): PPair; inline;
@@ -3037,28 +3024,6 @@ end;
 
 {$EndRegion}
 
-{$Region 'TsgHasher'}
-
-type
-  TByteComparer = TEqualityComparer<Byte>;
-
-class function TsgHasher.Create(m: TsgItemMeta): TsgHasher;
-begin
-  Result.FComparer := _LookupVtableInfo(giEqualityComparer, m.TypeInfo, m.ItemSize);
-end;
-
-function TsgHasher.Equals(a, b: Pointer): Boolean;
-begin
-  Result := TByteComparer(FComparer).Equals(PByte(a)^, PByte(b)^);
-end;
-
-function TsgHasher.GetHash(k: Pointer): Integer;
-begin
-  Result := TByteComparer(FComparer).GetHashCode(PByte(k)^);
-end;
-
-{$EndRegion}
-
 {$Region 'TsgCustomHashMap.TIterator'}
 
 procedure TsgCustomHashMap.TIterator.Init(map: PsgCustomHashMap; idx: Integer);
@@ -3087,7 +3052,7 @@ end;
 {$Region 'TsgCustomHashMap'}
 
 constructor TsgCustomHashMap.From(PairMeta: PsgTupleMeta; ExpectedSize: Integer;
-  Hasher: TsgHasher);
+  Hasher: PsgHasher);
 var
   EntryMeta, CollisionMeta: PsgItemMeta;
   TabSize: Integer;
@@ -3098,9 +3063,9 @@ begin
   FEntries.Count := TabSize;
   FPair := PairMeta;
   if Hasher = nil then
-    FHasher := TsgHasher.Create(PairMeta.Get(0).Meta^)
+    FHasher := TsgHasher.From(PairMeta.Get(0).Meta^)
   else
-    FHasher := Hasher;
+    FHasher := Hasher^;
   CollisionMeta := SysCtx.CreateMeta<TCollision>;
   CollisionMeta.ItemSize := sizeof(TCollision) + FPair.Size;
   FCollisions := SysCtx.CreateRegion(CollisionMeta);
@@ -3222,7 +3187,7 @@ end;
 {$Region 'TsgHashMap<Key, T>'}
 
 constructor TsgHashMap<Key, T>.From(ExpectedSize: Integer;
-  Hasher: TsgHasher; FreePair: TFreeProc);
+  Hasher: PsgHasher; FreePair: TFreeProc);
 var
   meta: PsgTupleMeta;
 begin
