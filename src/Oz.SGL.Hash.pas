@@ -85,9 +85,6 @@ function CompareRawByteString(const Left, Right: RawByteString): Integer;
 implementation
 
 type
-  TPS1 = string[1];
-  TPS2 = string[2];
-  TPS3 = string[3];
 
   TInfoFlags = set of (ifVariableSize, ifSelector);
   PTabInfo = ^TTabInfo;
@@ -184,7 +181,7 @@ end;
 
 function EqualsString(a, b: Pointer): Boolean;
 begin
-  Result := PString(a)^ = PString(b)^;
+  Result := AnsiString(a^) = AnsiString(b^);
 end;
 
 function EqualsClass(a, b: Pointer): Boolean;
@@ -320,38 +317,47 @@ end;
 
 function HashClass(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashMethod(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashLString(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashWString(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashUString(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashVariant(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashRecord(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashPointer(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 function HashI8(const key: PByte): Cardinal;
 begin
+  Result := 0;
 end;
 
 const
@@ -367,17 +373,17 @@ const
   EntryRI8: TComparer = (Equals: EqualsComp; Hash: HashComp);
   EntryRC8: TComparer = (Equals: EqualsCurrency; Hash: HashCurrency);
   // String
-  EntryString: TComparer = (Equals: EqualsString; Hash: HashString);
+  EntryAnsiString: TComparer = (Equals: EqualsString; Hash: HashString);
+  EntryLString: TComparer = (Equals: EqualsLString; Hash: HashLString);
+  EntryWString: TComparer = (Equals: EqualsWString; Hash: HashWString);
+  EntryUString: TComparer = (Equals: EqualsUString; Hash: HashUString);
 
   EntryClass: TComparer = (Equals: EqualsClass; Hash: HashClass);
   EntryMethod: TComparer = (Equals: EqualsMethod; Hash: HashMethod);
-  EntryLString: TComparer = (Equals: EqualsLString; Hash: HashLString);
-  EntryWString: TComparer = (Equals: EqualsWString; Hash: HashWString);
   EntryVariant: TComparer = (Equals: EqualsVariant; Hash: HashVariant);
   EntryRecord: TComparer = (Equals: EqualsRecord; Hash: HashRecord);
   EntryPointer: TComparer = (Equals: EqualsPointer; Hash: HashPointer);
   EntryI8: TComparer = (Equals: EqualsI8; Hash: HashI8);
-  EntryUString: TComparer = (Equals: EqualsUString; Hash: HashUString);
 
 function SelectBinary(info: PTypeInfo; size: Integer): PComparer;
 begin
@@ -437,7 +443,7 @@ const
     // tkFloat
     (Flags: [ifSelector]; Data: @SelectFloat),
     // tkString
-    (Flags: []; Data: @EntryString),
+    (Flags: []; Data: @EntryAnsiString),
     // tkSet
     (Flags: [ifSelector]; Data: @SelectBinary),
     // tkClass
