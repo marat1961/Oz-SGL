@@ -21,7 +21,7 @@ interface
 {$Region 'Uses'}
 
 uses
-  System.SysUtils, System.Math, System.TypInfo, Oz.SGL.Heap;
+  System.SysUtils, System.Math, System.TypInfo, System.Variants, Oz.SGL.Heap;
 
 {$EndRegion}
 
@@ -80,6 +80,8 @@ type
 
 {$EndRegion}
 
+function CompareRawByteString(const Left, Right: RawByteString): Integer;
+
 implementation
 
 type
@@ -95,6 +97,45 @@ type
   end;
 
   TSelectProc = function(info: PTypeInfo; size: Integer): PComparer;
+
+function CompareRawByteString(const Left, Right: RawByteString): Integer;
+var
+  Len, LLen, RLen: Integer;
+  LPtr, RPtr: PByte;
+begin
+  if Pointer(Left) = Pointer(Right) then
+    Result := 0
+  else if Pointer(Left) = nil then
+    Result := 0 - PInteger(PByte(Right) - 4)^ // Length(Right)
+  else if Pointer(Right) = nil then
+    Result := PInteger(PByte(Left) - 4)^ // Length(Left)
+  else
+  begin
+    Result := Integer(PByte(Left)^) - Integer(PByte(Right)^);
+    if Result <> 0 then
+      Exit;
+    LLen := PInteger(PByte(Left) - 4)^ - 1;  // Length(Left);
+    RLen := PInteger(PByte(Right) - 4)^ - 1; // Length(Right);
+    Len := LLen;
+    if Len > RLen then Len := RLen;
+    LPtr := PByte(Left) + 1;
+    RPtr := PByte(Right) + 1;
+    while Len > 0 do
+    begin
+      Result := Integer(LPtr^) - Integer(RPtr^);
+      if Result <> 0 then
+        Exit;
+      if Len = 1 then break;
+      Result := Integer(LPtr[1]) - Integer(RPtr[1]);
+      if Result <> 0 then
+        Exit;
+      Inc(LPtr, 2);
+      Inc(RPtr, 2);
+      Dec(Len, 2);
+    end;
+    Result := LLen - RLen;
+  end;
+end;
 
 function EqualsByte(a, b: Pointer): Boolean;
 begin
@@ -138,12 +179,66 @@ end;
 
 function EqualsExtended(a, b: Pointer): Boolean;
 begin
-  Result := PExtended(a)^ = PExtended(b)^;
+  Result := Extended(a^) = Extended(b^);
 end;
 
 function EqualsString(a, b: Pointer): Boolean;
 begin
   Result := PString(a)^ = PString(b)^;
+end;
+
+function EqualsClass(a, b: Pointer): Boolean;
+begin
+  if TObject(a^) <> nil then
+    Result := TObject(a^).Equals(TObject(b^))
+  else if TObject(b^) <> nil then
+    Result := TObject(b^).Equals(TObject(a^))
+  else
+    Result := True;
+end;
+
+function EqualsMethod(a, b: Pointer): Boolean;
+begin
+  Result := TMethod(a^) = TMethod(b^);
+end;
+
+function EqualsLString(a, b: Pointer): Boolean;
+begin
+  Result := CompareRawByteString(RawByteString(a^), RawByteString(b^)) = 0;
+end;
+
+function EqualsWString(a, b: Pointer): Boolean;
+begin
+  Result := WideString(a^) = WideString(b^);
+end;
+
+function EqualsUString(a, b: Pointer): Boolean;
+begin
+  Result := UnicodeString(a^) = UnicodeString(b^);
+end;
+
+function EqualsVariant(a, b: Pointer): Boolean;
+var
+  l, r: Variant;
+begin
+  l := PVariant(a)^;
+  r := PVariant(b)^;
+  Result := VarCompareValue(l, r) = vrEqual;
+end;
+
+function EqualsRecord(a, b: Pointer): Boolean;
+begin
+  Result := False;
+end;
+
+function EqualsPointer(a, b: Pointer): Boolean;
+begin
+  Result := False;
+end;
+
+function EqualsI8(a, b: Pointer): Boolean;
+begin
+  Result := False;
 end;
 
 function HashByte(const key: PByte): Cardinal;
@@ -223,6 +318,42 @@ begin
   Result := TsgHash.HashMultiplicative(key, Length(s));
 end;
 
+function HashClass(const key: PByte): Cardinal;
+begin
+end;
+
+function HashMethod(const key: PByte): Cardinal;
+begin
+end;
+
+function HashLString(const key: PByte): Cardinal;
+begin
+end;
+
+function HashWString(const key: PByte): Cardinal;
+begin
+end;
+
+function HashUString(const key: PByte): Cardinal;
+begin
+end;
+
+function HashVariant(const key: PByte): Cardinal;
+begin
+end;
+
+function HashRecord(const key: PByte): Cardinal;
+begin
+end;
+
+function HashPointer(const key: PByte): Cardinal;
+begin
+end;
+
+function HashI8(const key: PByte): Cardinal;
+begin
+end;
+
 const
   // Integer
   EntryByte: TComparer = (Equals: EqualsByte; Hash: HashByte);
@@ -238,15 +369,15 @@ const
   // String
   EntryString: TComparer = (Equals: EqualsString; Hash: HashString);
 
-  EntryClass: TComparer = (Equals: nil; Hash: nil);
-  EntryMethod: TComparer = (Equals: nil; Hash: nil);
-  EntryLString: TComparer = (Equals: nil; Hash: nil);
-  EntryWString: TComparer = (Equals: nil; Hash: nil);
-  EntryVariant: TComparer = (Equals: nil; Hash: nil);
-  EntryRecord: TComparer = (Equals: nil; Hash: nil);
-  EntryPointer: TComparer = (Equals: nil; Hash: nil);
-  EntryI8: TComparer = (Equals: nil; Hash: nil);
-  EntryUString: TComparer = (Equals: nil; Hash: nil);
+  EntryClass: TComparer = (Equals: EqualsClass; Hash: HashClass);
+  EntryMethod: TComparer = (Equals: EqualsMethod; Hash: HashMethod);
+  EntryLString: TComparer = (Equals: EqualsLString; Hash: HashLString);
+  EntryWString: TComparer = (Equals: EqualsWString; Hash: HashWString);
+  EntryVariant: TComparer = (Equals: EqualsVariant; Hash: HashVariant);
+  EntryRecord: TComparer = (Equals: EqualsRecord; Hash: HashRecord);
+  EntryPointer: TComparer = (Equals: EqualsPointer; Hash: HashPointer);
+  EntryI8: TComparer = (Equals: EqualsI8; Hash: HashI8);
+  EntryUString: TComparer = (Equals: EqualsUString; Hash: HashUString);
 
 function SelectBinary(info: PTypeInfo; size: Integer): PComparer;
 begin
