@@ -317,27 +317,36 @@ end;
 
 function HashClass(const key: PByte): Cardinal;
 begin
-  Result := 0;
+  if TObject(key^) = nil then
+    Result := 63
+  else
+    Result := TObject(key^).GetHashCode;
 end;
+
+type
+  TMethodPointer = procedure of object;
 
 function HashMethod(const key: PByte): Cardinal;
 begin
-  Result := 0;
+  Result := TsgHash.HashMultiplicative(key, SizeOf(TMethodPointer));
 end;
 
 function HashLString(const key: PByte): Cardinal;
 begin
-  Result := 0;
+  Result := TsgHash.HashMultiplicative(key,
+    Length(PAnsiString(key)^) * SizeOf(PAnsiString(key)^[1]));
 end;
 
 function HashWString(const key: PByte): Cardinal;
 begin
-  Result := 0;
+  Result := TsgHash.HashMultiplicative(key,
+    Length(PWideString(key)^) * SizeOf(PWideString(key)^[1]));
 end;
 
 function HashUString(const key: PByte): Cardinal;
 begin
-  Result := 0;
+  Result := TsgHash.HashMultiplicative(key,
+    Length(PUnicodeString(key)^) * SizeOf(PUnicodeString(key)^[1]));
 end;
 
 function HashVariant(const key: PByte): Cardinal;

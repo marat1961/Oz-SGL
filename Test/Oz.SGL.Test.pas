@@ -4254,6 +4254,7 @@ begin
   hasher := TsgHasher.From(meta);
   a := '123';
   b := '123';
+  c := 'asd456';
   Check(hasher.Equals(@a, @b));
   Check(not hasher.Equals(@a, @c));
   Check(hasher.GetHash(@b) <> 0);
