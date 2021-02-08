@@ -61,12 +61,19 @@ type
 
 {$Region 'TsgHasher: GetHash and Equals operation'}
 
+  PComparer = ^TComparer;
+  TComparer = record
+    Equals: TEqualsFunc;
+    Hash: THashProc;
+  end;
+
   PsgHasher = ^TsgHasher;
   TsgHasher = record
   private
-    FComparer: Pointer;
+    FComparer: PComparer;
   public
-    class function From(m: TsgItemMeta): TsgHasher; static;
+    class function From(m: TsgItemMeta): TsgHasher; overload; static;
+    class function From(const Comparer: TComparer): TsgHasher; overload; static;
     function Equals(a, b: Pointer): Boolean;
     function GetHash(k: Pointer): Integer;
   end;
@@ -87,11 +94,6 @@ type
     Data: Pointer;
   end;
 
-  PComparer = ^TComparer;
-  TComparer = record
-    Equals: TEqualsFunc;
-    Hash: THashProc;
-  end;
   TSelectProc = function(info: PTypeInfo; size: Integer): PComparer;
 
 function EqualsByte(a, b: Pointer): Boolean;
@@ -419,17 +421,22 @@ end;
 
 class function TsgHasher.From(m: TsgItemMeta): TsgHasher;
 var
-  pio: PTabInfo;
+  info: PTabInfo;
 begin
   if m.TypeInfo = nil then
     raise EsgError.Create('Invalid parameter');
-  pio := @VTab[PTypeInfo(m.TypeInfo)^.Kind];
-  if ifSelector in pio^.Flags then
-    Result.FComparer := TSelectProc(pio^.Data)(m.TypeInfo, m.ItemSize)
-  else if pio^.Data <> nil then
-    Result.FComparer := PComparer(pio^.Data)
+  info := @VTab[PTypeInfo(m.TypeInfo)^.Kind];
+  if ifSelector in info^.Flags then
+    Result.FComparer := TSelectProc(info^.Data)(m.TypeInfo, m.ItemSize)
+  else if info^.Data <> nil then
+    Result.FComparer := PComparer(info^.Data)
   else
     raise EsgError.Create('TsgHasher: Type is not supported');
+end;
+
+class function TsgHasher.From(const Comparer: TComparer): TsgHasher;
+begin
+  Result.FComparer := @Comparer;
 end;
 
 function TsgHasher.Equals(a, b: Pointer): Boolean;

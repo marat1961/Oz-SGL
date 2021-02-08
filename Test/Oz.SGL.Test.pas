@@ -33,6 +33,7 @@ uses
   // Oz.SGL
   Oz.SGL.HandleManager,
   Oz.SGL.Heap,
+  Oz.SGL.Hash,
   Oz.SGL.Collections;
 
 {$EndRegion}
@@ -4201,7 +4202,7 @@ end;
 
 {$Region 'TestTsgHashMap'}
 
-function VectorHash(const Value: PByte; Size: Cardinal): Cardinal;
+function VectorHash(const Value: PByte): Cardinal;
 begin
   Result := PVector(Value)^.Hash;
 end;
@@ -4211,14 +4212,15 @@ begin
   Result := TVector(A^).Equals(TVector(B^));
 end;
 
+var
+  VectorHasher: TsgHasher;
+
 procedure TestTsgHashMap.SetUp;
-//var
-//  Hash: THashProc;
-//  Equals: TEqualsFunc;
+const
+  Comparer: TComparer = (Equals: VectorEquals; Hash: VectorHash);
 begin
-//  Hash := VectorHash;
-//  Equals := VectorEquals;
-  Map := TsgHashMap<TVector, Integer>.From(300, nil, nil);
+  VectorHasher := TsgHasher.From(Comparer);
+  Map := TsgHashMap<TVector, Integer>.From(300, @VectorHasher, nil);
 end;
 
 procedure TestTsgHashMap.TearDown;
