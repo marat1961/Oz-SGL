@@ -21,7 +21,7 @@ interface
 {$Region 'Uses'}
 
 uses
-  System.SysUtils, System.TypInfo, Oz.SGL.Heap;
+  System.SysUtils, System.Math, System.TypInfo, Oz.SGL.Heap;
 
 {$EndRegion}
 
@@ -96,93 +96,129 @@ type
 
 function EqualsByte(a, b: Pointer): Boolean;
 begin
-
+  Result := PByte(a)^ = PByte(b)^;
 end;
 
 function EqualsInt16(a, b: Pointer): Boolean;
 begin
-
+  Result := PWord(a)^ = PWord(b)^;
 end;
 
 function EqualsInt32(a, b: Pointer): Boolean;
 begin
-
+  Result := PInteger(a)^ = PInteger(b)^;
 end;
 
 function EqualsInt64(a, b: Pointer): Boolean;
 begin
-
+  Result := PInt64(a)^ = PInt64(b)^;
 end;
 
 function EqualsSingle(a, b: Pointer): Boolean;
 begin
-
+  Result := PSingle(a)^ = PSingle(b)^;
 end;
 
 function EqualsDouble(a, b: Pointer): Boolean;
 begin
-
+  Result := PDouble(a)^ = PDouble(b)^;
 end;
 
 function EqualsCurrency(a, b: Pointer): Boolean;
 begin
+  Result := PCurrency(a)^ = PCurrency(b)^;
+end;
 
+function EqualsComp(a, b: Pointer): Boolean;
+begin
+  Result := PComp(a)^ = PComp(b)^;
 end;
 
 function EqualsExtended(a, b: Pointer): Boolean;
 begin
-
+  Result := PExtended(a)^ = PExtended(b)^;
 end;
 
 function EqualsString(a, b: Pointer): Boolean;
 begin
-
+  Result := PString(a)^ = PString(b)^;
 end;
-
 
 function HashByte(const key: PByte): Cardinal;
 begin
-
+  Result := TsgHash.ELFHash(0, key, 1);
 end;
 
 function HashInt16(const key: PByte): Cardinal;
 begin
-
+  Result := TsgHash.ELFHash(0, key, 2);
 end;
 
 function HashInt32(const key: PByte): Cardinal;
 begin
-
+  Result := TsgHash.ELFHash(0, key, 4);
 end;
 
 function HashInt64(const key: PByte): Cardinal;
 begin
-
+  Result := TsgHash.ELFHash(0, key, 8);
 end;
 
 function HashSingle(const key: PByte): Cardinal;
+var
+  m: Extended;
+  e: Integer;
 begin
-
+  // Denormalized floats and positive/negative 0.0 complicate things.
+  Frexp(PSingle(key)^, m, e);
+  if m = 0 then
+    m := Abs(m);
+  Result := TsgHash.ELFHash(0, key, sizeof(Extended));
+  Result := TsgHash.ELFHash(Result, key, sizeof(Integer));
 end;
 
 function HashDouble(const key: PByte): Cardinal;
+var
+  m: Extended;
+  e: Integer;
 begin
-
+  // Denormalized floats and positive/negative 0.0 complicate things.
+  Frexp(PDouble(key)^, m, e);
+  if m = 0 then
+    m := Abs(m);
+  Result := TsgHash.ELFHash(0, key, sizeof(Extended));
+  Result := TsgHash.ELFHash(Result, key, sizeof(Integer));
 end;
 
 function HashExtended(const key: PByte): Cardinal;
+var
+  m: Extended;
+  e: Integer;
 begin
+  // Denormalized floats and positive/negative 0.0 complicate things.
+  Frexp(PExtended(key)^, m, e);
+  if m = 0 then
+    m := Abs(m);
+  Result := TsgHash.ELFHash(0, key, sizeof(Extended));
+  Result := TsgHash.ELFHash(Result, key, sizeof(Integer));
+end;
 
+function HashComp(const key: PByte): Cardinal;
+begin
+  Result := TsgHash.ELFHash(0, key, sizeof(Comp));
 end;
 
 function HashCurrency(const key: PByte): Cardinal;
 begin
-
+  Result := TsgHash.ELFHash(0, key, sizeof(Currency));
 end;
 
 function HashString(const key: PByte): Cardinal;
+var
+  s: string;
 begin
-
+  s := PString(key)^;
+  Result := TsgHash.HashMultiplicative(key, Length(s));
 end;
 
 const
@@ -195,6 +231,7 @@ const
   EntryR4: TComparer = (Equals: EqualsSingle; Hash: HashSingle);
   EntryR8: TComparer = (Equals: EqualsDouble; Hash: HashDouble);
   EntryR10: TComparer = (Equals: EqualsExtended; Hash: HashExtended);
+  EntryRI8: TComparer = (Equals: EqualsComp; Hash: HashComp);
   EntryRC8: TComparer = (Equals: EqualsCurrency; Hash: HashCurrency);
   // String
   EntryString: TComparer = (Equals: EqualsString; Hash: HashString);
@@ -242,6 +279,7 @@ begin
     ftSingle: Result := @EntryR4;
     ftDouble: Result := @EntryR8;
     ftExtended: Result := @EntryR10;
+    ftComp: Result := @EntryRI8;
     ftCurr: Result := @EntryRC8;
   else
     System.Error(reRangeError);
