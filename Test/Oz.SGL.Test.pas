@@ -482,6 +482,9 @@ type
   published
     procedure TestInt32;
     procedure TestString;
+    procedure TestWString;
+    procedure TestAnsiString;
+    procedure TestShortString;
   end;
 
 {$EndRegion}
@@ -496,7 +499,6 @@ type
   TsgHashMapTest = class(TTestCase)
   strict private
     Map: TsgHashMap<TVector, Integer>;
-    function Hash<TKey>(const Key: TKey): Integer;
   public
     procedure SetUp; override;
     procedure TearDown; override;
@@ -4244,6 +4246,35 @@ begin
   Check(hasher.GetHash(@c) <> 0);
 end;
 
+procedure TsgHasherTest.TestShortString;
+var
+  hasher: TsgHasher;
+  meta: TsgItemMeta;
+  a, b, c: string[40];
+begin
+  meta.Init<ShortString>;
+  hasher := TsgHasher.From(meta);
+  a := '1';
+  b := '1';
+  c := 'asd456';
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
+  a := '12';
+  b := '12';
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
+  a := '123';
+  b := '123';
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
+end;
+
 procedure TsgHasherTest.TestString;
 var
   hasher: TsgHasher;
@@ -4255,6 +4286,39 @@ begin
   a := '123';
   b := '123';
   c := 'asd456';
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
+end;
+
+procedure TsgHasherTest.TestWString;
+var
+  hasher: TsgHasher;
+  meta: TsgItemMeta;
+  a, b, c: WideString;
+begin
+  meta.Init<WideString>;
+  hasher := TsgHasher.From(meta);
+  a := '123';
+  b := '123';
+  c := 'asd456';
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
+end;
+
+procedure TsgHasherTest.TestAnsiString;
+var
+  hasher: TsgHasher;
+  meta: TsgItemMeta;
+  a, b, c: AnsiString;
+begin
+  meta.Init<AnsiString>;
+  hasher := TsgHasher.From(meta);
+  a := '123';
+  b := '123';
   Check(hasher.Equals(@a, @b));
   Check(not hasher.Equals(@a, @c));
   Check(hasher.GetHash(@b) <> 0);
@@ -4291,15 +4355,6 @@ end;
 procedure TsgHashMapTest.TearDown;
 begin
   Map.Free;
-end;
-
-function TsgHashMapTest.Hash<TKey>(const Key: TKey): Integer;
-const
-  PositiveMask = not Integer($80000000);
-var
-  FComparer: IEqualityComparer<TKey>;
-begin
-  Result := PositiveMask and ((PositiveMask and FComparer.GetHashCode(Key)) + 1);
 end;
 
 procedure TsgHashMapTest.GenPair(i: Integer; var pair: TsgPair<TVector, Integer>);
@@ -4414,7 +4469,7 @@ procedure TsgHashMapTest.TestPairIterator;
 var
   i: Integer;
   pair, t, r: THashMapPair;
-  a, b, p: TsgHashMap<TVector, Integer>.PPair;
+  a, p: TsgHashMap<TVector, Integer>.PPair;
   it: TsgHashMapIterator<TVector, Integer>;
   key: TVector;
   value: Integer;

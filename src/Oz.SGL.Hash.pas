@@ -80,7 +80,7 @@ type
 
 {$EndRegion}
 
-function CompareRawByteString(const Left, Right: RawByteString): Integer;
+function CompareRawByteString(const a, b: RawByteString): Integer;
 
 implementation
 
@@ -95,42 +95,42 @@ type
 
   TSelectProc = function(info: PTypeInfo; size: Integer): PComparer;
 
-function CompareRawByteString(const Left, Right: RawByteString): Integer;
+function CompareRawByteString(const a, b: RawByteString): Integer;
 var
-  Len, LLen, RLen: Integer;
-  LPtr, RPtr: PByte;
+  L, La, Lb: Integer;
+  Pa, Pb: PByte;
 begin
-  if Pointer(Left) = Pointer(Right) then
+  if Pointer(a) = Pointer(b) then
     Result := 0
-  else if Pointer(Left) = nil then
-    Result := 0 - PInteger(PByte(Right) - 4)^ // Length(Right)
-  else if Pointer(Right) = nil then
-    Result := PInteger(PByte(Left) - 4)^ // Length(Left)
+  else if Pointer(a) = nil then
+    Result := 0 - PInteger(PByte(b) - 4)^ // Length(b)
+  else if Pointer(b) = nil then
+    Result := PInteger(PByte(a) - 4)^ // Length(a)
   else
   begin
-    Result := Integer(PByte(Left)^) - Integer(PByte(Right)^);
+    Result := Integer(PByte(a)^) - Integer(PByte(b)^);
     if Result <> 0 then
       Exit;
-    LLen := PInteger(PByte(Left) - 4)^ - 1;  // Length(Left);
-    RLen := PInteger(PByte(Right) - 4)^ - 1; // Length(Right);
-    Len := LLen;
-    if Len > RLen then Len := RLen;
-    LPtr := PByte(Left) + 1;
-    RPtr := PByte(Right) + 1;
-    while Len > 0 do
+    La := PInteger(PByte(a) - 4)^ - 1;  // Length(a);
+    Lb := PInteger(PByte(b) - 4)^ - 1; // Length(b);
+    L := La;
+    if L > Lb then L := Lb;
+    Pa := PByte(a) + 1;
+    Pb := PByte(b) + 1;
+    while L > 0 do
     begin
-      Result := Integer(LPtr^) - Integer(RPtr^);
+      Result := Integer(Pa^) - Integer(Pb^);
       if Result <> 0 then
         Exit;
-      if Len = 1 then break;
-      Result := Integer(LPtr[1]) - Integer(RPtr[1]);
+      if L = 1 then break;
+      Result := Integer(Pa[1]) - Integer(Pb[1]);
       if Result <> 0 then
         Exit;
-      Inc(LPtr, 2);
-      Inc(RPtr, 2);
-      Dec(Len, 2);
+      Inc(Pa, 2);
+      Inc(Pb, 2);
+      Dec(L, 2);
     end;
-    Result := LLen - RLen;
+    Result := La - Lb;
   end;
 end;
 
@@ -212,6 +212,11 @@ end;
 function EqualsUString(a, b: Pointer): Boolean;
 begin
   Result := UnicodeString(a^) = UnicodeString(b^);
+end;
+
+function EqualsShortString(a, b: Pointer): Boolean;
+begin
+  Result := ShortString(a^) = ShortString(b^);
 end;
 
 function EqualsVariant(a, b: Pointer): Boolean;
@@ -349,6 +354,11 @@ begin
     Length(PUnicodeString(key)^) * SizeOf(PUnicodeString(key)^[1]));
 end;
 
+function HashShortString(const key: PByte): Cardinal;
+begin
+  Result := TsgHash.HashMultiplicative(key, Length(PShortString(key)^));
+end;
+
 function HashVariant(const key: PByte): Cardinal;
 begin
   Result := 0;
@@ -386,6 +396,7 @@ const
   EntryLString: TComparer = (Equals: EqualsLString; Hash: HashLString);
   EntryWString: TComparer = (Equals: EqualsWString; Hash: HashWString);
   EntryUString: TComparer = (Equals: EqualsUString; Hash: HashUString);
+  EntryShortString: TComparer = (Equals: EqualsShortString; Hash: HashShortString);
 
   EntryClass: TComparer = (Equals: EqualsClass; Hash: HashClass);
   EntryMethod: TComparer = (Equals: EqualsMethod; Hash: HashMethod);
@@ -452,7 +463,7 @@ const
     // tkFloat
     (Flags: [ifSelector]; Data: @SelectFloat),
     // tkString
-    (Flags: []; Data: @EntryAnsiString),
+    (Flags: []; Data: @EntryShortString),
     // tkSet
     (Flags: [ifSelector]; Data: @SelectBinary),
     // tkClass
