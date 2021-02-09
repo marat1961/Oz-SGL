@@ -38,7 +38,6 @@ type
     TUpdateProc = procedure(const key: PByte; Size: Cardinal);
     THashProc = function(const key: PByte; Size: Cardinal): Cardinal;
   private
-    FDigest: Cardinal;
     FUpdate: TUpdateProc;
     FHash: THashProc;
   public
@@ -235,32 +234,32 @@ end;
 
 function EqualsPointer(a, b: Pointer): Boolean;
 begin
-  Result := False;
+  Result := NativeUInt(a^) = NativeUInt(b^);
 end;
 
 function EqualsI8(a, b: Pointer): Boolean;
 begin
-  Result := False;
+  Result := Int64(a^) = Int64(b^);
 end;
 
 function HashByte(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.ELFHash(0, key, 1);
+  Result := TsgHash.ELFHash(0, key, sizeof(Byte));
 end;
 
 function HashInt16(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.ELFHash(0, key, 2);
+  Result := TsgHash.ELFHash(0, key, sizeof(Word));
 end;
 
 function HashInt32(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.ELFHash(0, key, 4);
+  Result := TsgHash.ELFHash(0, key, sizeof(Int32));
 end;
 
 function HashInt64(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.ELFHash(0, key, 8);
+  Result := TsgHash.ELFHash(0, key, sizeof(Int64));
 end;
 
 function HashSingle(const key: PByte): Cardinal;
@@ -360,23 +359,25 @@ begin
 end;
 
 function HashVariant(const key: PByte): Cardinal;
+var
+  v: string;
 begin
-  Result := 0;
-end;
-
-function HashRecord(const key: PByte): Cardinal;
-begin
-  Result := 0;
+  try
+    v := PVariant(key)^;
+    Result := HashUString(PByte(PChar(v)));
+  except
+    Result := TsgHash.HashMultiplicative(key, SizeOf(Variant));
+  end;
 end;
 
 function HashPointer(const key: PByte): Cardinal;
 begin
-  Result := 0;
+  Result := TsgHash.HashMultiplicative(key, sizeof(Pointer));
 end;
 
 function HashI8(const key: PByte): Cardinal;
 begin
-  Result := 0;
+  Result := TsgHash.HashMultiplicative(key, sizeof(Int64));
 end;
 
 const
@@ -401,7 +402,6 @@ const
   EntryClass: TComparer = (Equals: EqualsClass; Hash: HashClass);
   EntryMethod: TComparer = (Equals: EqualsMethod; Hash: HashMethod);
   EntryVariant: TComparer = (Equals: EqualsVariant; Hash: HashVariant);
-  EntryRecord: TComparer = (Equals: EqualsRecord; Hash: HashRecord);
   EntryPointer: TComparer = (Equals: EqualsPointer; Hash: HashPointer);
   EntryI8: TComparer = (Equals: EqualsI8; Hash: HashI8);
 
@@ -446,10 +446,6 @@ begin
   end;
 end;
 
-function SelectDynArray(info: PTypeInfo; size: Integer): PComparer;
-begin
-end;
-
 const
   VTab: array [TTypeKind] of TTabInfo = (
     // tkUnknown
@@ -481,13 +477,13 @@ const
     // tkArray
     (Flags: [ifSelector]; Data: @SelectBinary),
     // tkRecord
-    (Flags: [ifSelector]; Data: @EntryRecord),
+    (Flags: []; Data: nil),
     // tkInterface
     (Flags: []; Data: @EntryPointer),
     // tkInt64
     (Flags: []; Data: @EntryI8),
     // tkDynArray
-    (Flags: [ifSelector]; Data: @SelectDynArray),
+    (Flags: []; Data: nil),
     // tkUString
     (Flags: []; Data: @EntryUString),
     // tkClassRef
@@ -497,7 +493,7 @@ const
     // tkProcedure
     (Flags: []; Data: @EntryPointer),
     // tkMRecord
-    (Flags: [ifSelector]; Data: @EntryRecord));
+    (Flags: [ifSelector]; Data: nil));
 
 {$Region 'TsgHash'}
 
