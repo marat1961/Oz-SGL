@@ -474,13 +474,11 @@ type
 {$Region 'TsgHasherTest'}
 
   TsgHasherTest = class(TTestCase)
-  strict private
-
-  public
-    procedure SetUp; override;
-    procedure TearDown; override;
   published
+    procedure TestByte;
+    procedure TestWord;
     procedure TestInt32;
+    procedure TestInt64;
     procedure TestString;
     procedure TestWString;
     procedure TestAnsiString;
@@ -4217,16 +4215,38 @@ end;
 
 {$Region 'TsgHasherTest'}
 
-procedure TsgHasherTest.SetUp;
+procedure TsgHasherTest.TestByte;
+var
+  hasher: TsgHasher;
+  meta: TsgItemMeta;
+  a, b, c: Byte;
 begin
-  inherited;
-
+  meta.Init<Byte>;
+  hasher := TsgHasher.From(meta);
+  a := 123;
+  b := 123;
+  c := 56;
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
 end;
 
-procedure TsgHasherTest.TearDown;
+procedure TsgHasherTest.TestWord;
+var
+  hasher: TsgHasher;
+  meta: TsgItemMeta;
+  a, b, c: Word;
 begin
-  inherited;
-
+  meta.Init<Word>;
+  hasher := TsgHasher.From(meta);
+  a := 123;
+  b := 123;
+  c := 456;
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
 end;
 
 procedure TsgHasherTest.TestInt32;
@@ -4240,6 +4260,23 @@ begin
   a := 123;
   b := 123;
   c := 456;
+  Check(hasher.Equals(@a, @b));
+  Check(not hasher.Equals(@a, @c));
+  Check(hasher.GetHash(@b) <> 0);
+  Check(hasher.GetHash(@c) <> 0);
+end;
+
+procedure TsgHasherTest.TestInt64;
+var
+  hasher: TsgHasher;
+  meta: TsgItemMeta;
+  a, b, c: Int64;
+begin
+  meta.Init<Int64>;
+  hasher := TsgHasher.From(meta);
+  a := 123456;
+  b := 123456;
+  c := 456471456;
   Check(hasher.Equals(@a, @b));
   Check(not hasher.Equals(@a, @c));
   Check(hasher.GetHash(@b) <> 0);

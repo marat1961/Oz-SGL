@@ -30,7 +30,6 @@ uses
 {$Region 'THashData'}
 
 type
-
   THashKind = (hkMultiplicative, hkSHA1, hkSHA2, hkSHA5, hkMD5);
 
   TsgHash  = record
@@ -84,11 +83,9 @@ function CompareRawByteString(const a, b: RawByteString): Integer;
 implementation
 
 type
-
-  TInfoFlags = set of (ifVariableSize, ifSelector);
   PTabInfo = ^TTabInfo;
   TTabInfo = record
-    Flags: TInfoFlags;
+    Selector: Boolean;
     Data: Pointer;
   end;
 
@@ -267,7 +264,6 @@ var
   m: Extended;
   e: Integer;
 begin
-  // Denormalized floats and positive/negative 0.0 complicate things.
   Frexp(PSingle(key)^, m, e);
   if m = 0 then
     m := Abs(m);
@@ -280,7 +276,6 @@ var
   m: Extended;
   e: Integer;
 begin
-  // Denormalized floats and positive/negative 0.0 complicate things.
   Frexp(PDouble(key)^, m, e);
   if m = 0 then
     m := Abs(m);
@@ -293,7 +288,6 @@ var
   m: Extended;
   e: Integer;
 begin
-  // Denormalized floats and positive/negative 0.0 complicate things.
   Frexp(PExtended(key)^, m, e);
   if m = 0 then
     m := Abs(m);
@@ -449,51 +443,51 @@ end;
 const
   VTab: array [TTypeKind] of TTabInfo = (
     // tkUnknown
-    (Flags: [ifSelector]; Data: @SelectBinary),
+    (Selector: True; Data: @SelectBinary),
     // tkInteger
-    (Flags: [ifSelector]; Data: @SelectInteger),
+    (Selector: True; Data: @SelectInteger),
     // tkChar
-    (Flags: [ifSelector]; Data: @SelectBinary),
+    (Selector: True; Data: @SelectBinary),
     // tkEnumeration
-    (Flags: [ifSelector]; Data: @SelectInteger),
+    (Selector: True; Data: @SelectInteger),
     // tkFloat
-    (Flags: [ifSelector]; Data: @SelectFloat),
+    (Selector: True; Data: @SelectFloat),
     // tkString
-    (Flags: []; Data: @EntryShortString),
+    (Selector: False; Data: @EntryShortString),
     // tkSet
-    (Flags: [ifSelector]; Data: @SelectBinary),
+    (Selector: True; Data: @SelectBinary),
     // tkClass
-    (Flags: []; Data: @EntryClass),
+    (Selector: False; Data: @EntryClass),
     // tkMethod
-    (Flags: []; Data: @EntryMethod),
+    (Selector: False; Data: @EntryMethod),
     // tkWChar
-    (Flags: [ifSelector]; Data: @SelectBinary),
+    (Selector: True; Data: @SelectBinary),
     // tkLString
-    (Flags: []; Data: @EntryLString),
+    (Selector: False; Data: @EntryLString),
     // tkWString
-    (Flags: []; Data: @EntryWString),
+    (Selector: False; Data: @EntryWString),
     // tkVariant
-    (Flags: []; Data: @EntryVariant),
+    (Selector: False; Data: @EntryVariant),
     // tkArray
-    (Flags: [ifSelector]; Data: @SelectBinary),
+    (Selector: True; Data: @SelectBinary),
     // tkRecord
-    (Flags: []; Data: nil),
+    (Selector: False; Data: nil),
     // tkInterface
-    (Flags: []; Data: @EntryPointer),
+    (Selector: False; Data: @EntryPointer),
     // tkInt64
-    (Flags: []; Data: @EntryI8),
+    (Selector: False; Data: @EntryI8),
     // tkDynArray
-    (Flags: []; Data: nil),
+    (Selector: False; Data: nil),
     // tkUString
-    (Flags: []; Data: @EntryUString),
+    (Selector: False; Data: @EntryUString),
     // tkClassRef
-    (Flags: []; Data: @EntryPointer),
+    (Selector: False; Data: @EntryPointer),
     // tkPointer
-    (Flags: []; Data: @EntryPointer),
+    (Selector: False; Data: @EntryPointer),
     // tkProcedure
-    (Flags: []; Data: @EntryPointer),
+    (Selector: False; Data: @EntryPointer),
     // tkMRecord
-    (Flags: [ifSelector]; Data: nil));
+    (Selector: True; Data: nil));
 
 {$Region 'TsgHash'}
 
@@ -579,7 +573,7 @@ begin
   if m.TypeInfo = nil then
     raise EsgError.Create('Invalid parameter');
   info := @VTab[PTypeInfo(m.TypeInfo)^.Kind];
-  if ifSelector in info^.Flags then
+  if info^.Selector then
     Result.FComparer := TSelectProc(info^.Data)(m.TypeInfo, m.ItemSize)
   else if info^.Data <> nil then
     Result.FComparer := PComparer(info^.Data)
