@@ -3063,7 +3063,7 @@ begin
   FEntries.Count := TabSize;
   FPair := PairMeta;
   if Hasher = nil then
-    FHasher := TsgHasher.From(PairMeta.Get(0).Meta^)
+    FHasher := TsgHasher.From(PairMeta.Get(0).Meta)
   else
     FHasher := Hasher^;
   CollisionMeta := SysCtx.CreateMeta<TCollision>;

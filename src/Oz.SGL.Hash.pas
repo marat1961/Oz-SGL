@@ -70,7 +70,7 @@ type
   private
     FComparer: PComparer;
   public
-    class function From(m: TsgItemMeta): TsgHasher; overload; static;
+    class function From(m: PsgItemMeta): TsgHasher; overload; static;
     class function From(const Comparer: TComparer): TsgHasher; overload; static;
     function Equals(a, b: Pointer): Boolean;
     function GetHash(k: Pointer): Integer;
@@ -331,25 +331,26 @@ end;
 
 function HashLString(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.HashMultiplicative(key,
+  Result := TsgHash.HashMultiplicative(PByte(@PAnsiString(key)^[1]),
     Length(PAnsiString(key)^) * SizeOf(PAnsiString(key)^[1]));
 end;
 
 function HashWString(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.HashMultiplicative(key,
+  Result := TsgHash.HashMultiplicative(PByte(@PWideString(key)^[1]),
     Length(PWideString(key)^) * SizeOf(PWideString(key)^[1]));
 end;
 
 function HashUString(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.HashMultiplicative(key,
+  Result := TsgHash.HashMultiplicative(PByte(@PUnicodeString(key)^[1]),
     Length(PUnicodeString(key)^) * SizeOf(PUnicodeString(key)^[1]));
 end;
 
 function HashShortString(const key: PByte): Cardinal;
 begin
-  Result := TsgHash.HashMultiplicative(key, Length(PShortString(key)^));
+  Result := TsgHash.HashMultiplicative(PByte(@PShortString(key)^[1]),
+    Length(PShortString(key)^));
 end;
 
 function HashVariant(const key: PByte): Cardinal;
@@ -566,7 +567,7 @@ end;
 
 {$Region 'TsgHasher'}
 
-class function TsgHasher.From(m: TsgItemMeta): TsgHasher;
+class function TsgHasher.From(m: PsgItemMeta): TsgHasher;
 var
   info: PTabInfo;
 begin
