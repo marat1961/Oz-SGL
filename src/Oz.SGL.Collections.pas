@@ -753,6 +753,7 @@ type
     FCollisions: PSegmentedRegion;
     FPair: PsgTupleMeta;
     FHasher: TsgHasher;
+    function GetCount: Integer;
     // Get a prime number for the expected number of items
     function GetEntries(ExpectedSize: Integer): Integer;
   public
@@ -813,6 +814,7 @@ type
     PPair = ^TPair;
   private
     FMap: TsgCustomHashMap;
+    function GetCount: Integer; inline;
   public
     constructor From(ExpectedSize: Integer; Hasher: PsgHasher; FreePair: TFreeProc = nil);
     procedure Free; inline;
@@ -829,6 +831,8 @@ type
     function Begins: TsgHashMapIterator<Key, T>; inline;
     // Next to the last one.
     function Ends: TsgHashMapIterator<Key, T>; inline;
+    // Return the number of items
+    property Count: Integer read GetCount;
   end;
 
 {$EndRegion}
@@ -3071,6 +3075,11 @@ begin
   FCollisions := SysCtx.CreateRegion(CollisionMeta);
 end;
 
+function TsgCustomHashMap.GetCount: Integer;
+begin
+  Result := FCollisions.Count;
+end;
+
 function TsgCustomHashMap.GetEntries(ExpectedSize: Integer): Integer;
 begin
   // the size of the entry table must be a prime number
@@ -3196,14 +3205,19 @@ begin
   FMap := TsgCustomHashMap.From(meta, ExpectedSize, Hasher);
 end;
 
+procedure TsgHashMap<Key, T>.Free;
+begin
+  FMap.Free;
+end;
+
 function TsgHashMap<Key, T>.GetTemporaryPair: PPair;
 begin
   Result := PPair(FMap.GetTemporaryPair);
 end;
 
-procedure TsgHashMap<Key, T>.Free;
+function TsgHashMap<Key, T>.GetCount: Integer;
 begin
-  FMap.Free;
+  Result := FMap.GetCount;
 end;
 
 function TsgHashMap<Key, T>.Find(const k: Key): PPair;
