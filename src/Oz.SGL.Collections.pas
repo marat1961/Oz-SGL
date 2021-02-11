@@ -3101,10 +3101,10 @@ end;
 
 function TsgCustomHashMap.Find(key: Pointer): Pointer;
 var
-  eidx: Cardinal;
+  eidx: Integer;
   p: PCollision;
 begin
-  eidx := FHasher.GetHash(key) mod Cardinal(FEntries.Count);
+  eidx := FHasher.GetHash(key) mod FEntries.Count;
   p := PCollision(FEntries.GetItemPtr(eidx));
   while p <> nil do
   begin
@@ -3124,7 +3124,7 @@ var
   entry: pEntry;
   p, n: PCollision;
 begin
-  eidx := FHasher.GetHash(pair) mod Cardinal(FEntries.Count);
+  eidx := FHasher.GetHash(pair) mod FEntries.Count;
   entry := FEntries.GetItemPtr(eidx);
   p := entry.root;
   while p <> nil do
@@ -3147,7 +3147,7 @@ var
   entry: pEntry;
   p, n: PCollision;
 begin
-  eidx := FHasher.GetHash(pair) mod Cardinal(FEntries.Count);
+  eidx := FHasher.GetHash(pair) mod FEntries.Count;
   entry := FEntries.GetItemPtr(eidx);
   p := entry.root;
   while p <> nil do
