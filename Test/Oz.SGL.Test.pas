@@ -4222,7 +4222,7 @@ var
   a, b, c: Byte;
 begin
   meta.Init<Byte>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := 123;
   b := 123;
   c := 56;
@@ -4239,7 +4239,7 @@ var
   a, b, c: Word;
 begin
   meta.Init<Word>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := 123;
   b := 123;
   c := 456;
@@ -4256,7 +4256,7 @@ var
   a, b, c: Integer;
 begin
   meta.Init<Integer>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := 123;
   b := 123;
   c := 456;
@@ -4273,7 +4273,7 @@ var
   a, b, c: Int64;
 begin
   meta.Init<Int64>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := 123456;
   b := 123456;
   c := 456471456;
@@ -4290,7 +4290,7 @@ var
   a, b, c: string[40];
 begin
   meta.Init<ShortString>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := '1';
   b := '1';
   c := 'asd456';
@@ -4319,7 +4319,7 @@ var
   a, b, c: string;
 begin
   meta.Init<string>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := '123';
   b := '123';
   c := 'asd456';
@@ -4336,7 +4336,7 @@ var
   a, b, c: WideString;
 begin
   meta.Init<WideString>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := '123';
   b := '123';
   c := 'asd456';
@@ -4353,7 +4353,7 @@ var
   a, b, c: AnsiString;
 begin
   meta.Init<AnsiString>;
-  hasher := TsgHasher.From(meta);
+  hasher := TsgHasher.From(@meta);
   a := '123';
   b := '123';
   Check(hasher.Equals(@a, @b));

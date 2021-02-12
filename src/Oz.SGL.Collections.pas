@@ -723,10 +723,23 @@ type
 {$Region 'TsgCustomHashMap: Untyped Unordered dictionary'}
 
   PsgCustomHashMap = ^TsgCustomHashMap;
+
+  TsgCustomHashMapIterator = record
+  private
+    index: Integer;
+    map: PsgCustomHashMap;
+    procedure Init(map: PsgCustomHashMap; idx: Integer);
+  public
+    class operator Equal(const a, b: TsgCustomHashMapIterator): Boolean; inline;
+    class operator NotEqual(const a, b: TsgCustomHashMapIterator): Boolean; inline;
+    procedure Next; inline;
+    function GetKey: Pointer; inline;
+    function GetValue: Pointer; inline;
+  end;
+
   TsgCustomHashMap = record
   type
     TAssignPair = reference to procedure(pair: Pointer);
-  private type
     // Collision list element
     PCollision = ^TCollision;
     TCollision = record
@@ -737,16 +750,6 @@ type
     pEntry = ^TEntry;
     TEntry = record
       root: PCollision;
-    end;
-    TIterator = record
-    private
-      index: Integer;
-      map: PsgCustomHashMap;
-      procedure Init(map: PsgCustomHashMap; idx: Integer);
-    public
-      procedure Next; inline;
-      function GetKey: Pointer; inline;
-      function GetValue: Pointer; inline;
     end;
   private
     FEntries: PUnbrokenRegion;
@@ -771,9 +774,9 @@ type
     // Return a temporary variable
     function GetTemporaryPair: Pointer; inline;
     // Return the iterator to the beginning
-    function Begins: TIterator;
+    function Begins: TsgCustomHashMapIterator;
     // Next to the last one.
-    function Ends: TIterator;
+    function Ends: TsgCustomHashMapIterator;
   end;
 
 {$EndRegion}
@@ -795,13 +798,11 @@ type
     TPair = TsgPair<Key, T>;
     PPair = ^TPair;
   private
-    it: TsgCustomHashMap.TIterator;
+    it: TsgCustomHashMapIterator;
   public
-    class operator Equal(
-      const a, b: TsgHashMapIterator<Key, T>): Boolean; inline;
-    class operator NotEqual(
-      const a, b: TsgHashMapIterator<Key, T>): Boolean; inline;
-    procedure Next;
+    class operator Equal(const a, b: TsgHashMapIterator<Key, T>): Boolean; inline;
+    class operator NotEqual(const a, b: TsgHashMapIterator<Key, T>): Boolean; inline;
+    procedure Next; inline;
     function GetPair: PPair; inline;
     function GetKey: PKey; inline;
     function GetValue: PItem; inline;
@@ -3030,23 +3031,33 @@ end;
 
 {$Region 'TsgCustomHashMap.TIterator'}
 
-procedure TsgCustomHashMap.TIterator.Init(map: PsgCustomHashMap; idx: Integer);
+procedure TsgCustomHashMapIterator.Init(map: PsgCustomHashMap; idx: Integer);
 begin
   Self.index := idx;
   Self.map := map;
 end;
 
-function TsgCustomHashMap.TIterator.GetKey: Pointer;
+class operator TsgCustomHashMapIterator.Equal(const a, b: TsgCustomHashMapIterator): Boolean;
+begin
+  Result := a.index = b.index;
+end;
+
+class operator TsgCustomHashMapIterator.NotEqual(const a, b: TsgCustomHashMapIterator): Boolean;
+begin
+  Result := a.index <> b.index;
+end;
+
+function TsgCustomHashMapIterator.GetKey: Pointer;
 begin
   Result := PByte(map.FCollisions.GetItemPtr(index)) + sizeof(Pointer);
 end;
 
-function TsgCustomHashMap.TIterator.GetValue: Pointer;
+function TsgCustomHashMapIterator.GetValue: Pointer;
 begin
   Result := PByte(GetKey) + map.FPair.Get(1).Offset;
 end;
 
-procedure TsgCustomHashMap.TIterator.Next;
+procedure TsgCustomHashMapIterator.Next;
 begin
   Inc(index);
 end;
@@ -3181,12 +3192,12 @@ begin
   Result := FCollisions.Region.GetTemporary;
 end;
 
-function TsgCustomHashMap.Begins: TIterator;
+function TsgCustomHashMap.Begins: TsgCustomHashMapIterator;
 begin
   Result.Init(@Self, 0);
 end;
 
-function TsgCustomHashMap.Ends: TIterator;
+function TsgCustomHashMap.Ends: TsgCustomHashMapIterator;
 begin
   Result.Init(@Self, FCollisions.Count);
 end;
