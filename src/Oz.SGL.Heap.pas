@@ -894,13 +894,13 @@ end;
 
 procedure TMemoryRegion.Free;
 begin
-  FreeHeap(Heap);
-  FCount := 0;
   if FTemporary <> nil then
   begin
-    FreeItem(@FMeta, FTemporary);
+    FreeMem(FTemporary);
     FTemporary := nil;
   end;
+  FreeHeap(Heap);
+  FCount := 0;
 end;
 
 procedure TMemoryRegion.Clear;
