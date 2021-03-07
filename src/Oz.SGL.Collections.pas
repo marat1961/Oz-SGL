@@ -302,6 +302,27 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgStack<T: record>'}
+
+  TsgStack<T: record> = record
+  strict private
+    FList: TsgList<T>;
+    function GetItem(Index: Integer): T; inline;
+    function GetCount: Integer; inline;
+  public
+    constructor From(Capacity: Integer);
+    procedure Free; inline;
+    procedure Clear; inline;
+    function Peek: T;
+    procedure Push(Item: T);
+    function Pop: T;
+    function Empty: Boolean;
+    property Count: Integer read GetCount;
+    property Items[Index: Integer]: T read GetItem;
+  end;
+
+{$EndRegion}
+
 {$Region 'TsgPointerArray: Untyped List of Pointers'}
 
   TsgPointersArrayRange = 0..$7FFFFFFF div (sizeof(Pointer) * 2) - 1;
@@ -1945,6 +1966,56 @@ end;
 procedure TsgList<T>.SetItem(Index: Integer; const Value: T);
 begin
   PItem(FListHelper.GetPtr(Index))^ := Value;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgStack<T>'}
+
+constructor TsgStack<T>.From(Capacity: Integer);
+begin
+  FList := TsgList<T>.From(Capacity);
+end;
+
+procedure TsgStack<T>.Free;
+begin
+  FList.Free;
+end;
+
+procedure TsgStack<T>.Clear;
+begin
+  FList.Clear;
+end;
+
+function TsgStack<T>.Peek: T;
+begin
+  Result := FList.GetItem(Count - 1);
+end;
+
+procedure TsgStack<T>.Push(Item: T);
+begin
+  FList.Add(Item);
+end;
+
+function TsgStack<T>.Pop: T;
+begin
+  Result := GetItem(Count - 1);
+  FList.Count := FList.Count - 1;
+end;
+
+function TsgStack<T>.Empty: Boolean;
+begin
+  Result := Count = 0;
+end;
+
+function TsgStack<T>.GetItem(Index: Integer): T;
+begin
+  Result := FList.GetItem(Index);
+end;
+
+function TsgStack<T>.GetCount: Integer;
+begin
+  Result := FList.GetCount;
 end;
 
 {$EndRegion}
