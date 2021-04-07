@@ -96,6 +96,7 @@
         <DCCReference Include="..\src\Oz.SGL.Collections.pas"/>
         <DCCReference Include="..\src\Oz.SGL.HandleManager.pas"/>
         <DCCReference Include="..\src\Oz.SGL.Hash.pas"/>
+        <DCCReference Include="..\src\Oz.SGL.Utils.pas"/>
         <DCCReference Include="Oz.SGL.Test.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
