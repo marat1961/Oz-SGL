@@ -17,9 +17,23 @@ unit Oz.SGL.Utils;
 
 interface
 
+type
+
+{$Region 'TStd'}
+
+  TStd = record
+    // Copies exactly count values from the range beginning
+    // at first to the range beginning at result.
+    class function CopyN<T>(First: Pointer; Count: Cardinal; var R): Pointer; static;
+    // Assigns the given value to the first count elements
+    // in the range beginning at first if count > 0.
+    class procedure FillN<T>(First: Pointer; Count: Cardinal; const Value: T); static;
+  end;
+
+{$EndRegion}
+
 {$Region 'TSpan: a contiguous sequence of objects'}
 
-type
   // The span describes an object that can refer to a contiguous sequence
   // of objects with the first element of the sequence at position zero.
   TSpan<T> = record
@@ -39,6 +53,43 @@ type
 {$EndRegion}
 
 implementation
+
+{$Region 'TStd'}
+
+class function TStd.CopyN<T>(First: Pointer; Count: Cardinal; var R): Pointer;
+type
+  Pt = ^T;
+var
+  src, dest: Pt;
+begin
+  src := First;
+  dest := @R;
+  while Count > 0 do
+  begin
+    dest^ := src^;
+    Inc(PByte(src), sizeof(T));
+    Inc(PByte(dest), sizeof(T));
+    Dec(Count);
+  end;
+  Result := @R;
+end;
+
+class procedure TStd.FillN<T>(First: Pointer; Count: Cardinal; const Value: T);
+type
+  Pt = ^T;
+var
+  p: Pt;
+begin
+  p := First;
+  while Count > 0 do
+  begin
+    p^ := Value;
+    Inc(PByte(p), sizeof(T));
+    Dec(Count);
+  end;
+end;
+
+{$EndRegion}
 
 {$Region 'TSpan<T>'}
 
