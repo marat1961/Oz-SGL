@@ -1287,7 +1287,7 @@ end;
 procedure TsgArrayHelper.SetCapacity(NewCapacity: Cardinal);
 begin
   if NewCapacity < FDesc.Count then
-    EsgError.Create(EsgError.CapacityError, NewCapacity);
+    raise EsgError.Create(EsgError.CapacityError, NewCapacity);
   if NewCapacity <> FDesc.Count then
     FRegion.Realloc(FDesc, NewCapacity);
 end;
@@ -3902,7 +3902,7 @@ begin
   FHandleManager.Get(descr.h);
   p := FMemoryManager.Realloc(descr.Items, descr.Count * ItemSize, Count * ItemSize);
   if p = nil then
-    EsgError.Create(EsgError.NotEnoughMemory);
+    raise EsgError.Create(EsgError.NotEnoughMemory);
   descr.Items := p;
   descr.Count := Count;
 end;
