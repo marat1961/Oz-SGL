@@ -77,7 +77,7 @@ type
 
   TsgHandleManager = record
   const
-    MaxNodes = 4096;
+    MaxNodes = 4096; // use values 2 ^ n
     GuardNode = MaxNodes - 1;
   type
     TIndex = 0 .. MaxNodes - 1;
@@ -227,7 +227,7 @@ var
   i: Integer;
   n: PNode;
 begin
-  Fillchar(Self, sizeof(TsgHandleManager), 0);
+  FillChar(Self, sizeof(TsgHandleManager), 0);
   FRegion := region;
   FCount := 0;
   FUsed := GuardNode;
@@ -235,7 +235,7 @@ begin
   for i := 0 to GuardNode - 1 do
   begin
     n := @FNodes[i];
-    n.Init((i + 1) mod MaxNodes, (i - 1) mod MaxNodes);
+    n.Init((i + 1) and GuardNode, (i - 1) and GuardNode);
   end;
   // guard node
   n := @FNodes[GuardNode];

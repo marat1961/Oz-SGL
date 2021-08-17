@@ -3182,7 +3182,7 @@ begin
   Check(Valid);
   FCollisions.Free;
   FEntries.Free;
-  Fillchar(Self, sizeof(Self), 0);
+  FillChar(Self, sizeof(Self), 0);
 end;
 
 function TsgCustomHashMap.Valid: Boolean;
