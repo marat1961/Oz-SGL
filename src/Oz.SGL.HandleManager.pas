@@ -82,23 +82,23 @@ type
   type
     TIndex = 0 .. MaxNodes - 1;
     TNode = record
-      private
-        function GetActive: Boolean;
-        procedure SetActive(const Value: Boolean); inline;
-        function GetCounter: Byte;
-        procedure SetCounter(const Value: Byte); inline;
-        function GetNext: TIndex;
-        procedure SetNext(const Value: TIndex); inline;
-        function GetPrev: TIndex;
-        procedure SetPrev(const Value: TIndex); inline;
-      public
-        ptr: Pointer;
-        v: Cardinal;
-        procedure Init(next, prev: TIndex);
-        property prev: TIndex read GetPrev write SetPrev;
-        property next: TIndex read GetNext write SetNext;
-        property counter: Byte read GetCounter write SetCounter;
-        property active: Boolean read GetActive write SetActive;
+    private
+      function GetActive: Boolean;
+      procedure SetActive(const Value: Boolean); inline;
+      function GetCounter: Byte;
+      procedure SetCounter(const Value: Byte); inline;
+      function GetNext: TIndex;
+      procedure SetNext(const Value: TIndex); inline;
+      function GetPrev: TIndex;
+      procedure SetPrev(const Value: TIndex); inline;
+    public
+      ptr: Pointer;
+      v: Cardinal;
+      procedure Init(next, prev: TIndex);
+      property prev: TIndex read GetPrev write SetPrev;
+      property next: TIndex read GetNext write SetNext;
+      property counter: Byte read GetCounter write SetCounter;
+      property active: Boolean read GetActive write SetActive;
     end;
     PNode = ^TNode;
     TNodes = array [TIndex] of TNode;
