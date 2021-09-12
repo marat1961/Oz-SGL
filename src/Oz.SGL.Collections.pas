@@ -42,7 +42,7 @@ type
   var
     region: TSegmentedRegion;
   public
-    constructor From(BlockSize: Cardinal);
+    constructor From(var meta: PsgItemMeta; BlockSize: Cardinal);
     function Get(Clear: Boolean): PItem;
   end;
 
@@ -1235,9 +1235,7 @@ end;
 
 {$Region 'TObjectHeap'}
 
-constructor TObjectHeap<T>.From(BlockSize: Cardinal);
-var
-  meta: PsgItemMeta;
+constructor TObjectHeap<T>.From(var meta: PsgItemMeta; BlockSize: Cardinal);
 begin
   meta := SysCtx.CreateMeta<T>;
   region.Init(meta, BlockSize);

@@ -713,7 +713,7 @@ var
   h: hCollection;
   p, r: Pointer;
 begin
-  p := @m;
+  p := Pointer(12783);
   h := m.Add(p);
   r := m.Get(h);
   CheckTrue(p = r);

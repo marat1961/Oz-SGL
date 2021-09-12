@@ -1553,6 +1553,7 @@ end;
 
 class procedure TsgContext.InitMetadata;
 begin
+  if FPointerMeta.TypeInfo <> nil then exit;
   PointerMeta.Init<Pointer>;
   MemoryRegionMeta.Init<TMemoryRegion>([rfSegmented],
     TRemoveAction.HoldValue, FreeRegion);
