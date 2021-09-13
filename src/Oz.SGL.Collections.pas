@@ -2331,6 +2331,7 @@ end;
 
 constructor TsgRecordList<T>.From(Meta: PsgItemMeta);
 begin
+  Assert(Meta <> nil);
   FList := TsgPointerList.From(Meta);
 end;
 

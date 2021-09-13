@@ -18,25 +18,10 @@ unit Oz.SGL.Test;
 
 interface
 
-{$Region 'Uses'}
-
 uses
-  // Delphi
-  System.SysUtils,
-  System.UITypes,
-  System.Classes,
-  System.Math,
-  System.Generics.Defaults,
-  System.Diagnostics,
-  TestFramework,
-
-  // Oz.SGL
-  Oz.SGL.HandleManager,
-  Oz.SGL.Heap,
-  Oz.SGL.Hash,
-  Oz.SGL.Collections;
-
-{$EndRegion}
+  System.SysUtils, System.UITypes, System.Classes, System.Math,
+  System.Generics.Defaults, System.Diagnostics, TestFramework,
+  Oz.SGL.HandleManager, Oz.SGL.Heap, Oz.SGL.Hash, Oz.SGL.Collections;
 
 {$T+}
 
@@ -66,9 +51,14 @@ type
 
   PTestRecord = ^TTestRecord;
   TTestRecord = record
+  var
     e: TEntry;
     v: Integer;
     s: string;
+  strict private class var
+    Meta: PsgItemMeta;
+  public
+    class function GetMeta: PPsgItemMeta; static;
     procedure Init(v, id: Integer);
     function Equals(const r: TTestRecord): Boolean;
   end;
@@ -79,8 +69,15 @@ type
 
   PPerson = ^TPerson;
   TPerson = record
+  var
     id: Integer;
     name: string;
+  strict private class var
+    Meta: PsgItemMeta;
+    Meta1: PsgItemMeta;
+  public
+    class function GetMeta: PPsgItemMeta; static;
+    class function GetMeta1: PPsgItemMeta; static;
     class function GenName(d: Integer): string; static;
     constructor From(const name: string);
     procedure Clear;
@@ -581,6 +578,13 @@ end;
 
 {$Region 'TTestRecord'}
 
+class function TTestRecord.GetMeta: PPsgItemMeta;
+begin
+  if Meta = nil then
+    Meta := SysCtx.CreateMeta<TTestRecord>(nil);
+  Result := @Meta;
+end;
+
 procedure TTestRecord.Init(v, id: Integer);
 begin
   e.tag := 0;
@@ -603,6 +607,36 @@ end;
 {$EndRegion}
 
 {$Region 'TPerson'}
+
+procedure FreePerson(ptr: Pointer);
+var
+  it: TsgLinkedList<TPerson>.TIterator;
+begin
+  it := TsgLinkedList<TPerson>.TIterator(ptr);
+  it.Value^ := Default(TPerson);
+end;
+
+procedure FreePerson1(ptr: Pointer);
+var
+  it: TsgForwardList<TPerson>.TIterator;
+begin
+  it := TsgForwardList<TPerson>.TIterator(ptr);
+  it.Value^ := Default(TPerson);
+end;
+
+class function TPerson.GetMeta: PPsgItemMeta;
+begin
+  if Meta = nil then
+    Meta := SysCtx.CreateMeta<TTestRecord>(FreePerson);
+  Result := @Meta;
+end;
+
+class function TPerson.GetMeta1: PPsgItemMeta;
+begin
+  if Meta1 = nil then
+    Meta1 := SysCtx.CreateMeta<TTestRecord>(FreePerson1);
+  Result := @Meta1;
+end;
 
 constructor TPerson.From(const name: string);
 begin
@@ -3003,7 +3037,7 @@ end;
 
 procedure TestTsgList.SetUp;
 begin
-  List := TsgList<TTestRecord>.From(64);
+  List := TsgList<TTestRecord>.From(TTestRecord.GetMeta^, 64);
 end;
 
 procedure TestTsgList.TearDown;
@@ -3204,7 +3238,7 @@ begin
   CheckTrue(k = 0);
   v.Init(25, 1);
   v.s := '123';
-  Source := TsgList<TTestRecord>.From(64);
+  Source := TsgList<TTestRecord>.From(TTestRecord.GetMeta^, 64);
   try
     Source.Add(v);
     for i := 1 to Cnt do
@@ -3235,7 +3269,7 @@ end;
 
 procedure TsgRecordListTest.SetUp;
 begin
-  List := TsgRecordList<TTestRecord>.From(nil);
+  List := TsgRecordList<TTestRecord>.From(TTestRecord.GetMeta^);
 end;
 
 procedure TsgRecordListTest.TearDown;
@@ -3403,17 +3437,9 @@ end;
 
 {$Region 'TsgForwardListTest'}
 
-procedure FreePerson1(ptr: Pointer);
-var
-  it: TsgForwardList<TPerson>.TIterator;
-begin
-  it := TsgForwardList<TPerson>.TIterator(ptr);
-  it.Value^ := Default(TPerson);
-end;
-
 procedure TsgForwardListTest.SetUp;
 begin
-  List.Init(FreePerson1);
+  List.Init(TPerson.GetMeta1^);
   log.Init;
 end;
 
@@ -3758,17 +3784,9 @@ end;
 
 {$Region 'TsgLinkedListTest'}
 
-procedure FreePerson(ptr: Pointer);
-var
-  it: TsgLinkedList<TPerson>.TIterator;
-begin
-  it := TsgLinkedList<TPerson>.TIterator(ptr);
-  it.Value^ := Default(TPerson);
-end;
-
 procedure TsgLinkedListTest.SetUp;
 begin
-  List.Init(FreePerson);
+  List.Init(TPerson.GetMeta^);
   log.Init;
 end;
 
