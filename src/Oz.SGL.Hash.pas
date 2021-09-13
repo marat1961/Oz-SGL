@@ -18,12 +18,8 @@ unit Oz.SGL.Hash;
 
 interface
 
-{$Region 'Uses'}
-
 uses
   System.SysUtils, System.Math, System.TypInfo, System.Variants, Oz.SGL.Heap;
-
-{$EndRegion}
 
 {$T+}
 

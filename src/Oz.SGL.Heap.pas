@@ -18,12 +18,8 @@ unit Oz.SGL.Heap;
 
 interface
 
-{$Region 'Uses'}
-
 uses
   System.SysUtils, System.Math;
-
-{$EndRegion}
 
 {$T+}
 
@@ -179,6 +175,7 @@ type
     procedure Init<T>(Flags: TRegionFlagSet; RemoveAction: TRemoveAction;
       OnFree: TFreeProc = nil); overload;
   end;
+  PPsgItemMeta = ^PsgItemMeta;
 
 {$EndRegion}
 

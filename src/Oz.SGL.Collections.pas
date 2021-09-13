@@ -18,13 +18,9 @@ unit Oz.SGL.Collections;
 
 interface
 
-{$Region 'Uses'}
-
 uses
   System.Classes, System.SysUtils, System.Math,
   Oz.SGL.Heap, Oz.SGL.HandleManager, Oz.SGL.Hash;
-
-{$EndRegion}
 
 {$T+}
 
@@ -280,7 +276,7 @@ type
     procedure SetItem(Index: Integer; const Value: T);
     procedure SetCount(Value: Integer); inline;
   public
-    constructor From(Capacity: Integer);
+    constructor From(Meta: PsgItemMeta; Capacity: Integer);
     procedure Free; inline;
     procedure Clear; inline;
     function Add(const Value: T): Integer; overload;
@@ -310,7 +306,7 @@ type
     function GetItem(Index: Integer): T; inline;
     function GetCount: Integer; inline;
   public
-    constructor From(Capacity: Integer);
+    constructor From(var Meta: PsgItemMeta; Capacity: Integer);
     procedure Free; inline;
     procedure Clear; inline;
     function Peek: T;
@@ -439,7 +435,7 @@ type
     function GetCount: Integer; inline;
     procedure SetCount(Value: Integer);
   public
-    constructor From(OnFree: TFreeProc);
+    constructor From(Meta: PsgItemMeta);
     procedure Free;
     procedure Clear;
     function Add(Item: PItem): Integer; overload; inline;
@@ -546,7 +542,7 @@ type
     function GetRegion: PSegmentedRegion; inline;
     function GetCount: Integer; inline;
   public
-    procedure Init(OnFree: TFreeProc);
+    procedure Init(Meta: PsgItemMeta);
     procedure Free; inline;
     // Erases all elements from the container. After this call, Count returns zero.
     // Invalidates any references, pointers, or iterators referring to contained
@@ -691,7 +687,7 @@ type
     function GetRegion: PSegmentedRegion; inline;
     function GetCount: Integer; inline;
   public
-    procedure Init(OnFree: TFreeProc);
+    procedure Init(Meta: PsgItemMeta);
     procedure Free; inline;
     // Erases all elements from the container. After this call, Count returns zero.
     // Invalidates any references, pointers, or iterators referring to contained
@@ -1858,11 +1854,8 @@ end;
 
 {$Region 'TsgList<T>'}
 
-constructor TsgList<T>.From(Capacity: Integer);
-var
-  Meta: PsgItemMeta;
+constructor TsgList<T>.From(Meta: PsgItemMeta; Capacity: Integer);
 begin
-  Meta := SysCtx.CreateMeta<T>;
   FListHelper.Init(Meta);
 end;
 
@@ -1970,9 +1963,9 @@ end;
 
 {$Region 'TsgStack<T>'}
 
-constructor TsgStack<T>.From(Capacity: Integer);
+constructor TsgStack<T>.From(var Meta: PsgItemMeta; Capacity: Integer);
 begin
-  FList := TsgList<T>.From(Capacity);
+  FList := TsgList<T>.From(Meta, Capacity);
 end;
 
 procedure TsgStack<T>.Free;
@@ -2336,11 +2329,8 @@ end;
 
 {$Region 'TsgRecordList<T>'}
 
-constructor TsgRecordList<T>.From(OnFree: TFreeProc);
-var
-  Meta: PsgItemMeta;
+constructor TsgRecordList<T>.From(Meta: PsgItemMeta);
 begin
-  Meta := SysCtx.CreateMeta<T>(OnFree);
   FList := TsgPointerList.From(Meta);
 end;
 
@@ -2614,11 +2604,8 @@ end;
 
 {$Region 'TsgForwardList<T>'}
 
-procedure TsgForwardList<T>.Init(OnFree: TFreeProc);
-var
-  Meta: PsgItemMeta;
+procedure TsgForwardList<T>.Init(Meta: PsgItemMeta);
 begin
-  Meta := SysCtx.CreateMeta<TItem>(OnFree);
   FList.Init(Meta);
 end;
 
@@ -2947,11 +2934,8 @@ end;
 
 {$Region 'TsgLinkedList<T>'}
 
-procedure TsgLinkedList<T>.Init(OnFree: TFreeProc);
-var
-  Meta: PsgItemMeta;
+procedure TsgLinkedList<T>.Init(Meta: PsgItemMeta);
 begin
-  Meta := SysCtx.CreateMeta<TItem>(OnFree);
   FList.Init(Meta);
 end;
 
