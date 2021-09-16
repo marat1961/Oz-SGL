@@ -99,8 +99,6 @@ type
 
 {$Region 'TsgItemMeta: Metadata for item of some type'}
 
-type
-
   // Action to remove an element from the collection
   TRemoveAction = (
     HoldValue = 0,  // Hold the item value
@@ -145,8 +143,7 @@ type
     1: (
       MetaFlags: Byte;
       RegionFlags: Byte;
-      SeedValue: Word
-      );
+      SeedValue: Word);
   end;
 
   TRegionFlag = (
@@ -180,6 +177,11 @@ type
 {$EndRegion}
 
 {$Region 'TMemSegment: Memory segment'}
+
+// Right now the memory is being freed in the memory region.
+// It makes sense to add the necessary information to the memory region
+// in the form of metadata on the tuple.
+// Then it would be easy enough to implement a universal memory release method.
 
   PMemSegment = ^TMemSegment;
   TMemSegment = record
