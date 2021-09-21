@@ -465,6 +465,7 @@ type
     TItem = record
       next: PItem;
     end;
+
     TEnumerator = record
     private
       FItem: PItem;
@@ -474,6 +475,7 @@ type
       function MoveNext: Boolean;
       property Current: PItem read GetCurrent;
     end;
+
   private
     FHead: PItem;
     FLast: PItem;
@@ -516,6 +518,7 @@ type
       Value: T;
     end;
     PValue = ^T;
+
     TEnumerator = record
     private
       FEnumerator: TCustomForwardList.TEnumerator;
@@ -525,6 +528,7 @@ type
       function MoveNext: Boolean; inline;
       property Current: PValue read GetCurrent;
     end;
+
     TIterator = record
     private
       function GetValue: PValue;
@@ -537,8 +541,10 @@ type
       // Pointer to Value
       property Value: PValue read GetValue;
     end;
+
   private
     FList: TCustomForwardList;
+    FNodeMeta: TsgItemMeta;
     function GetRegion: PSegmentedRegion; inline;
     function GetCount: Integer; inline;
   public
@@ -2445,9 +2451,6 @@ end;
 
 procedure TCustomForwardList.Init(Meta: PsgItemMeta);
 begin
-  // Предположим что к нам поступает udt metadata.
-  // Надо определить на его основе метаданные
-  // для кортежа из двух типов (указатель + udt)
   FRegion := SysCtx.CreateRegion(Meta);
   FHead := FRegion.Region.Alloc(FRegion.ItemSize);
   FLast := FHead;

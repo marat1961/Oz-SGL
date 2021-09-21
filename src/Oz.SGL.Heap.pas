@@ -176,6 +176,35 @@ type
 
 {$EndRegion}
 
+{$Region 'TsgMeta: unified metadata'}
+
+{ We need a structure to store information for some type (metadata).
+  Type (TypeInfo)
+  Size
+  Methods used to implement collections such as:
+    Purge
+    Assignment
+    Value exchange
+    Value comparison
+    Hash generation
+    Popular Serialization Methods
+}
+PsgMeta = ^TsgMeta;
+  TsgMeta = record
+  private
+    TypeInfo: Pointer;
+    ItemSize: Cardinal;
+    h: hMeta;
+    FreeItem: TFreeItem;
+    AssignItem: TAssignProc;
+  strict private
+    procedure InitMethods;
+  public
+    procedure Init<T>(FreeItem: TFreeItem);
+  end;
+
+{$EndRegion}
+
 {$Region 'TMemSegment: Memory segment'}
 
 // Right now the memory is being freed in the memory region.
@@ -769,6 +798,18 @@ begin
     else
       Self.FreeItem := nil;
   end;
+end;
+
+{$EndRegion}
+
+{$Region 'TsgMeta'}
+
+procedure TsgMeta.Init<T>(FreeItem: TFreeItem);
+begin
+end;
+
+procedure TsgMeta.InitMethods;
+begin
 end;
 
 {$EndRegion}
