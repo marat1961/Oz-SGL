@@ -11,7 +11,7 @@ A tuple is a finite ordered sequence of elements.
 Many programming languages offer an alternative to tuples, known as record types, with unordered elements accessed by field name.
 We plan to place tuples in a typed memory region.
 ```
-TsgPair <T1, T2> = record
+TsgPair<T1, T2> = record
 type
   PT1 = ^ T1;
   PT2 = ^ T2;
@@ -27,16 +27,16 @@ The metadata for the tuple will be defined at runtime when the tuple is initiali
 ```
   TsgTupleMeta = record
   const
-    AllignTuple = sizeof (Pointer); // Align tuple to the word boundary
+    AllignTuple = sizeof(Pointer); // Align tuple to the word boundary
   var
     TypeInfo: Pointer;
     Size: Cardinal; // Memory size
     Offset: Cardinal; // The offset of an element in a tuple
     h: hMeta;
   public
-    procedure Init <T> (Offset: Cardinal);
+    procedure Init<T>(Offset: Cardinal);
     // Determine the offset to the start of the next tuple.
-    function NextTupleOffset (Allign: Boolean): Cardinal;
+    function NextTupleOffset(Allign: Boolean): Cardinal;
   end;
 ```
 We will work with tuples through the tuple builder, memory region and proxy objects.
@@ -45,10 +45,11 @@ In the program code for manipulating tuples, we will use proxy objects.
 A proxy object is an intermediate structure that contains a reference to a tuple in a memory region and its metadata.
 
 ### Operations for a tuple
- - `Init <T1, ...>` - creates a tuple proxy of the type defined by generic types
- - `Assign (TTuple)` - assigns the contents of one tuple to another
+ - `Init<T1, ...>` - creates a tuple proxy of the type defined by generic types
+ - `Free(Tuple)` - a method for freeing the memory of a tuple
+ - `Assign(TTuple)` - assigns the contents of one tuple to another
  - `Swap` - swap the contents of two tuples
- - `Get (Index: Integer)`- return a reference to the element of the tuple
+ - `Get(Index: Integer)`- return a reference to the element of the tuple
  - `Tie` - returns a tuple of pointers to the elements of the tuple
 
 ### Tuple element

@@ -189,7 +189,6 @@ type
     Hash generation
     Popular Serialization Methods
 }
-PsgMeta = ^TsgMeta;
   TsgMeta = record
   private
     TypeInfo: Pointer;
@@ -202,6 +201,7 @@ PsgMeta = ^TsgMeta;
   public
     procedure Init<T>(FreeItem: TFreeItem);
   end;
+  PsgMeta = ^TsgMeta;
 
 {$EndRegion}
 
