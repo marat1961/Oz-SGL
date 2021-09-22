@@ -720,7 +720,7 @@ begin
     CheckTrue(n.active = False);
   end;
   n.counter := 127;
-  for i := 0 to 4095 do
+  for i := 0 to TsgHandleManager.MaxNodes - 1 do
   begin
     n.next := i;
     CheckTrue(n.next = i);
@@ -728,10 +728,10 @@ begin
     CheckTrue(n.counter = 127);
     CheckTrue(n.active = False);
   end;
-  for i := 0 to 4095 do
+  for i := 0 to TsgHandleManager.MaxNodes - 1 do
   begin
     n.prev := i;
-    CheckTrue(n.next = 4095);
+    CheckTrue(n.next = TsgHandleManager.MaxNodes - 1);
     CheckTrue(n.prev = i);
     CheckTrue(n.counter = 127);
     CheckTrue(n.active = False);

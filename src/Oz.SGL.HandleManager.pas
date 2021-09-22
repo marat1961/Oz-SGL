@@ -30,36 +30,24 @@ uses
 {$Region 'Handles'}
 
 type
-  // Type handle
-  hType = record
-  const
-    MaxIndex = 255;
-  type
-    TIndex = 0 .. MaxIndex; // 8 bits
-  var
-    v: TIndex;
-  end;
-
-  // Shared memory region handle
+  // Typed memory region handle
   hRegion = record
   const
-    MaxIndex = 4095;
+    MaxIndex = 1024;
   type
-    TIndex = 0 .. MaxIndex; // 12 bits
+    TIndex = 0 .. MaxIndex; // 10 bits
   var
     v: Cardinal;
   public
     function Index: TIndex; inline;
-    // Type handle
-    function Typ: hType; inline;
   end;
 
-  // Collection handle
+  // Handle for data instance of some type.
   hCollection = record
   const
-    MaxIndex = 4095;
+    MaxIndex = 16 * 1024 - 1;
   type
-    TIndex = 0 .. MaxIndex; // 12 bits
+    TIndex = 0 .. MaxIndex; // 14 bits
   var
     v: Cardinal;
   public
@@ -90,30 +78,20 @@ type
   // and handles are indexes in this array.
   TsgHandleManager = record
   const
-    MaxNodes = 4096; // use values 2 ^ n
+    MaxNodes = 16384; // use values 2 ^ n
     GuardNode = MaxNodes - 1;
   type
     TIndex = 0 .. MaxNodes - 1;
 
     // Array element.
-    TNode = record
-    private
-      function GetActive: Boolean;
-      procedure SetActive(const Value: Boolean); inline;
-      function GetCounter: Byte;
-      procedure SetCounter(const Value: Byte); inline;
-      function GetNext: TIndex;
-      procedure SetNext(const Value: TIndex); inline;
-      function GetPrev: TIndex;
-      procedure SetPrev(const Value: TIndex); inline;
+    TNode = packed record
     public
       ptr: Pointer;  // a pointer to a data instance of some type
-      v: Cardinal;   // handle
+      prev: TIndex;
+      next: TIndex;
+      counter: Byte;
+      active: Boolean;
       procedure Init(next, prev: TIndex);
-      property prev: TIndex read GetPrev write SetPrev;
-      property next: TIndex read GetNext write SetNext;
-      property counter: Byte read GetCounter write SetCounter;
-      property active: Boolean read GetActive write SetActive;
     end;
 
     PNode = ^TNode;
@@ -151,12 +129,7 @@ implementation
 
 function hRegion.Index: TIndex;
 begin
-  Result := v and $FFF;
-end;
-
-function hRegion.Typ: hType;
-begin
-  Result.v := (v shr 12) and $FF;
+  Result := v and $3FF;
 end;
 
 {$EndRegion}
@@ -165,19 +138,19 @@ end;
 
 constructor hCollection.From(index: TIndex; counter: Byte; region: hRegion);
 begin
-  v := (((counter shl 12) or region.v) shl 12) or index;
+  v := (((counter shl 10) or region.v) shl 14) or index;
 end;
 
 function hCollection.Index: TIndex;
 begin
-  // 2^12 - 1
-  Result := v and $FFF;
+  // 2^14 - 1
+  Result := v and $3FFF;
 end;
 
 function hCollection.Region: hRegion;
 begin
-  // 2^8 + 2^12
-  Result.v := v shr 12 and $FFF;
+  // 2^8 + 2^14
+  Result.v := v shr 14 and $3FF;
 end;
 
 function hCollection.Counter: Byte;
@@ -193,51 +166,10 @@ end;
 procedure TsgHandleManager.TNode.Init(next, prev: TIndex);
 begin
   ptr := nil;
-  // Self.next := idx; Self.prev := prev; counter := 1;
-  v := (next and $FFF) or ((prev and $FFF) shl 12) or (1 shl 24);
-end;
-
-function TsgHandleManager.TNode.GetNext: TIndex;
-begin
-  Result := v and $FFF;
-end;
-
-procedure TsgHandleManager.TNode.SetNext(const Value: TIndex);
-begin
-  v := (v and not $FFF) or Value;
-end;
-
-function TsgHandleManager.TNode.GetPrev: TIndex;
-begin
-  Result := (v shr 12) and $FFF;
-end;
-
-procedure TsgHandleManager.TNode.SetPrev(const Value: TIndex);
-begin
-  v := (v and not $FFF000) or (Value shl 12);
-end;
-
-function TsgHandleManager.TNode.GetActive: Boolean;
-begin
-  Result := v and $80000000 <> 0;
-end;
-
-procedure TsgHandleManager.TNode.SetActive(const Value: Boolean);
-begin
-  if Value then
-    v := v or $80000000
-  else
-    v := v and not $80000000;
-end;
-
-function TsgHandleManager.TNode.GetCounter: Byte;
-begin
-  Result := (v shr 24) and $7F;
-end;
-
-procedure TsgHandleManager.TNode.SetCounter(const Value: Byte);
-begin
-  v := (v and not $7F000000) or ((Value and $7F) shl 24);
+  Self.next := next;
+  Self.prev := prev;
+  Self.counter := 1;
+  Self.active := False;
 end;
 
 {$EndRegion}
