@@ -128,10 +128,11 @@ type
     procedure Visit(h: hCollection);
   public
     region: hRegion;
-    m: TsgHandleManager;
+    hm: TsgHandleManager;
     procedure SetUp; override;
     procedure TearDown; override;
   published
+    procedure TestSimpleExample;
     procedure TestNode;
     procedure TestInvalidHandle;
     procedure TestCorrectPointer;
@@ -679,12 +680,18 @@ procedure TsgHandleManagerTest.SetUp;
 begin
   inherited;
   region.v := 5;
-  m.Init(region);
+  hm.Init(region);
 end;
 
 procedure TsgHandleManagerTest.TearDown;
 begin
   inherited;
+end;
+
+
+procedure TsgHandleManagerTest.TestSimpleExample;
+begin
+
 end;
 
 procedure TsgHandleManagerTest.TestNode;
@@ -736,9 +743,9 @@ var
   h: hCollection;
   p: Pointer;
 begin
-  CheckTrue(m.Count = 0);
+  CheckTrue(hm.Count = 0);
   h := hCollection.From(123, 4, region);
-  p := m.Get(h);
+  p := hm.Get(h);
   CheckTrue(p = nil);
 end;
 
@@ -748,8 +755,8 @@ var
   p, r: Pointer;
 begin
   p := Pointer(12783);
-  h := m.Add(p);
-  r := m.Get(h);
+  h := hm.Add(p);
+  r := hm.Get(h);
   CheckTrue(p = r);
 end;
 
@@ -760,11 +767,11 @@ var
 begin
   p0 := Pointer(456);
   p1 := Pointer(12783);
-  h0 := m.Add(p0);
-  h1 := m.Add(p1);
-  r := m.Get(h0);
+  h0 := hm.Add(p0);
+  h1 := hm.Add(p1);
+  r := hm.Get(h0);
   CheckTrue(p0 = r);
-  r := m.Get(h1);
+  r := hm.Get(h1);
   CheckTrue(p1 = r);
 end;
 
@@ -775,12 +782,12 @@ var
   ok: Boolean;
 begin
   a := Pointer(3);
-  h := m.Add(a);
+  h := hm.Add(a);
   h1 := hCollection.From(h.index + 1, 0, region);
   ok := False;
   try
     b := Pointer(4);
-    m.Update(h1, b);
+    hm.Update(h1, b);
   except
     ok := True;
   end;
@@ -794,9 +801,9 @@ var
 begin
   a := Pointer(456);
   b := Pointer(12783);
-  h := m.Add(a);
-  m.Update(h, b);
-  r := m.Get(h);
+  h := hm.Add(a);
+  hm.Update(h, b);
+  r := hm.Get(h);
   CheckTrue(r <> nil);
   CheckTrue(r = b);
 end;
@@ -808,12 +815,12 @@ var
 begin
   p0 := Pointer(456);
   p1 := Pointer(12783);
-  h0 := m.Add(p0);
-  h1 := m.Add(p1);
-  m.Remove(h0);
-  r := m.Get(h0);
+  h0 := hm.Add(p0);
+  h1 := hm.Add(p1);
+  hm.Remove(h0);
+  r := hm.Get(h0);
   CheckTrue(r = nil);
-  r := m.Get(h1);
+  r := hm.Get(h1);
   CheckTrue(p1 = r);
 end;
 
@@ -824,11 +831,11 @@ var
   ok: Boolean;
 begin
   p := Pointer(456);
-  h := m.Add(p);
+  h := hm.Add(p);
   hne := hCollection.From(747, 6, region);
   ok := False;
   try
-    m.Remove(hne);
+    hm.Remove(hne);
   except
     ok := True;
   end;
@@ -843,11 +850,11 @@ var
   ok: Boolean;
 begin
   p := Pointer(4526);
-  for i := 0 to m.MaxNodes - 3 do
-    h := m.Add(p);
+  for i := 0 to hm.MaxNodes - 3 do
+    h := hm.Add(p);
   ok := False;
   try
-    m.Add(p);
+    hm.Add(p);
   except
     ok := True;
   end;
@@ -861,10 +868,10 @@ var
   i: Integer;
 begin
   p := Pointer(4526);
-  for i := 0 to m.MaxNodes - 3 do
-    h := m.Add(p);
-  m.Remove(h);
-  h := m.Add(p);
+  for i := 0 to hm.MaxNodes - 3 do
+    h := hm.Add(p);
+  hm.Remove(h);
+  h := hm.Add(p);
   CheckTrue(h.v <> 0);
 end;
 
@@ -875,10 +882,10 @@ var
   i: Integer;
 begin
   p := Pointer(4526);
-  for i := 0 to m.MaxNodes - 3 do
-    h := m.Add(p);
-  m.Remove(h);
-  nh := m.Add(p);
+  for i := 0 to hm.MaxNodes - 3 do
+    h := hm.Add(p);
+  hm.Remove(h);
+  nh := hm.Add(p);
   CheckTrue(h.Index = nh.Index);
   CheckTrue(h.counter <> nh.counter);
 end;
@@ -890,12 +897,12 @@ var
   i: Integer;
 begin
   p := Pointer(4526);
-  h := m.Add(p);
-  for i := 0 to m.MaxNodes - 4 do
-    m.Add(p);
-  m.Remove(h);
-  m.Add(p);
-  r := m.Get(h);
+  h := hm.Add(p);
+  for i := 0 to hm.MaxNodes - 4 do
+    hm.Add(p);
+  hm.Remove(h);
+  hm.Add(p);
+  r := hm.Get(h);
   CheckTrue(r = nil);
 end;
 
@@ -907,14 +914,14 @@ var
   ok: Boolean;
 begin
   p := Pointer(4526);
-  h := m.Add(p);
-  for i := 0 to m.MaxNodes - 4 do
-    m.Add(p);
-  m.Remove(h);
-  m.Add(p);
+  h := hm.Add(p);
+  for i := 0 to hm.MaxNodes - 4 do
+    hm.Add(p);
+  hm.Remove(h);
+  hm.Add(p);
   ok := False;
   try
-    m.Remove(h);
+    hm.Remove(h);
   except
     ok := True;
   end;
@@ -927,7 +934,7 @@ var
   p: Pointer;
 begin
   Inc(Self.Visited);
-  p := m.Get(h);
+  p := hm.Get(h);
   i := Integer(p);
   Inc(Self.Count, i);
 end;
@@ -940,14 +947,14 @@ begin
   Self.Visited := 0;
   Self.Count := 0;
   i := 0;
-  while m.Count < m.GuardNode - 1 do
+  while hm.Count < hm.GuardNode - 1 do
   begin
-    p := Pointer(m.Count);
-    m.Add(p);
+    p := Pointer(hm.Count);
+    hm.Add(p);
     Inc(i);
-    CheckTrue(i = m.Count);
+    CheckTrue(i = hm.Count);
   end;
-  m.Traversal(Visit);
+  hm.Traversal(Visit);
 end;
 
 {$EndRegion}

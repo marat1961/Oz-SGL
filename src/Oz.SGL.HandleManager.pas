@@ -64,10 +64,20 @@ type
     v: Cardinal;
   public
     constructor From(index: TIndex; counter: Byte; region: hRegion);
+    // Index field.
+    // These bits will make up the actual index in the handle manager,
+    // so going from a handle to a pointer is a very fast operation.
     function Index: TIndex; inline;
-    // Shared memory region handle
+    // Typed memory region handle.
+    // This field allows to find out where
+    // and what type of data the pointer refers to.
     function Region: hRegion; inline;
     // Reuse counter
+    // The counter field is used to detect the validity of the old handle.
+    // This field contains a number that is incremented each time an index slot
+    // is reused. Whenever the Handle manager tries to convert a handle to a pointer,
+    // it first checks to see if the counter field matches the stored record.
+    // If not, it knows that the handle has expired and returns zero.
     function Counter: Byte; inline;
   end;
 
@@ -75,12 +85,17 @@ type
 
 {$Region 'TsgHandleManager: Handle manager'}
 
+  // Efficient implementation of the handle manager.
+  // The handle manager is implemented as an array of pointers,
+  // and handles are indexes in this array.
   TsgHandleManager = record
   const
     MaxNodes = 4096; // use values 2 ^ n
     GuardNode = MaxNodes - 1;
   type
     TIndex = 0 .. MaxNodes - 1;
+
+    // Array element.
     TNode = record
     private
       function GetActive: Boolean;
@@ -92,14 +107,15 @@ type
       function GetPrev: TIndex;
       procedure SetPrev(const Value: TIndex); inline;
     public
-      ptr: Pointer;
-      v: Cardinal;
+      ptr: Pointer;  // a pointer to a data instance of some type
+      v: Cardinal;   // handle
       procedure Init(next, prev: TIndex);
       property prev: TIndex read GetPrev write SetPrev;
       property next: TIndex read GetNext write SetNext;
       property counter: Byte read GetCounter write SetCounter;
       property active: Boolean read GetActive write SetActive;
     end;
+
     PNode = ^TNode;
     TNodes = array [TIndex] of TNode;
     TNodeProc = procedure(h: hCollection) of object;
@@ -113,10 +129,16 @@ type
     function MoveNode(idx: TIndex; var src, dest: TIndex): PNode; inline;
   public
     procedure Init(region: hRegion);
+    // Add a pointer to a data instance of some type and return a handle
     function Add(ptr: Pointer): hCollection;
+    // For the specified handle, replace a data instance of some type
     procedure Update(handle: hCollection; ptr: Pointer);
+    // Remove an instance of some type of data
     procedure Remove(handle: hCollection);
+    // Return an instance of some type of data
     function Get(handle: hCollection): Pointer;
+    // Traverse all nodes in the handle manager
+    // and execute the specified procedure on each of its nodes
     procedure Traversal(proc: TNodeProc);
     property Count: Integer read FCount;
   end;
