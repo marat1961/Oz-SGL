@@ -20,7 +20,7 @@ var
   Value: T2;
 end;
 ```
-We will not explicitly declare such a structure, and if we define such a structure, we may run into problems related to the location of such a structure in memory.
+It is undesirable to explicitly declare such a structure: if you define such a structure, we will run into problems related to the location of such a structure in memory.
 The structure parameters depend on the used memory model 32/64 bits and the alignment parameters of the tuple elements in memory.
 We will use metadata to work with tuples.
 The metadata for the tuple will be defined at runtime when the tuple is initialized.

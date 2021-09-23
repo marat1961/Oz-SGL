@@ -690,8 +690,11 @@ end;
 
 
 procedure TsgHandleManagerTest.TestSimpleExample;
+var
+  size: Integer;
 begin
-
+  size := sizeof(TsgHandleManager.TNode);
+  CheckTrue(size = sizeof(Pointer) + 6);
 end;
 
 procedure TsgHandleManagerTest.TestNode;
