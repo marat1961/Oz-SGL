@@ -1,5 +1,5 @@
 ﻿(* Standard Generic Library (SGL) for Pascal
- * Copyright (c) 2020, 2021 Marat Shaimardanov
+ * Copyright (c) 2020, 2023 Marat Shaimardanov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -299,8 +299,8 @@ type
     function GetRegion: PMemoryRegion; inline;
     function GetMeta: PsgItemMeta; inline;
   public
-    procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal = 8192); overload;
-    procedure InitWithCount(Meta: PsgItemMeta; Count: Cardinal); overload;
+    procedure Init(Meta: PsgItemMeta; BlockSize: Cardinal = 8192);
+    procedure InitByCount(Meta: PsgItemMeta; Count: Cardinal);
     // Free the region
     procedure Free; inline;
     // Erases all elements from the memory region.
@@ -1095,7 +1095,7 @@ begin
   FRegion.Init(Meta, BlockSize);
 end;
 
-procedure TUnbrokenRegion.InitWithCount(Meta: PsgItemMeta; Count: Cardinal);
+procedure TUnbrokenRegion.InitByCount(Meta: PsgItemMeta; Count: Cardinal);
 var
   BlockSize: Cardinal;
 begin
@@ -1549,7 +1549,7 @@ begin
     q := q^.Next;
   until False;
   q^.Next := p;
-  // Combine two blocks into one.
+  // Merge two blocks into one.
   x := p^.Next;
   if p^.Size + NativeUInt(p) = NativeUInt(x) then
   begin
@@ -1557,7 +1557,7 @@ begin
     Inc(p^.Size, x^.Size);
   end;
   p := q;
-  // Combine two blocks into one.
+  // Merge two blocks into one.
   x := p^.Next;
   if p^.Size + NativeUInt(p) = NativeUInt(x) then
   begin

@@ -1,5 +1,5 @@
 (* Standard Generic Library (SGL) for Pascal
- * Copyright (c) 2020 Marat Shaimardanov
+ * Copyright (c) 2020, 2023 Marat Shaimardanov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3994,16 +3994,23 @@ begin
   CheckTrue(it.Eol and it.Bol);
   p.id := 1;
   p.name := 'Nick';
-  List.PushBack(p);
+  List.Insert(it, p);
+
   it := List.Front;
-  CheckTrue(it.Value.id = p.id);
-  CheckTrue(it.Value.name = p.name);
+  CheckTrue(it.Value.id = 1);
+  CheckTrue(it.Value.name = 'Nick');
+
   p.id := 2;
   p.name := 'Leo';
   List.Insert(it, p);
+  it := List.Front;
+  CheckTrue(it.Value.id = 2);
+  CheckTrue(it.Value.name = 'Leo');
   it := List.Back;
-  CheckTrue(it.Value.id = p.id);
-  CheckTrue(it.Value.name = p.name);
+  CheckTrue(it.Value.id = 1);
+  CheckTrue(it.Value.name = 'Nick');
+
+
 end;
 
 procedure TsgLinkedListTest._PopFront;

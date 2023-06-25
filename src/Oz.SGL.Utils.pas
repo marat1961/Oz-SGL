@@ -1,5 +1,5 @@
 (* Standard Generic Library (SGL) for Pascal
- * Copyright (c) 2020, 2021 Marat Shaimardanov
+ * Copyright (c) 2020, 2023 Marat Shaimardanov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

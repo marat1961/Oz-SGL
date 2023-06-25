@@ -1,5 +1,5 @@
 ﻿(* Standard Generic Library (SGL) for Pascal
- * Copyright (c) 2020, 2021 Marat Shaimardanov
+ * Copyright (c) 2020, 2023 Marat Shaimardanov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -632,7 +632,7 @@ type
     function PushFront: PItem;
     // Appends the empty value to the end of list and return a pointer to it
     function PushBack: PItem;
-    // Inserts value before pos
+    // Inserts value before Pos
     function Insert(const Pos: PItem): PItem;
     // Removes the first element of the container.
     // If there are no elements in the container, the behavior is undefined.
@@ -718,7 +718,7 @@ type
     function PushBack: TIterator; overload; inline;
     // Appends the given element value to the end of list
     procedure PushBack(const Value: T); overload; inline;
-    // Inserts value after Pos
+    // Inserts value before Pos
     function Insert(Pos: TIterator; const Value: T): TIterator;
     // Removes the first element of the container.
     // If there are no elements in the container, the behavior is undefined.
@@ -2719,6 +2719,7 @@ begin
   FRegion := SysCtx.CreateRegion(Meta);
   FHead := FRegion.Region.Alloc(FRegion.ItemSize);
   FLast := FHead;
+  FLast.prev := FLast;
 end;
 
 procedure TCustomLinkedList.Free;
@@ -2740,7 +2741,7 @@ end;
 
 function TCustomLinkedList.Empty: Boolean;
 begin
-  Result := FLast.prev = nil;
+  Result := FHead = FLast;
 end;
 
 function TCustomLinkedList.Count: Integer;
@@ -2768,43 +2769,55 @@ end;
 
 function TCustomLinkedList.PushFront: PItem;
 var
-  new: PItem;
+  q: PItem;
 begin
-  new := FRegion.Region.Alloc(FRegion.ItemSize);
-  new.next := FHead;
-  FHead.prev := new;
-  FHead := new;
-  Result := new;
+  q := FRegion.Region.Alloc(FRegion.ItemSize);
+  q.next := FHead;
+  FHead.prev := q;
+  FHead := q;
+  Result := q;
 end;
 
 function TCustomLinkedList.PushBack: PItem;
 var
-  p, new: PItem;
+  p, q: PItem;
 begin
-  if FLast.prev = nil then
-    Result := PushFront
+  q := FRegion.Region.Alloc(FRegion.ItemSize);
+  if Empty then
+  begin
+    q.next := FHead;
+    FHead.prev := q;
+    FHead := q;
+  end
   else
   begin
     p := FLast.prev;
-    new := FRegion.Region.Alloc(FRegion.ItemSize);
-    new.next := FLast;
-    new.prev := p;
-    FLast.prev := new;
-    p.next := new;
-    Result := new;
+    q.next := FLast;
+    q.prev := p;
+    FLast.prev := q;
+    p.next := q;
   end;
+  Result := q;
 end;
 
 function TCustomLinkedList.Insert(const Pos: PItem): PItem;
 var
-  new: PItem;
+  q, s: PItem;
 begin
-  new := FRegion.Region.Alloc(FRegion.ItemSize);
-  new.next := Pos.next;
-  new.prev := Pos;
-  Pos.next.prev := new;
-  Pos.next := new;
-  Result := new;
+  if Pos = FHead then
+    q := PushFront
+  else if Pos = FLast then
+    q := PushBack
+  else
+  begin
+    q := FRegion.Region.Alloc(FRegion.ItemSize);
+    s := Pos.next;
+    q.next := s;
+    q.prev := Pos;
+    s.prev := q;
+    Pos.next := q;
+  end;
+  Result := q;
 end;
 
 procedure TCustomLinkedList.PopFront;
@@ -2850,7 +2863,6 @@ begin
     p := n;
   end;
   FLast.prev := FHead;
-  FHead.next := nil;
   FHead := q;
   FHead.prev := nil;
 end;

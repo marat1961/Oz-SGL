@@ -1,4 +1,4 @@
-# Standard Generic Library (SGL) for Pascal
+﻿# Standard Generic Library (SGL) for Pascal
 
 ## Почему появился это проект
 
