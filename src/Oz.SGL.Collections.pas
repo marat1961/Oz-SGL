@@ -2811,11 +2811,11 @@ begin
   else
   begin
     q := FRegion.Region.Alloc(FRegion.ItemSize);
-    s := Pos.next;
-    q.next := s;
-    q.prev := Pos;
-    s.prev := q;
-    Pos.next := q;
+    s := Pos.prev; // insert q after s
+    q.next := Pos;
+    q.prev := s;
+    Pos.prev := q;
+    s.next := q;
   end;
   Result := q;
 end;

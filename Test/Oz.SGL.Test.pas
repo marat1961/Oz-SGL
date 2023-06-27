@@ -4010,7 +4010,19 @@ begin
   CheckTrue(it.Value.id = 1);
   CheckTrue(it.Value.name = 'Nick');
 
-
+  p.id := 3;
+  p.name := 'Li';
+  List.Insert(it, p);
+  CheckTrue(list.Count = 3);
+  it := List.Front;
+  CheckTrue(it.Value.id = 2);
+  CheckTrue(it.Value.name = 'Leo');
+  it.Next;
+  CheckTrue(it.Value.id = 3);
+  CheckTrue(it.Value.name = 'Li');
+  it.Next;
+  CheckTrue(it.Value.id = 1);
+  CheckTrue(it.Value.name = 'Nick');
 end;
 
 procedure TsgLinkedListTest._PopFront;
