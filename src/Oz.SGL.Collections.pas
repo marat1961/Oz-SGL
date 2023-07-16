@@ -544,7 +544,6 @@ type
 
   private
     FList: TCustomForwardList;
-    FNodeMeta: TsgItemMeta;
     function GetRegion: PSegmentedRegion; inline;
     function GetCount: Integer; inline;
   public
@@ -1036,6 +1035,74 @@ type
     procedure Inorder(Visit: TNodeProc); inline;
     function Begins: TsgSetIterator<Key>; inline;
     function Ends: PNode;
+  end;
+
+{$EndRegion}
+
+{$Region 'TSegmentedAllocator: Segmented memory manager'}
+
+  TSegmentedAllocator<Value> = class
+  type
+    PValue = ^Value;
+  strict private
+    Fregion: PSegmentedRegion;
+  public
+    constructor Create(region: PSegmentedRegion);
+    destructor Destroy; override;
+    function Alloc: PValue; virtual;
+  end;
+
+{$EndRegion}
+
+{$Region 'TSplayTree: Self-adjusting search trees'}
+
+  // Follows "An implementation of top-down splaying"
+  // by D. Sleator <sleator@cs.cmu.edu> March 1992
+  TSplayTree<Key> = record
+  type
+    PNode = ^TNode;
+    TNode = record
+      left, right: PNode;
+      k: Key;
+    end;
+    TSplayMeta = record
+      allocator: TSegmentedAllocator<TNode>;
+      comparator: TCompareProc;
+    end;
+  private
+    meta: TSplayMeta;
+    Froot: PNode;
+    Fsize: Integer;
+    // Simple top down splay, not requiring i to be in the tree t.
+    function Splay(k: Key; t: PNode): PNode;
+    // Insert a key, allows duplicates
+    function Insert(const k: Key; t: PNode): PNode; overload;
+    // Deletes k from the tree if it's there
+    function Remove(k: Key; t: PNode): PNode; overload;
+  public
+    constructor From(const meta: TSplayMeta);
+    // Free memory
+    procedure Free;
+    // Insert a key, allows duplicates
+    function Insert(const k: Key): PNode; overload;
+    // Adds a key, if it is not present in the tree
+    function Add(k: Key): PNode;
+    // Deletes k from the tree if it's there
+    procedure Remove(k: Key); overload;
+    // Removes and returns the node with smallest key
+    function Pop: PNode;
+    // Find with splaying
+    function Find(k: Key): PNode;
+    // Find without splaying
+    function FindStatic(k: Key): PNode;
+    // Find max node
+    function MaxNode(t: PNode): PNode;
+    // Find min node
+    function MinNode(t: PNode): PNode;
+    // Returns root node
+    property root: PNode read Froot;
+    // Returns the number of elements
+    property size: Integer read Fsize;
   end;
 
 {$EndRegion}
@@ -3831,6 +3898,248 @@ type
   PK = ^Key;
 begin
   PNode(pnd).k := PK(pval)^;
+end;
+
+{$EndRegion}
+
+{$Region 'TSegmentedAllocator<Value>'}
+
+constructor TSegmentedAllocator<Value>.Create(region: PSegmentedRegion);
+begin
+  Fregion := region;
+end;
+
+destructor TSegmentedAllocator<Value>.Destroy;
+begin
+  Fregion.Free;
+  inherited;
+end;
+
+function TSegmentedAllocator<Value>.Alloc: PValue;
+begin
+  Result := FRegion.AddItem;
+end;
+
+{$EndRegion}
+
+{$Region 'TSplayTree<Key>'}
+
+constructor TSplayTree<Key>.From(const meta: TSplayMeta);
+begin
+  Self := Default(TSplayTree<Key>);
+  Self.meta := meta;
+end;
+
+procedure TSplayTree<Key>.Free;
+begin
+  FreeAndNil(meta.allocator);
+end;
+
+function TSplayTree<Key>.Splay(k: Key; t: PNode): PNode;
+var
+  n, l, r, y: PNode;
+  cmp: Integer;
+begin
+  n := meta.allocator.Alloc;
+  l := n;
+  r := n;
+  repeat
+    cmp := meta.comparator(k, t.k);
+    if cmp < 0 then
+    begin
+      if t.left = nil then break;
+      if meta.comparator(k, t.left.k) < 0 then
+      begin
+        y := t.left;       // rotate right
+        t.left := y.right;
+        y.right := t;
+        t := y;
+        if t.left = nil then break;
+      end;
+      r.left := t;         // link right
+      r := t;
+      t := t.left;
+    end
+    else if cmp > 0 then
+    begin
+      if t.right = nil then break;
+      if meta.comparator(k, t.right.k) > 0 then
+      begin
+        y := t.right;      // rotate left
+        t.right := y.left;
+        y.left := t;
+        t := y;
+        if t.right = nil then break;
+      end;
+      l.right := t;        // link left
+      l := t;
+      t := t.right;
+    end
+    else break;
+  until False;
+  // assemble
+  l.right := t.left;
+  r.left := t.right;
+  t.left := n.right;
+  t.right := n.left;
+  Result := t;
+end;
+
+function TSplayTree<Key>.Insert(const k: Key): PNode;
+begin
+  Inc(Fsize);
+  Froot := Insert(k, Froot);
+  Result := Froot;
+end;
+
+function TSplayTree<Key>.MaxNode(t: PNode): PNode;
+begin
+  if t <> nil then
+    while t.right <> nil do t := t.right;
+  Result := t;
+end;
+
+function TSplayTree<Key>.MinNode(t: PNode): PNode;
+begin
+  if t <> nil then
+    while t.left <> nil do t := t.left;
+  Result := t;
+end;
+
+function TSplayTree<Key>.Insert(const k: Key; t: PNode): PNode;
+var
+  n: PNode;
+  cmp: Integer;
+begin
+  n := meta.allocator.Alloc;
+  n.k := k;
+  if t = nil then
+  begin
+    n.left := nil;
+    n.right := nil;
+    exit(n);
+  end;
+  t := Splay(k, t);
+  cmp := meta.comparator(k, t.k);
+  if cmp < 0 then
+  begin
+    n.left := t.left;
+    n.right := t;
+    t.left := nil;
+  end
+  else if cmp >= 0 then
+  begin
+    n.right := t.right;
+    n.left := t;
+    t.right := nil;
+  end;
+  Result := n;
+end;
+
+function TSplayTree<Key>.Add(k: Key): PNode;
+var
+  n, t: PNode;
+  cmp: Integer;
+begin
+  n := meta.allocator.Alloc;
+  n.k := k;
+  if Froot = nil then
+  begin
+    n.left := nil;
+    n.right := nil;
+    Inc(Fsize);
+    Froot := n;
+  end;
+  t := Splay(k, Froot);
+  cmp := meta.comparator(k, t.k);
+  if cmp = 0 then
+    Froot := t
+  else
+  begin
+    if cmp < 0 then
+    begin
+      n.left := t.left;
+      n.right := t;
+      t.left := nil;
+    end
+    else if cmp > 0 then
+    begin
+      n.right := t.right;
+      n.left := t;
+      t.right := nil;
+    end;
+    Inc(Fsize);
+    Froot := n;
+  end;
+  Result := Froot;
+end;
+
+procedure TSplayTree<Key>.Remove(k: Key);
+begin
+  Froot := Remove(k, Froot);
+end;
+
+function TSplayTree<Key>.Remove(k: Key; t: PNode): PNode;
+var
+  x: PNode;
+  cmp: Integer;
+begin
+  if t = nil then exit(nil);
+  t := Splay(k, t);
+  cmp := meta.comparator(k, t.k);
+  if cmp = 0 then
+  begin                    // found it
+    if t.left = nil then
+      x := t.right
+    else
+    begin
+      x := Splay(k, t.left);
+      x.right := t.right;
+    end;
+    Dec(Fsize);
+    exit(x);
+  end;
+  Result := t;
+end;
+
+function TSplayTree<Key>.Pop: PNode;
+var
+  n: PNode;
+begin
+  n := Froot;
+  if n <> nil then
+  begin
+    while n.left <> nil do
+      n := n.left;
+    Froot := Splay(n.k,  Froot);
+    Froot := Remove(n.k, Froot);
+    exit(n);
+  end;
+  Result := nil;
+end;
+
+function TSplayTree<Key>.Find(k: Key): PNode;
+begin
+  if Froot = nil then exit(Froot);
+  Froot := Splay(k, Froot);
+  if meta.comparator(k, Froot.k) <> 0 then
+    Result := nil
+  else
+    Result := Froot;
+end;
+
+function TSplayTree<Key>.FindStatic(k: Key): PNode;
+var
+  n: PNode;
+begin
+  n := Froot;
+  while n <> nil do
+    case meta.comparator(k, n.k) of
+      0: exit(n);
+      -1: n := n.left;
+      else n := n.right;
+    end;
+  Result := nil;
 end;
 
 {$EndRegion}
